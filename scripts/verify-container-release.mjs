@@ -52,7 +52,7 @@ if (
     );
   if (!tokenResponse.ok)
     throw new Error(
-      `Anonymous image pull is unavailable. Set the GitHub package visibility to Public, then rerun this failed job: https://github.com/users/${repository.split("/")[0]}/packages/container/${repository.split("/")[1]}/settings`,
+      `Anonymous image pull is unavailable. Set the GitHub package visibility to Public, then rerun this failed job: https://github.com/users/${repository.split("/")[0]}/packages/container/package/${repository.split("/")[1]}/settings`,
     );
   const { token } = await tokenResponse.json(),
     response = await fetch(
