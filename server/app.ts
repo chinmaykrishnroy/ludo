@@ -25,6 +25,7 @@ import type { Room, Reply } from "../shared/protocol.js";
 import { DEFAULT_BOT_DIFFICULTY, validDifficulty } from "../shared/bot.js";
 import { AiScheduler } from "./ai/scheduler.js";
 import { difficultyPolicy } from "../shared/ai/policy.js";
+import { publicRoomPage, PUBLIC_ROOM_PAGE_SIZE } from "./public-rooms.js";
 const label = z
   .string()
   .trim()
@@ -692,27 +693,28 @@ export function createApplication(options: ApplicationOptions = {}) {
         throw new PublicError("Only the room organiser can do that.");
     };
     handle("clock:sync", () => ({ ok: true, serverNow: Date.now() }));
-    handle("rooms:list", () => ({
-      ok: true,
-      rooms: publicEnabled
-        ? [...rooms.values()]
-            .filter(
-              (r) =>
-                r.public &&
-                !r.game &&
-                r.seats.some((s) => !s || s.bot) &&
-                r.seats.some((s) => s && !s.bot && s.connected) &&
-                !memberIds(r).some((other) => store.blocked(id, other)),
-            )
-            .slice(0, 50)
-            .map((r) => ({
-              code: r.code,
-              name: r.name,
-              players: r.seats.filter((s) => s && !s.bot).length,
-              bots: r.seats.filter((s) => s?.bot).length,
-            }))
-        : [],
-    }));
+    handle("rooms:list", (data) => {
+      const input = z
+        .object({
+          page: z.number().int().min(1).max(5000).default(1),
+          pageSize: z
+            .number()
+            .int()
+            .min(1)
+            .max(20)
+            .default(PUBLIC_ROOM_PAGE_SIZE),
+        })
+        .parse(data ?? {});
+      return {
+        ok: true,
+        ...publicRoomPage(
+          publicEnabled ? rooms.values() : [],
+          input.page,
+          input.pageSize,
+          (other) => store.blocked(id, other),
+        ),
+      };
+    });
     handle("room:create", (data) => {
       const input = z
         .object({

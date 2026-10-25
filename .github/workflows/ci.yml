@@ -4,10 +4,11 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  workflow_call:
 permissions:
   contents: read
 concurrency:
-  group: validate-${{ github.ref }}
+  group: validate-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   test:
@@ -39,6 +40,7 @@ jobs:
             package-lock.json
             LICENSE
           retention-days: 14
+          overwrite: true
   container:
     needs: test
     runs-on: ubuntu-latest

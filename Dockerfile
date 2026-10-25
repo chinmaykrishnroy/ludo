@@ -7,6 +7,14 @@ COPY . .
 RUN npm run build
 
 FROM ${NODE_IMAGE} AS runtime
+ARG APP_VERSION=development
+ARG VCS_REF=unknown
+LABEL org.opencontainers.image.source="https://github.com/chinmaykrishnroy/ludo" \
+      org.opencontainers.image.title="Ludo Club" \
+      org.opencontainers.image.description="Multiplayer and offline Ludo with configurable bots" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.version="${APP_VERSION}" \
+      org.opencontainers.image.revision="${VCS_REF}"
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=3000 DB_PATH=/data/ludo.sqlite BACKUP_DIR=/data/backups
 WORKDIR /app
 COPY package.json package-lock.json ./

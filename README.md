@@ -1,8 +1,37 @@
-# Ludo Club
+<p align="center">
+  <img src="public/icon-192.png" width="96" height="96" alt="Ludo Club app icon" />
+</p>
+<h1 align="center">Ludo Club</h1>
+<p align="center">Roll with friends. Race the bots. Play anywhere.</p>
+<p align="center">
+  <a href="https://github.com/chinmaykrishnroy/ludo/actions/workflows/ci.yml"><img src="https://github.com/chinmaykrishnroy/ludo/actions/workflows/ci.yml/badge.svg" alt="Validation status" /></a>
+  <a href="https://github.com/chinmaykrishnroy/ludo/actions/workflows/release.yml"><img src="https://github.com/chinmaykrishnroy/ludo/actions/workflows/release.yml/badge.svg" alt="Release pipeline status" /></a>
+  <a href="https://github.com/chinmaykrishnroy/ludo/releases/latest"><img src="https://img.shields.io/github/v/release/chinmaykrishnroy/ludo" alt="Latest release" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/chinmaykrishnroy/ludo" alt="MIT license" /></a>
+  <img src="https://img.shields.io/badge/Node.js-24%2B-43853d?logo=nodedotjs&logoColor=white" alt="Node.js 24 or newer" />
+  <img src="https://img.shields.io/badge/PWA-installable-ffe24b?logo=pwa&logoColor=191919" alt="Installable PWA" />
+</p>
+<p align="center">
+  <a href="https://ludo.octu.online/">Play now</a> &middot;
+  <a href="https://github.com/chinmaykrishnroy/ludo/releases/latest">Releases</a> &middot;
+  <a href="docs/AI.md">AI engine</a> &middot;
+  <a href="docs/OPERATIONS.md">Self-hosting</a>
+</p>
 
-[![Validate](https://github.com/chinmaykrishnroy/ludo/actions/workflows/ci.yml/badge.svg)](https://github.com/chinmaykrishnroy/ludo/actions/workflows/ci.yml)
+A self-hosted Ludo game for friends: bold, solid colours, round tokens, animated dice and moves, public/private tables, optional bots and recorded room voice. Install it as a PWA for offline computer games or manual pass-and-play.
 
-A self-hosted Ludo game for friends: bold, solid colours, round tokens, animated dice and moves, private/public tables, optional computers, and recorded room voice. Install it as a PWA for offline computer games or manual pass-and-play.
+## Container releases
+
+Version tags publish multi-architecture images to **GitHub Container Registry**:
+
+```sh
+docker pull ghcr.io/chinmaykrishnroy/ludo:v0.1.0
+docker pull ghcr.io/chinmaykrishnroy/ludo:latest
+```
+
+Images support **Linux AMD64 and ARM64**, including Raspberry Pi. Each architecture passes image startup, multiplayer, saved-game restart and AI worker checks before release. The [latest release](https://github.com/chinmaykrishnroy/ludo/releases/latest) records its immutable image digest.
+
+For k3s/Argo CD, see [the Kubernetes base](deploy/k8s) and [release/GitOps operations](docs/RELEASING.md). Pin a version or digest in Git for controlled updates; changing latest in the registry does not restart existing pods automatically.
 
 ## Run locally
 
@@ -77,7 +106,7 @@ npm run check    # both
 npm run test:load # bounded local smoke; not a capacity certification
 ```
 
-CI runs tests/builds on Linux and Windows, audits production dependencies, and verifies container startup/restart. It creates no releases, tags or deployments. Release automation is intentionally deferred.
+CI runs tests/builds on Linux and Windows, audits production dependencies, and verifies container startup/restart. Version tags trigger the release pipeline: it reruns validation, builds and smoke-tests AMD64/ARM64 images, verifies the manifest digests and public pulls, publishes GHCR version/latest tags, and creates a GitHub release. See [release operations](docs/RELEASING.md). Deployment remains a separate operator action.
 
 See [delivery and remaining acceptance gates](docs/DELIVERY.md). Physical Android/iOS audio and installation acceptance require real devices; automated transport tests cannot establish audibility.
 

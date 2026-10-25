@@ -45,4 +45,5 @@ export type Reply = {
   room?: Room;
   me?: string;
   rooms?: PublicRoom[];
+  roomPage?: { page: number; pageSize: number; total: number; pages: number };
 };

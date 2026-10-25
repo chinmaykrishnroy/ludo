@@ -28,7 +28,7 @@
 - Deployment-specific sustained workload and restart observations are recorded below as they finish. A bounded workload is not a maximum-capacity result.
 - Host reboot/power loss, loss of the Pi disk, and recovery from an independently stored off-host backup require operator acceptance. Local verified backups alone cannot recover a lost host.
 - Public matchmaking is enabled on the user's explicit request after successful physical-phone gameplay. Guest blocking/reporting/bans are implemented; guest identities can be lost by clearing browser data. Operator moderation remains necessary for public tables.
-- CI workflow is validation only: Linux/Windows tests/builds, production dependency audit and a container restart. A release pipeline is intentionally deferred. See the repository Actions page for actual run results.
+- Version tags now run the container release workflow described in [RELEASING.md](RELEASING.md): full validation, smoke-tested AMD64/ARM64 images, GHCR version/latest tags and a GitHub release. See the repository Actions page for actual run results.
 
 ## Operational handoff
 
@@ -47,3 +47,7 @@ Random guest names are remembered across online/offline setup and Settings. Coun
 The deployed public-room update has been verified through the actual HTTPS tunnel: an independent guest discovered a browser-created public table, joined it and left cleanly. The browser shows Add Bot / Remove Bot, per-seat levels and the room default. A generated guest name appeared and an edited online name survived refresh and appeared in Settings. The refreshed offline cache ran the expert opponent with the local origin stopped and no worker errors logged. See AI.md for measured Pi worker latency and resource use.
 
 The expert-bot mixed Pi workload completed 163 AI decisions with no worker failures/timeouts/fallbacks and no server errors. The room acknowledgement p95 was 121 ms, but occasional 9.1-second acknowledgements and a 10.2-second event-loop maximum remain a real hosting limitation. The new worker prevents synchronous AI search from blocking handlers; it does not make synchronous SQLite commits or other shared-host pauses disappear. Public rooms were enabled on explicit request, and these remaining limitations are recorded in AI.md.
+
+## Initial container release validation
+
+The local regression suite passes all 64 tests, the production build passes, and the production dependency audit reports no vulnerabilities. A separate browser fixture with 50 public waiting rooms verified eight-room pages, distinct second-page contents, a bounded inner scroll area and visible paging controls at desktop and 390-pixel phone widths. Dark-mode room cards display black dice icons on sky blue and black text/icons on yellow hover. The Kubernetes example renders with `kubectl kustomize deploy/k8s`; it has not been applied to a cluster. Per-architecture container checks and publication are enforced by the tag workflow; consult its actual run before treating the image as released.

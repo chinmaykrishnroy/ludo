@@ -26,6 +26,8 @@ import {
   SignOut,
   Trophy,
   CircleNotch,
+  CaretLeft,
+  CaretRight,
 } from "@phosphor-icons/react";
 import { PALETTE } from "./Board";
 import PlayScreen from "./PlayScreen";
@@ -208,16 +210,42 @@ function RoomBrowser({
       new URLSearchParams(location.search).get("room") ?? "",
     ),
     [list, setList] = useState<PublicRoom[]>([]),
+    [page, setPage] = useState(1),
+    [roomPage, setRoomPage] = useState({
+      page: 1,
+      pageSize: 8,
+      total: 0,
+      pages: 1,
+    }),
+    [loading, setLoading] = useState(false),
     [busy, setBusy] = useState(false);
+  const listRequest = useRef(0),
+    listArea = useRef<HTMLDivElement>(null);
   const refresh = useCallback(async () => {
-    const r = await send("rooms:list", {});
-    if (r.ok) setList(r.rooms ?? []);
-  }, [send]);
+    const request = ++listRequest.current;
+    setLoading(true);
+    const r = await send("rooms:list", { page, pageSize: 8 });
+    if (request !== listRequest.current) return;
+    setLoading(false);
+    if (r.ok) {
+      setList(r.rooms ?? []);
+      if (r.roomPage) {
+        setRoomPage(r.roomPage);
+        if (r.roomPage.page !== page) setPage(r.roomPage.page);
+      }
+    }
+  }, [send, page]);
+  useEffect(() => {
+    listArea.current?.scrollTo({ top: 0 });
+  }, [roomPage.page]);
   useEffect(() => {
     if (tab !== "public") return;
     void refresh();
     const t = setInterval(() => void refresh(), 7000);
-    return () => clearInterval(t);
+    return () => {
+      clearInterval(t);
+      listRequest.current++;
+    };
   }, [tab, refresh]);
   async function join(joinCode = code) {
     setBusy(true);
@@ -372,32 +400,70 @@ function RoomBrowser({
       ) : (
         <div className="public-list">
           <div className="public-list-heading">
-            <span>Open tables</span>
-            <button className="text-button" onClick={() => void refresh()}>
+            <span>
+              Open tables <small>{roomPage.total} available</small>
+            </span>
+            <button
+              className="text-button"
+              disabled={!online || loading}
+              onClick={() => void refresh()}
+            >
               Refresh <ArrowCounterClockwise />
             </button>
           </div>
           {list.length ? (
-            list.map((r) => (
-              <button
-                key={r.code}
-                className="public-room"
-                disabled={busy || !name.trim()}
-                onClick={() => void join(r.code)}
+            <>
+              <div
+                className="public-room-scroll"
+                ref={listArea}
+                role="region"
+                aria-label="Available public rooms"
+                tabIndex={0}
+                aria-busy={loading}
               >
-                <span className="room-mini">
-                  <DiceFive />
+                {list.map((r) => (
+                  <button
+                    key={r.code}
+                    className="public-room"
+                    disabled={busy || !online || !name.trim()}
+                    onClick={() => void join(r.code)}
+                  >
+                    <span className="room-mini">
+                      <DiceFive />
+                    </span>
+                    <span>
+                      <strong>{r.name}</strong>
+                      <small>
+                        {r.players} of 4 players · {r.bots} computer
+                        {r.bots === 1 ? "" : "s"}
+                      </small>
+                    </span>
+                    <ArrowRight />
+                  </button>
+                ))}
+              </div>
+              <nav className="room-pagination" aria-label="Public room pages">
+                <button
+                  className="secondary"
+                  aria-label="Previous room page"
+                  disabled={loading || page <= 1 || !online}
+                  onClick={() => setPage((p) => p - 1)}
+                >
+                  <CaretLeft /> Previous
+                </button>
+                <span aria-live="polite">
+                  Page {roomPage.page} of {roomPage.pages}
                 </span>
-                <span>
-                  <strong>{r.name}</strong>
-                  <small>
-                    {r.players} of 4 players · {r.bots} computer
-                    {r.bots === 1 ? "" : "s"}
-                  </small>
-                </span>
-                <ArrowRight />
-              </button>
-            ))
+                <button
+                  className="secondary"
+                  aria-label="Next room page"
+                  disabled={loading || page >= roomPage.pages || !online}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  Next <CaretRight />
+                </button>
+              </nav>
+            </>
           ) : (
             <div className="empty-tables">
               <Users size={38} weight="light" />

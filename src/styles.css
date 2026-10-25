@@ -2148,3 +2148,86 @@ button:disabled {
   font-weight: 700;
   margin-bottom: 12px;
 }
+/* Keep public-room content legible on both themes and bound long lists. */
+.room-mini,
+.room-mini svg {
+  color: #191919;
+}
+.public-room:not(:disabled):is(:hover, :focus-visible) {
+  background: #ffe24b;
+  color: #191919;
+}
+.public-room:not(:disabled):is(:hover, :focus-visible) small,
+[data-theme="dark"]
+  .public-room:not(:disabled):is(:hover, :focus-visible)
+  small {
+  color: #191919;
+}
+.public-room small {
+  font-size: 15px;
+  line-height: 1.4;
+}
+.public-room-scroll {
+  max-height: min(360px, 38dvh, max(120px, calc(100dvh - 540px)));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding: 2px 4px 2px 0;
+}
+.public-room-scroll .public-room {
+  margin: 0 0 10px;
+}
+.public-room-scroll .public-room:last-child {
+  margin-bottom: 0;
+}
+.public-room-scroll:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+.public-list-heading > span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.public-list-heading small {
+  font-size: 12px;
+  font-weight: 500;
+}
+.room-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 16px;
+}
+.room-pagination > span {
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.room-pagination button {
+  min-height: 44px;
+  padding: 9px 12px;
+  font-size: 14px;
+  gap: 5px;
+}
+@media (max-width: 420px) {
+  .room-pagination {
+    gap: 6px;
+  }
+  .room-pagination button {
+    padding: 9px 7px;
+    font-size: 12px;
+  }
+  .room-pagination > span {
+    font-size: 12px;
+  }
+  .public-room {
+    padding: 12px;
+    gap: 10px;
+  }
+  .room-mini {
+    padding: 7px;
+    flex-shrink: 0;
+  }
+}

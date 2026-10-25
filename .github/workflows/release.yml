@@ -1,0 +1,148 @@
+name: Release
+on:
+  push:
+    tags: ["v[0-9]*"]
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  metadata:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+      version: ${{ steps.meta.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - name: Validate tagged source and version
+        id: meta
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          node scripts/validate-release.mjs "$RELEASE_TAG"
+          echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+          echo "version=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
+  validate:
+    needs: metadata
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+  images:
+    needs: [metadata, validate]
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [amd64, arm64]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ${{ needs.metadata.outputs.image }}
+      SOURCE_SHA: ${{ github.sha }}
+      ARCH: ${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+        with:
+          platforms: arm64
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/${{ matrix.arch }}
+          load: true
+          push: false
+          provenance: false
+          tags: ${{ env.IMAGE }}:candidate-${{ github.sha }}-${{ matrix.arch }}
+          build-args: |
+            APP_VERSION=${{ needs.metadata.outputs.version }}
+            VCS_REF=${{ github.sha }}
+          cache-from: type=gha,scope=ludo-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=ludo-${{ matrix.arch }}
+      - name: Test the actual architecture image
+        run: node scripts/smoke-image.mjs "$IMAGE:candidate-$SOURCE_SHA-$ARCH" "$ARCH"
+      - name: Push the tested architecture candidate
+        run: docker push "$IMAGE:candidate-$SOURCE_SHA-$ARCH"
+  publish:
+    needs: [metadata, images]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      packages: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      IMAGE: ${{ needs.metadata.outputs.image }}
+      RELEASE_TAG: ${{ github.ref_name }}
+      VERSION: ${{ needs.metadata.outputs.version }}
+      SOURCE_SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Assemble or resume the version manifest
+        shell: bash
+        run: |
+          docker buildx imagetools inspect "$IMAGE:candidate-$SOURCE_SHA-amd64" --format '{{json .Manifest}}' > amd64.json
+          docker buildx imagetools inspect "$IMAGE:candidate-$SOURCE_SHA-arm64" --format '{{json .Manifest}}' > arm64.json
+          if ! docker buildx imagetools inspect "$IMAGE:$RELEASE_TAG" >/dev/null 2>&1; then
+            docker buildx imagetools create --tag "$IMAGE:$RELEASE_TAG" "$IMAGE:candidate-$SOURCE_SHA-amd64" "$IMAGE:candidate-$SOURCE_SHA-arm64"
+          fi
+          docker buildx imagetools inspect "$IMAGE:$RELEASE_TAG" --format '{{json .Manifest}}' > manifest.json
+      - name: Verify immutable contents and anonymous pulls
+        run: node scripts/verify-container-release.mjs "$IMAGE" "$RELEASE_TAG" manifest.json amd64.json arm64.json
+      - name: Publish the version alias and latest
+        shell: bash
+        run: |
+          if docker buildx imagetools inspect "$IMAGE:$VERSION" --format '{{json .Manifest}}' > alias.json 2>/dev/null; then
+            node -e "const f=require('node:fs'); if(JSON.parse(f.readFileSync('alias.json')).digest!==JSON.parse(f.readFileSync('image-metadata.json')).digest) throw new Error('Existing version alias differs; refusing to overwrite it');"
+          else
+            docker buildx imagetools create --tag "$IMAGE:$VERSION" "$IMAGE:$RELEASE_TAG"
+          fi
+          docker buildx imagetools create --tag "$IMAGE:latest" "$IMAGE:$RELEASE_TAG"
+          docker buildx imagetools inspect "$IMAGE:latest" --format '{{json .Manifest}}' > latest.json
+          node -e "const f=require('node:fs'); if(JSON.parse(f.readFileSync('latest.json')).digest!==JSON.parse(f.readFileSync('image-metadata.json')).digest) throw new Error('Latest does not match the verified version');"
+      - name: Prepare image release notes
+        run: node scripts/release-notes.mjs
+      - name: Create or resume a GitHub release draft
+        shell: bash
+        run: |
+          if gh release view "$RELEASE_TAG" --json isDraft > release-state.json 2>/dev/null; then
+            jq -e '.isDraft == true' release-state.json >/dev/null || { echo 'Release already published; immutable version left unchanged.'; exit 0; }
+          else
+            gh release create "$RELEASE_TAG" --verify-tag --draft --title "Ludo Club $RELEASE_TAG" --notes-file release-notes.md
+          fi
+          gh release upload "$RELEASE_TAG" image-metadata.json --clobber
+          gh release edit "$RELEASE_TAG" --draft=false --latest

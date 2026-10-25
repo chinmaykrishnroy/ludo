@@ -57,10 +57,20 @@ test("public rooms list/join correctly, hide private/started games, preserve per
       public: false,
       bots: 0,
     });
+    const listed = await call(visitor, "rooms:list", { page: 50, pageSize: 8 });
     assert.deepEqual(
-      (await call(visitor, "rooms:list")).rooms!.map((r) => r.code),
+      listed.rooms!.map((r) => r.code),
       [code],
     );
+    assert.deepEqual(listed.roomPage, {
+      page: 1,
+      pageSize: 8,
+      total: 1,
+      pages: 1,
+    });
+    for (const invalid of [{ page: 0 }, { page: 1.5 }, { pageSize: 21 }]) {
+      assert.equal((await call(visitor, "rooms:list", invalid)).ok, false);
+    }
     assert(
       (await call(host, "room:difficulty", { difficulty: 0, seat: 2 })).ok,
     );
