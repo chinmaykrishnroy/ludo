@@ -2,6 +2,7 @@ import express from "express";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import { createServer } from "node:http";
+import type { Socket as NetSocket } from "node:net";
 import { randomInt, randomUUID } from "node:crypto";
 import { Server } from "socket.io";
 import { z } from "zod";
@@ -72,6 +73,11 @@ export function createApplication(options: ApplicationOptions = {}) {
     store = new Store(options.dbPath ?? "data/ludo.sqlite", options),
     monitor = new Monitor(),
     budgets = new Budget();
+  const connections = new Set<NetSocket>();
+  http.on("connection", (connection) => {
+    connections.add(connection);
+    connection.once("close", () => connections.delete(connection));
+  });
   const rooms = new Map(store.load().map((r) => [r.code, r])),
     playerRooms = new Map<string, string>(),
     transitions = new Map<string, number>(),
@@ -1171,7 +1177,18 @@ export function createApplication(options: ApplicationOptions = {}) {
         monitor.closing = true;
         clearInterval(tick);
         await ai.close();
-        await new Promise<void>((resolve) => io.close(() => resolve()));
+        await new Promise<void>((resolve) => {
+          // A stalled peer can otherwise hold the WebSocket close handshake
+          // beyond the process shutdown deadline, leaving the database lease.
+          const forceClose = setTimeout(() => {
+            for (const connection of connections) connection.destroy();
+          }, 2000);
+          forceClose.unref();
+          io.close(() => {
+            clearTimeout(forceClose);
+            resolve();
+          });
+        });
         try {
           for (const saved of rooms.values()) {
             const r = structuredClone(saved);

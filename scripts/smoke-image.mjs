@@ -59,7 +59,7 @@ try {
   created = true;
   const address = docker("port", name, "3000/tcp");
   assert.match(address, /^127\.0\.0\.1:\d+$/);
-  const url = "http://" + address;
+  let url = "http://" + address;
   async function ready() {
     for (let n = 0; n < 150; n++) {
       try {
@@ -134,6 +134,9 @@ try {
   assert.equal(before.revision, 1);
   clients.splice(0).forEach((s) => s.disconnect());
   docker("restart", "--time", "30", name);
+  const restartedAddress = docker("port", name, "3000/tcp");
+  assert.match(restartedAddress, /^127\.0\.0\.1:\d+$/);
+  url = "http://" + restartedAddress;
   await ready();
   const again = await client(a.cookie);
   let restoreTimer;

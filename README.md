@@ -5,7 +5,6 @@
 <p align="center">Roll with friends. Race the bots. Play anywhere.</p>
 <p align="center">
   <a href="https://github.com/chinmaykrishnroy/ludo/actions/workflows/ci.yml"><img src="https://github.com/chinmaykrishnroy/ludo/actions/workflows/ci.yml/badge.svg" alt="Validation status" /></a>
-  <a href="https://github.com/chinmaykrishnroy/ludo/actions/workflows/release.yml"><img src="https://github.com/chinmaykrishnroy/ludo/actions/workflows/release.yml/badge.svg" alt="Release pipeline status" /></a>
   <a href="https://github.com/chinmaykrishnroy/ludo/releases/latest"><img src="https://img.shields.io/github/v/release/chinmaykrishnroy/ludo" alt="Latest release" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/chinmaykrishnroy/ludo" alt="MIT license" /></a>
   <img src="https://img.shields.io/badge/Node.js-24%2B-43853d?logo=nodedotjs&logoColor=white" alt="Node.js 24 or newer" />
@@ -15,6 +14,7 @@
   <a href="https://ludo.octu.online/">Play now</a> &middot;
   <a href="https://github.com/chinmaykrishnroy/ludo/releases/latest">Releases</a> &middot;
   <a href="docs/AI.md">AI engine</a> &middot;
+  <a href="docs/README.md">Documentation</a> &middot;
   <a href="docs/OPERATIONS.md">Self-hosting</a>
 </p>
 
@@ -25,13 +25,13 @@ A self-hosted Ludo game for friends: bold, solid colours, round tokens, animated
 Version tags publish multi-architecture images to **GitHub Container Registry**:
 
 ```sh
-docker pull ghcr.io/chinmaykrishnroy/ludo:v0.1.0
+docker pull ghcr.io/chinmaykrishnroy/ludo:v0.1.1
 docker pull ghcr.io/chinmaykrishnroy/ludo:latest
 ```
 
-Images support **Linux AMD64 and ARM64**, including Raspberry Pi. Each architecture passes image startup, multiplayer, saved-game restart and AI worker checks before release. The [latest release](https://github.com/chinmaykrishnroy/ludo/releases/latest) records its immutable image digest.
+Images support **Linux AMD64 and ARM64**. Each architecture passes image startup, multiplayer, saved-game restart and AI worker checks before release. The [latest release](https://github.com/chinmaykrishnroy/ludo/releases/latest) records its immutable image digest.
 
-For k3s/Argo CD, see [the Kubernetes base](deploy/k8s) and [release/GitOps operations](docs/RELEASING.md). Pin a version or digest in Git for controlled updates; changing latest in the registry does not restart existing pods automatically.
+Use Docker, Compose, Kubernetes or another container platform. An [example Kubernetes base](deploy/k8s) and [release operations guide](docs/RELEASING.md) are included. Pin a version or digest for controlled updates and rollback.
 
 ## Run locally
 
@@ -51,14 +51,16 @@ Open `http://localhost:3000`. Development: `npm run dev`. In PowerShell use `npm
 cp .env.example .env
 # Set ALLOWED_ORIGINS to the exact HTTPS origin.
 # Set ADMIN_TOKEN to a securely generated secret of at least 32 characters.
-docker compose up -d --build
+# Add LUDO_IMAGE=ghcr.io/chinmaykrishnroy/ludo:v0.1.1 to .env.
+docker compose pull
+docker compose up -d --no-build
 ```
 
-The default published port is **127.0.0.1:3011**. Point Cloudflare Tunnel at `http://localhost:3011` on the Docker host. The application uses HTTPS/WebSockets for gameplay and recorded audio; it needs no browser UDP transport. Microphones require HTTPS outside localhost.
+The default published port is **127.0.0.1:3011**. Route your HTTPS reverse proxy or tunnel to that listener. The application uses HTTPS/WebSockets for gameplay and recorded audio; it needs no browser UDP transport. Microphones require HTTPS outside localhost. To build from source instead, run `docker compose up -d --build`.
 
-Public matchmaking is opt-in: set `PUBLIC_ROOMS_ENABLED=true` and configure `ADMIN_TOKEN`. The Pi instance enables public tables at the user's request after successful Android/iPhone gameplay. Use the report/block controls and review moderator reports while public rooms are open. [Acceptance observations](docs/DELIVERY.md) describe remaining limits.
+Public matchmaking is opt-in: set `PUBLIC_ROOMS_ENABLED=true` and configure `ADMIN_TOKEN`. Use the report/block controls and review moderator reports while public rooms are open. [Acceptance observations](docs/DELIVERY.md) describe remaining limits.
 
-The Pi deployment helper is `bash ops/deploy-pi.sh 3011`. It installs a supervised container under `~/ludo`, generates a private environment file, preserves shared data across versioned deployments, and checks readiness. See [operations, backup, restore and rollback](docs/OPERATIONS.md).
+See [operations, backup, restore and rollback](docs/OPERATIONS.md). Keep the data volume and environment secrets outside the source repository.
 
 ## Play
 

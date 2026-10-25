@@ -1,8 +1,8 @@
 # Operations
 
-## Staging on the Pi
+## Managed host example
 
-The managed deployment lives under `/home/roy/ludo`:
+The optional `ops/deploy-pi.sh` helper manages a single Docker host under `~/ludo`:
 
 - `releases/<version>/`: immutable source and deployment helper.
 - `shared/ludo.env`: generated environment, mode 0600; contains the admin secret.
@@ -14,13 +14,13 @@ Run `bash ops/deploy-pi.sh 3011` from a versioned release. It builds before stop
 
 The host directory owner must match the image's `node` UID (1000 on the Pi deployment). Keep the data directory private. The container runs as `node`, with a read-only root, dropped capabilities, restart policy, init, resource limits and a writable data mount. Database leases prevent a second game process writing the same data. After an ungraceful kill, allow the previous 30-second lease to expire before starting a replacement.
 
-Cloudflare Tunnel must run on the Pi or route to its loopback listener, with `https://ludo.octu.online` forwarded to `http://localhost:3011`. If cloudflared runs in another container, its `localhost` is that container; use a deliberately configured shared network rather than exposing the origin broadly.
+Route an HTTPS reverse proxy or tunnel to the loopback listener, for example `https://ludo.example.com` to `http://localhost:3011`. If the proxy runs in another container, its `localhost` is that container; use a deliberately configured shared network rather than exposing the origin broadly. Configure the helper's generated environment for your hostname before exposing it.
 
 ## Configuration
 
 `.env.example` lists supported limits. Set exact comma-separated `ALLOWED_ORIGINS`; set `TRUST_PROXY_CIDRS` only to the actual proxy hops. The Pi helper trusts loopback and the Docker bridge gateway, not arbitrary internet clients. Never trust arbitrary forwarded client addresses.
 
-`PUBLIC_ROOMS_ENABLED=false` is the default. A nonempty `ADMIN_TOKEN` of at least 32 characters is required before public rooms can be enabled. Generate it with a cryptographic generator and keep it out of Git, logs and client bundles. The Pi instance enables public rooms at the user's request following successful Android/iPhone gameplay. Continue reviewing reports and remaining acceptance checks.
+`PUBLIC_ROOMS_ENABLED=false` is the default. A nonempty `ADMIN_TOKEN` of at least 32 characters is required before public rooms can be enabled. Generate it with a cryptographic generator and keep it out of Git, logs and client bundles. Review reports and remaining acceptance checks before opening public matchmaking.
 
 Defaults: 500 active rooms, 1,000 total sockets, four sockets per guest, 80 per IP, 256 MiB voice storage, 1 GiB SQLite page limit, 24-hour audio retention, six-hour backup interval. These are defensive caps, not a concurrency promise. Leave disk headroom for WAL and backup copies; the database page limit does not bound those files.
 
