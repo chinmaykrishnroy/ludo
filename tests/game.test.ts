@@ -126,11 +126,11 @@ test("illegal token indexes, phases, and forged dice are rejected", () => {
   assert.throws(() => move(roll(g, 6), 4));
   assert.throws(() => roll(roll(g, 6), 6));
 });
-test("computer prioritizes capture over ordinary progress", () => {
+test("tactical computer prioritizes capture over ordinary progress", () => {
   const g = full();
   g.seats[0]!.tokens = [12, 40, -1, -1];
   g.seats[1]!.tokens[0] = 1;
-  assert.equal(botMove(roll(g, 2)), 0);
+  assert.equal(botMove(roll(g, 2), 6), 0);
 });
 test("100 seeded full games terminate with exactly one valid winner", () => {
   let seed = 7;
@@ -142,7 +142,7 @@ test("100 seeded full games terminate with exactly one valid winner", () => {
     let g = full(),
       actions = 0;
     while (g.phase !== "finished" && actions < 10000) {
-      g = g.phase === "roll" ? roll(g, rng()) : move(g, botMove(g));
+      g = g.phase === "roll" ? roll(g, rng()) : move(g, botMove(g, 2));
       for (const s of g.seats)
         assert(
           s!.tokens.every((t) => Number.isInteger(t) && t >= -1 && t <= 56),
@@ -156,4 +156,3 @@ test("100 seeded full games terminate with exactly one valid winner", () => {
     );
   }
 });
-

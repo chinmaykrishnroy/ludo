@@ -20,7 +20,7 @@ Cloudflare Tunnel must run on the Pi or route to its loopback listener, with `ht
 
 `.env.example` lists supported limits. Set exact comma-separated `ALLOWED_ORIGINS`; set `TRUST_PROXY_CIDRS` only to the actual proxy hops. The Pi helper trusts loopback and the Docker bridge gateway, not arbitrary internet clients. Never trust arbitrary forwarded client addresses.
 
-`PUBLIC_ROOMS_ENABLED=false` is the default. A nonempty `ADMIN_TOKEN` of at least 32 characters is required before public rooms can be enabled. Generate it with a cryptographic generator and keep it out of Git, logs and client bundles. Public launch requires active moderation and completed device/network acceptance.
+`PUBLIC_ROOMS_ENABLED=false` is the default. A nonempty `ADMIN_TOKEN` of at least 32 characters is required before public rooms can be enabled. Generate it with a cryptographic generator and keep it out of Git, logs and client bundles. The Pi instance enables public rooms at the user's request following successful Android/iPhone gameplay. Continue reviewing reports and remaining acceptance checks.
 
 Defaults: 500 active rooms, 1,000 total sockets, four sockets per guest, 80 per IP, 256 MiB voice storage, 1 GiB SQLite page limit, 24-hour audio retention, six-hour backup interval. These are defensive caps, not a concurrency promise. Leave disk headroom for WAL and backup copies; the database page limit does not bound those files.
 
@@ -66,3 +66,7 @@ SIGTERM drains the service, stops game/backup timers, persists presence and clos
 For a failed manual update, use the immutable image recorded in `shared/previous-image`, the same environment and data mount, and the same security flags in `ops/deploy-pi.sh`. Validate readiness and a private room after rollback. A binary rollback cannot undo an incompatible database migration; restore a pre-update backup into a new file when needed. Review schema compatibility before updates.
 
 CI validates Linux/Windows tests, production builds, dependency audit and a container restart. Staging approval includes a private game on the actual tunnel and physical-device checks in `DELIVERY.md`. There is currently no release/publish pipeline.
+
+## Bot configuration
+
+BOT_DIFFICULTY=10 sets the default for new bot seats. AI_SEARCH_ITERATIONS=96, AI_SEARCH_DEPTH=24 and AI_SEARCH_MS=120 bound the expert search in one worker. Hosts may override levels per bot before a match; saved seats retain those settings across deploys. Human timeouts remain first-legal moves. Admin health includes AI completions, pending jobs, cancellations, timeouts, failures and fallbacks. See AI.md for reproducible strategy/worker benchmarks.

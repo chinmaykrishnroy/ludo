@@ -27,7 +27,7 @@ docker compose up -d --build
 
 The default published port is **127.0.0.1:3011**. Point Cloudflare Tunnel at `http://localhost:3011` on the Docker host. The application uses HTTPS/WebSockets for gameplay and recorded audio; it needs no browser UDP transport. Microphones require HTTPS outside localhost.
 
-Public matchmaking is disabled by default. Keep it disabled until the [acceptance gates](docs/DELIVERY.md) pass and an operator is available to moderate reports. Private rooms work during staging.
+Public matchmaking is opt-in: set `PUBLIC_ROOMS_ENABLED=true` and configure `ADMIN_TOKEN`. The Pi instance enables public tables at the user's request after successful Android/iPhone gameplay. Use the report/block controls and review moderator reports while public rooms are open. [Acceptance observations](docs/DELIVERY.md) describe remaining limits.
 
 The Pi deployment helper is `bash ops/deploy-pi.sh 3011`. It installs a supervised container under `~/ludo`, generates a private environment file, preserves shared data across versioned deployments, and checks readiness. See [operations, backup, restore and rollback](docs/OPERATIONS.md).
 
@@ -35,6 +35,8 @@ The Pi deployment helper is `bash ops/deploy-pi.sh 3011`. It installs a supervis
 
 - **Online:** create a private table, share its code/link, or join a public waiting table when enabled. Hosts choose computers or empty seats before starting. Humans can replace computers in the lobby.
 - **Offline:** play against computers, or choose manual pass-and-play for two to four people on one device.
+- **Bot levels:** choose 0–10 for each bot in the lobby or offline setup. Default: 10, configurable through `BOT_DIFFICULTY` in `.env`. Expert bots use a separate worker for bounded stochastic search, defensive positioning and capture planning. [AI architecture and measurements](docs/AI.md).
+- **Guest names:** a random verb/noun nickname is generated once. Names edited in online setup, offline setup or Settings are remembered in that browser. Large homepage totals use K/M/B/T/Q units; hover or tap for the exact count.
 - **Turns:** 60 seconds to roll, then a separate 60 seconds to choose a token. A missed roll happens automatically; a missed move uses the first legal token. Online deadlines come from the server and survive refresh.
 - **Voice:** hold the mic, then release to send. Permission is requested on first use. After a permission prompt, hold again to start. Cancellation discards the recording. Each message is limited to **60 seconds / 1 MiB**. Audio playback may need a browser interaction.
 - **Resume:** refresh or reopen in the same browser and hostname to recover your game and tokens. Back opens a confirmation; only confirming Quit releases your seat or clears the offline save. Saved online games have the retention limits below.

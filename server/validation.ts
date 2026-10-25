@@ -4,6 +4,7 @@ import { VOICE_MAX_SECONDS } from "../shared/voice.js";
 const token = z.number().int().min(-1).max(56),
   timestamp = z.number().finite().nonnegative();
 const seat = z.object({
+  botDifficulty: z.number().int().min(0).max(10).optional(),
   id: z.string().min(1).max(100),
   name: z.string().min(1).max(64),
   color: z.enum(COLORS),
@@ -20,6 +21,7 @@ const seats = z
   );
 const game = z
   .object({
+    botDifficulty: z.number().int().min(0).max(10).optional(),
     seats,
     turn: z.number().int().min(0).max(3),
     dice: z.number().int().min(1).max(6).nullable(),
@@ -54,6 +56,7 @@ const game = z
   });
 export const roomSchema = z
   .object({
+    botDifficulty: z.number().int().min(0).max(10).optional(),
     archived: z.boolean().optional(),
     code: z.string().regex(/^[A-Z2-9]{6}$/),
     name: z.string().min(1).max(64),

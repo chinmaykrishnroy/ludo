@@ -9,6 +9,8 @@ import {
 } from "@phosphor-icons/react";
 import { Board } from "./Board";
 import { newGame, seat, COLORS } from "../shared/game";
+import { useId } from "react";
+import { formatCount } from "./formatCount";
 const preview = newGame(
   COLORS.map((_, i) => seat(`preview-${i}`, COLORS[i], i, true)),
 );
@@ -21,6 +23,42 @@ export type ClubStats = {
   diceRolls: number;
   activePlayers: number;
 };
+function StatCounter({
+  value,
+  label,
+}: {
+  value: number | undefined;
+  label: string;
+}) {
+  const id = useId(),
+    count = formatCount(value);
+  return (
+    <div>
+      <details
+        className="stat-detail"
+        onBlur={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null))
+            e.currentTarget.open = false;
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") e.currentTarget.open = false;
+        }}
+      >
+        <summary
+          aria-label={`${label}: ${count.exact}`}
+          aria-describedby={id}
+          title={count.exact}
+        >
+          <strong aria-hidden="true">{count.compact}</strong>
+        </summary>
+        <span className="stat-tooltip" id={id} role="tooltip">
+          {count.exact}
+        </span>
+      </details>
+      <span>{label}</span>
+    </div>
+  );
+}
 export default function Home({
   stats,
   onOnline,
@@ -40,13 +78,6 @@ export default function Home({
   resume: boolean;
   onResume: () => void;
 }) {
-  const number = (n: number | undefined) =>
-    n === undefined
-      ? "—"
-      : new Intl.NumberFormat(undefined, {
-          notation: "compact",
-          maximumFractionDigits: 1,
-        }).format(n);
   return (
     <div className="home-page">
       <section className="home-hero">
@@ -116,18 +147,9 @@ export default function Home({
           </small>
         </div>
         <div className="home-stats">
-          <div>
-            <strong>{number(stats?.gamesStarted)}</strong>
-            <span>GAMES STARTED</span>
-          </div>
-          <div>
-            <strong>{number(stats?.diceRolls)}</strong>
-            <span>DICE ROLLED</span>
-          </div>
-          <div>
-            <strong>{number(stats?.gamesFinished)}</strong>
-            <span>RIVALRIES SETTLED</span>
-          </div>
+          <StatCounter value={stats?.gamesStarted} label="GAMES STARTED" />
+          <StatCounter value={stats?.diceRolls} label="DICE ROLLED" />
+          <StatCounter value={stats?.gamesFinished} label="RIVALRIES SETTLED" />
         </div>
       </section>
       <footer className="home-footer">

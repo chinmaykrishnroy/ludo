@@ -17,6 +17,7 @@ export type Chat = {
   at: number;
 };
 export type Room = {
+  botDifficulty?: number;
   archived?: boolean;
   code: string;
   name: string;

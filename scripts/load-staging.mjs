@@ -216,6 +216,7 @@ try {
         maxEventLoopDelayMs: maxLoopDelay,
         slowActions,
         serverErrors: h.errors - initialErrors,
+        aiWorker: h.ai,
       },
       null,
       2,

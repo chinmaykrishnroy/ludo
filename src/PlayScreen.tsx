@@ -50,6 +50,7 @@ export default function PlayScreen({
   );
   const current = game.seats[game.turn]!,
     mine = current.id === me && !current.bot,
+    sharedDevice = !room && game.seats.filter((s) => s && !s.bot).length > 1,
     finished = game.phase === "finished";
   return (
     <div className="game-stage">
@@ -102,7 +103,7 @@ export default function PlayScreen({
               {finished
                 ? "GAME OVER"
                 : mine
-                  ? !room && current.name !== "You"
+                  ? sharedDevice
                     ? `${current.name.toUpperCase()}’S TURN`
                     : "YOUR TURN"
                   : `${current.name.toUpperCase()}’S TURN`}

@@ -16,7 +16,7 @@ p=Path(sys.argv[1])
 if not p.exists():
     p.write_text('\n'.join([
       'NODE_ENV=production','HOST=0.0.0.0','PORT=3000','DB_PATH=/data/ludo.sqlite','BACKUP_DIR=/data/backups',
-      'PUBLIC_ROOMS_ENABLED=false','ALLOWED_ORIGINS=https://ludo.octu.online','ADMIN_TOKEN='+secrets.token_hex(32),
+      'PUBLIC_ROOMS_ENABLED=false','BOT_DIFFICULTY=10','AI_SEARCH_ITERATIONS=96','AI_SEARCH_DEPTH=24','AI_SEARCH_MS=120','ALLOWED_ORIGINS=https://ludo.octu.online','ADMIN_TOKEN='+secrets.token_hex(32),
       'TRUST_PROXY_CIDRS=loopback,'+sys.argv[2]+'/32','MAX_ROOMS=500','MAX_CONNECTIONS=1000',
       'MAX_GUEST_CONNECTIONS=4','MAX_IP_CONNECTIONS=80','MAX_VOICE_BYTES=268435456',
       'MAX_DATABASE_BYTES=1073741824','VOICE_RETENTION_MS=86400000','BACKUP_INTERVAL_MS=21600000'])+'\n')

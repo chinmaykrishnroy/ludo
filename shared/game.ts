@@ -2,6 +2,7 @@ export const COLORS = ["red", "green", "yellow", "blue"] as const;
 export const TURN_MS = 60000;
 export type Color = (typeof COLORS)[number];
 export type Seat = {
+  botDifficulty?: number;
   id: string;
   name: string;
   color: Color;
@@ -10,6 +11,7 @@ export type Seat = {
   tokens: number[];
 };
 export type Game = {
+  botDifficulty?: number;
   seats: (Seat | null)[];
   turn: number;
   dice: number | null;
@@ -160,8 +162,10 @@ export function seat(
   name: string,
   index: number,
   bot = false,
+  botDifficulty?: number,
 ): Seat {
   return {
+    ...(botDifficulty !== undefined ? { botDifficulty } : {}),
     id,
     name,
     color: COLORS[index],
@@ -170,12 +174,32 @@ export function seat(
     tokens: [-1, -1, -1, -1],
   };
 }
-export function newGame(seats: (Seat | null)[], now = Date.now()): Game {
+export function newGame(
+  seats: (Seat | null)[],
+  now = Date.now(),
+  botDifficulty = 10,
+): Game {
+  if (
+    !Number.isInteger(botDifficulty) ||
+    botDifficulty < 0 ||
+    botDifficulty > 10
+  )
+    throw new Error("Bot difficulty must be an integer from 0 to 10.");
   if (seats.filter(Boolean).length < 2)
     throw new Error("At least two players are needed.");
   const turn = seats.findIndex(Boolean);
   return {
-    seats: structuredClone(seats),
+    botDifficulty,
+    seats: seats.map((s) =>
+      s
+        ? {
+            ...structuredClone(s),
+            ...(s.bot
+              ? { botDifficulty: s.botDifficulty ?? botDifficulty }
+              : {}),
+          }
+        : null,
+    ),
     turn,
     dice: null,
     phase: "roll",
@@ -203,10 +227,19 @@ function next(g: Game, bonus: boolean, now: number) {
   g.phase = "roll";
   g.deadline = now + TURN_MS;
 }
+function cloneGame(g: Game): Game {
+  // Explicitly clone the known rule state; avoids structured-clone overhead in
+  // simulations while preserving independent tokens and input immutability.
+  return {
+    ...g,
+    seats: g.seats.map((s) => (s ? { ...s, tokens: [...s.tokens] } : null)),
+    lastMove: g.lastMove ? { ...g.lastMove } : null,
+  };
+}
 export function roll(g: Game, value: number, now = Date.now()): Game {
   if (g.phase !== "roll" || !Number.isInteger(value) || value < 1 || value > 6)
     throw new Error("Cannot roll now.");
-  const n = structuredClone(g);
+  const n = cloneGame(g);
   n.dice = value;
   n.lastMove = null;
   n.revision++;
@@ -229,7 +262,7 @@ export function roll(g: Game, value: number, now = Date.now()): Game {
 export function move(g: Game, token: number, now = Date.now()): Game {
   if (!legalMoves(g).includes(token))
     throw new Error("That token cannot move.");
-  const n = structuredClone(g),
+  const n = cloneGame(g),
     p = n.seats[n.turn]!,
     from = p.tokens[token];
   const to = from < 0 ? 0 : from + n.dice!;
@@ -262,23 +295,4 @@ export function move(g: Game, token: number, now = Date.now()): Game {
   } else next(n, n.dice === 6 || captured > 0 || to === 56, now);
   return n;
 }
-export function botMove(g: Game): number {
-  return (
-    legalMoves(g)
-      .map((token) => {
-        const p = g.seats[g.turn]!,
-          from = p.tokens[token],
-          to = from < 0 ? 0 : from + g.dice!;
-        const simulated = move(g, token);
-        const safe = to <= 50 && SAFE.has((STARTS[g.turn] + to) % 52);
-        const score =
-          simulated.lastMove!.captured * 110 +
-          (to === 56 ? 150 : 0) +
-          (from < 0 ? 38 : 0) +
-          (safe ? 12 : 0) +
-          to;
-        return { token, score };
-      })
-      .sort((a, b) => b.score - a.score)[0]?.token ?? 0
-  );
-}
+export { botMove } from "./bot.js";

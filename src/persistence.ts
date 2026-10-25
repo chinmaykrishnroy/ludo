@@ -17,6 +17,10 @@ export function loadPractice(storage: LocalStore): Game | null {
       !Number.isInteger(g.revision) ||
       g.revision < 0 ||
       !Number.isFinite(g.deadline) ||
+      (g.botDifficulty !== undefined &&
+        (!Number.isInteger(g.botDifficulty) ||
+          g.botDifficulty < 0 ||
+          g.botDifficulty > 10)) ||
       typeof g.notice !== "string"
     )
       return null;
@@ -34,6 +38,7 @@ export function loadPractice(storage: LocalStore): Game | null {
           typeof s.id !== "string" ||
           typeof s.name !== "string" ||
           typeof s.bot !== "boolean" ||
+          (s.botDifficulty !== undefined && (!Number.isInteger(s.botDifficulty) || s.botDifficulty < 0 || s.botDifficulty > 10)) ||
           !Array.isArray(s.tokens) ||
           s.tokens.length !== 4 ||
           s.tokens.some((t) => !Number.isInteger(t) || t < -1 || t > 56))

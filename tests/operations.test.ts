@@ -53,6 +53,8 @@ test("verified backup restores unfinished tokens and deadline without overwritin
   let restored: Store | undefined;
   try {
     const r = fixture();
+    r.botDifficulty = 10;
+    r.game!.seats[1]!.botDifficulty = 3;
     r.game!.seats[0]!.tokens = [12, 0, -1, -1];
     r.game!.revision = 9;
     r.seats = structuredClone(r.game!.seats);
@@ -62,6 +64,10 @@ test("verified backup restores unfinished tokens and deadline without overwritin
     await restoreBackup(backup.path, target);
     restored = new Store(target);
     assert.deepEqual(restored.findByPlayer("owner"), r);
+    assert.equal(
+      restored.findByPlayer("owner")!.game!.seats[1]!.botDifficulty,
+      3,
+    );
     await assert.rejects(() => restoreBackup(backup.path, target), /exists/);
     const manifest = readFileSync(backup.path + ".json", "utf8");
     writeFileSync(

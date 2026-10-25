@@ -33,6 +33,8 @@ import { useAppearance, type Appearance } from "./useAppearance";
 import Home, { type ClubStats } from "./Home";
 import { useInstall } from "./useInstall";
 import { loadPractice, savePractice } from "./persistence";
+import { loadDisplayName, rememberDisplayName } from "./profile";
+import { requestOfflineMove } from "./offlineAi";
 import VoicePanel from "./VoicePanel";
 import {
   COLORS,
@@ -40,19 +42,29 @@ import {
   newGame,
   roll,
   move,
-  botMove,
   legalMoves,
   type Game,
 } from "../shared/game";
 import type { Room, Reply, PublicRoom } from "../shared/protocol";
 
 const LOCAL_ID = "local-you";
-function practice(name = "You", bots = 3) {
+function practice(
+  name = "You",
+  bots = 3,
+  difficulty = 10,
+  levels: number[] = [],
+) {
   const seats = [seat(LOCAL_ID, name, 0), null, null, null];
   const indexes = bots === 1 ? [2] : bots === 2 ? [1, 2] : [1, 2, 3];
-  for (const i of indexes)
-    seats[i] = seat(`cpu-${i}`, ["", "Milo", "Sunny", "Coco"][i], i, true);
-  return newGame(seats);
+  for (const [j, i] of indexes.entries())
+    seats[i] = seat(
+      `cpu-${i}`,
+      ["", "Milo", "Sunny", "Coco"][i],
+      i,
+      true,
+      levels[j] ?? difficulty,
+    );
+  return newGame(seats, Date.now(), difficulty);
 }
 function passAndPlay(name: string, count: number) {
   const arranged: (ReturnType<typeof seat> | null)[] = [null, null, null, null];
@@ -132,25 +144,63 @@ function Dialog({
     </dialog>
   );
 }
+function BotDifficulty({
+  value,
+  onChange,
+  disabled = false,
+  label = "Bot difficulty",
+}: {
+  value: number;
+  onChange: (value: number) => void;
+  disabled?: boolean;
+  label?: string;
+}) {
+  return (
+    <label className="field-label">
+      {label}
+      <select
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(Number(e.target.value))}
+      >
+        {Array.from({ length: 11 }, (_, level) => (
+          <option key={level} value={level}>
+            {level}
+            {level === 0
+              ? " — First legal move"
+              : level === 10
+                ? " — Expert"
+                : ""}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
 function RoomBrowser({
   send,
   notify,
   onClose,
-  initialName,
+  name,
+  setName,
   online,
   publicEnabled,
+  botDifficulty,
+  setBotDifficulty,
 }: {
   send: (e: string, d: unknown) => Promise<Reply>;
   notify: (s: string) => void;
   onClose: () => void;
-  initialName: string;
+  name: string;
+  setName: (name: string) => void;
   online: boolean;
   publicEnabled: boolean;
+  botDifficulty: number;
+  setBotDifficulty: (value: number) => void;
 }) {
   const [tab, setTab] = useState<"create" | "join" | "public">(
       new URLSearchParams(location.search).has("room") ? "join" : "create",
     ),
-    [name, setName] = useState(initialName),
     [title, setTitle] = useState("The good company"),
     [isPublic, setPublic] = useState(false),
     [bots, setBots] = useState(0),
@@ -227,6 +277,7 @@ function RoomBrowser({
               playerName: name,
               public: isPublic,
               bots,
+              botDifficulty,
             });
             setBusy(false);
             if (r.ok) onClose();
@@ -281,6 +332,9 @@ function RoomBrowser({
             You can add or remove computer players before starting. Friends can
             also take a computer’s seat.
           </p>
+          {bots > 0 && (
+            <BotDifficulty value={botDifficulty} onChange={setBotDifficulty} />
+          )}
           <button
             className="primary full"
             disabled={busy || !online || !name.trim()}
@@ -425,6 +479,15 @@ function Rules({ onClose }: { onClose: () => void }) {
 }
 
 export default function App() {
+  const [name, setName] = useState(() => loadDisplayName(localStorage));
+  const [botDifficulty, setBotDifficulty] = useState(10);
+  const [offlineBotLevels, setOfflineBotLevels] = useState([10, 10, 10]);
+  const difficultyTouched = useRef(false);
+  const changeDifficulty = (value: number) => {
+    difficultyTouched.current = true;
+    setBotDifficulty(value);
+    setOfflineBotLevels([value, value, value]);
+  };
   const [appearance, setAppearance] = useAppearance();
   const [clubStats, setClubStats] = useState<ClubStats | null>(null);
   const [publicRoomsEnabled, setPublicRoomsEnabled] = useState(false),
@@ -432,7 +495,9 @@ export default function App() {
     [moderationReason, setModerationReason] = useState("");
   const { installed, install } = useInstall();
   const [initialPractice] = useState(() => loadPractice(localStorage));
-  const [local, setLocal] = useState<Game>(() => initialPractice ?? practice()),
+  const [local, setLocal] = useState<Game>(
+      () => initialPractice ?? practice(name),
+    ),
     [practiceOpen, setPracticeOpen] = useState(!!initialPractice),
     [room, setRoom] = useState<Room | null>(null),
     [me, setMe] = useState(""),
@@ -455,9 +520,6 @@ export default function App() {
     [rolling, setRolling] = useState(false),
     [sound, setSound] = useState(
       () => localStorage.getItem("ludo-sound") !== "off",
-    ),
-    [name, setName] = useState(
-      () => localStorage.getItem("ludo-name") || "You",
     ),
     [botCount, setBotCount] = useState(3),
     [localMode, setLocalMode] = useState("computer"),
@@ -624,7 +686,22 @@ export default function App() {
     if (connected)
       void fetch("/api/config")
         .then((r) => r.json())
-        .then((c) => setPublicRoomsEnabled(c.publicRoomsEnabled === true))
+        .then((c) => {
+          setPublicRoomsEnabled(c.publicRoomsEnabled === true);
+          if (
+            !difficultyTouched.current &&
+            Number.isInteger(c.defaultBotDifficulty) &&
+            c.defaultBotDifficulty >= 0 &&
+            c.defaultBotDifficulty <= 10
+          ) {
+            setBotDifficulty(c.defaultBotDifficulty);
+            setOfflineBotLevels([
+              c.defaultBotDifficulty,
+              c.defaultBotDifficulty,
+              c.defaultBotDifficulty,
+            ]);
+          }
+        })
         .catch(() => {});
   }, [connected]);
   useEffect(() => {
@@ -748,24 +825,34 @@ export default function App() {
       !local.seats[local.turn]?.bot
     )
       return;
-    const t = setTimeout(
-      () =>
-        setLocal((g) =>
-          g.seats[g.turn]?.bot
-            ? g.phase === "roll"
-              ? roll(g, randomDice())
-              : g.phase === "move"
-                ? move(g, botMove(g))
-                : g
-            : g,
-        ),
-      1600,
-    );
-    return () => clearTimeout(t);
-  }, [room, setup, modal, local.revision, local.turn, local.phase]);
+    const controller = new AbortController(),
+      snapshot = local;
+    const t = setTimeout(() => {
+      if (snapshot.phase === "roll")
+        setLocal((g) => (g === snapshot ? roll(g, randomDice()) : g));
+      else if (snapshot.phase === "move")
+        void requestOfflineMove(snapshot, controller.signal)
+          .then((decision) => {
+            if (controller.signal.aborted) return;
+            setLocal((g) =>
+              g === snapshot && legalMoves(g).includes(decision.token)
+                ? move(g, decision.token)
+                : g,
+            );
+          })
+          .catch((error) => {
+            if (error.name !== "AbortError")
+              notify("Bot interrupted. Retrying.");
+          });
+    }, 1600);
+    return () => {
+      clearTimeout(t);
+      controller.abort();
+    };
+  }, [room, setup, modal, local, notify]);
 
   useEffect(() => {
-    localStorage.setItem("ludo-name", name);
+    rememberDisplayName(localStorage, name);
   }, [name]);
   useEffect(() => {
     localStorage.setItem("ludo-sound", sound ? "on" : "off");
@@ -890,13 +977,33 @@ export default function App() {
           </select>
         </label>
       )}
+      {localMode === "computer" && (
+        <BotDifficulty value={botDifficulty} onChange={changeDifficulty} />
+      )}
+      {localMode === "computer" && (
+        <details className="bot-levels">
+          <summary>Individual bot levels</summary>
+          {Array.from({ length: botCount }, (_, i) => (
+            <BotDifficulty
+              key={i}
+              label={`Bot ${i + 1} difficulty`}
+              value={offlineBotLevels[i]}
+              onChange={(value) =>
+                setOfflineBotLevels((levels) =>
+                  levels.map((n, j) => (j === i ? value : n)),
+                )
+              }
+            />
+          ))}
+        </details>
+      )}
       <button
         className="primary full"
         onClick={() => {
           setLocal(
             localMode === "pass"
               ? passAndPlay(name, humanCount)
-              : practice(name, botCount),
+              : practice(name, botCount, botDifficulty, offlineBotLevels),
           );
           setPracticeOpen(true);
           setBusy(false);
@@ -981,16 +1088,41 @@ export default function App() {
                         {p?.id === room.host
                           ? "Organiser"
                           : p?.bot
-                            ? "Computer"
+                            ? `Bot · Level ${p.botDifficulty ?? room.botDifficulty ?? 10}`
                             : p
                               ? "Player"
                               : "Open to a friend"}
                       </small>
+                      {p?.id.startsWith("bot:") && (
+                        <BotDifficulty
+                          label={`${COLORS[i]} bot difficulty`}
+                          value={
+                            p.botDifficulty ??
+                            room.botDifficulty ??
+                            botDifficulty
+                          }
+                          disabled={
+                            !host || (!!room.game && !finished) || !connected
+                          }
+                          onChange={async (difficulty) => {
+                            const r = await send("room:difficulty", {
+                              difficulty,
+                              seat: i,
+                            });
+                            if (!r.ok)
+                              notify(
+                                r.error ?? "Unable to change bot difficulty.",
+                              );
+                          }}
+                        />
+                      )}
                     </span>
-                    {host && (!room.game || finished) && (!p || p.bot) ? (
+                    {host &&
+                    (!room.game || finished) &&
+                    (!p || p.id.startsWith("bot:")) ? (
                       <button
                         className="secondary"
-                        aria-label={`${p ? "Remove" : "Add"} computer in ${COLORS[i]} seat`}
+                        aria-label={`${p ? "Remove" : "Add"} Bot in ${COLORS[i]} seat`}
                         onClick={async () => {
                           const r = await send("room:configure", {
                             seat: i,
@@ -1002,12 +1134,12 @@ export default function App() {
                         {p ? (
                           <>
                             <X />
-                            Remove CPU
+                            Remove Bot
                           </>
                         ) : (
                           <>
                             <Plus />
-                            Add CPU
+                            Add Bot
                           </>
                         )}
                       </button>
@@ -1017,6 +1149,20 @@ export default function App() {
                   </div>
                 ))}
               </div>
+              <BotDifficulty
+                label="Default for new bots"
+                value={
+                  room.botDifficulty ??
+                  room.game?.botDifficulty ??
+                  botDifficulty
+                }
+                disabled={!host || (!!room.game && !finished) || !connected}
+                onChange={async (difficulty) => {
+                  const r = await send("room:difficulty", { difficulty });
+                  if (!r.ok)
+                    notify(r.error ?? "Unable to change bot difficulty.");
+                }}
+              />
               <div className="lobby-actions">
                 <button className="secondary" onClick={() => setModal("leave")}>
                   <SignOut />
@@ -1141,9 +1287,12 @@ export default function App() {
           onClose={() => {
             setModal(null);
           }}
-          initialName={name}
+          name={name}
+          setName={setName}
           online={connected}
           publicEnabled={publicRoomsEnabled}
+          botDifficulty={botDifficulty}
+          setBotDifficulty={changeDifficulty}
         />
       )}
       {modal === "rules" && <Rules onClose={() => setModal(null)} />}

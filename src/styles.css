@@ -500,6 +500,7 @@ select {
   height: 17px;
 }
 .you-label {
+  color: #191919;
   font-size: 12px;
   font-weight: 800;
   padding: 5px 7px;
@@ -2074,4 +2075,76 @@ button:disabled {
   .game-stage .dice-clock {
     font-size: 12px;
   }
+}
+.stat-detail {
+  position: relative;
+  width: fit-content;
+}
+.stat-detail summary {
+  cursor: help;
+  list-style: none;
+  width: fit-content;
+  border-radius: 2px;
+}
+.stat-detail summary::-webkit-details-marker {
+  display: none;
+}
+.stat-detail summary:focus-visible {
+  outline: 3px solid currentColor;
+  outline-offset: 5px;
+}
+.home-stats .stat-tooltip {
+  position: absolute;
+  display: none;
+  z-index: 4;
+  left: 0;
+  bottom: calc(100% + 12px);
+  width: max-content;
+  max-width: 85vw;
+  padding: 10px 12px;
+  border: 2px solid #191919;
+  box-shadow: 3px 3px #191919;
+  background: #ffe24b;
+  color: #191919;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.stat-detail:hover .stat-tooltip,
+.stat-detail[open] .stat-tooltip {
+  display: block;
+}
+.home-stats > div:last-child .stat-tooltip {
+  left: auto;
+  right: 0;
+}
+@media (max-width: 650px) {
+  .home-stats strong {
+    font-size: clamp(24px, 7vw, 32px);
+    letter-spacing: -1px;
+  }
+  .home-stats > div:nth-child(2) .stat-tooltip {
+    left: 50%;
+    transform: translateX(-50%);
+  }
+}
+.seat-row .field-label {
+  margin: 8px 0 0;
+  gap: 4px;
+  font-size: 12px;
+}
+.seat-row .field-label select {
+  max-width: 180px;
+  padding: 6px 8px;
+  font-size: 14px;
+}
+.bot-levels {
+  margin-bottom: 20px;
+}
+.bot-levels summary {
+  cursor: pointer;
+  font-weight: 700;
+  margin-bottom: 12px;
 }

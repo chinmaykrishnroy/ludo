@@ -19,16 +19,12 @@ import {
   adminAuthorized,
   PublicError,
 } from "./security.js";
-import {
-  seat,
-  newGame,
-  roll,
-  move,
-  botMove,
-  legalMoves,
-} from "../shared/game.js";
+import { seat, newGame, roll, move, legalMoves } from "../shared/game.js";
 import { VOICE_MAX_BYTES, VOICE_MAX_SECONDS } from "../shared/voice.js";
 import type { Room, Reply } from "../shared/protocol.js";
+import { DEFAULT_BOT_DIFFICULTY, validDifficulty } from "../shared/bot.js";
+import { AiScheduler } from "./ai/scheduler.js";
+import { difficultyPolicy } from "../shared/ai/policy.js";
 const label = z
   .string()
   .trim()
@@ -45,6 +41,8 @@ const guestChannel = (id: string) => `guest:${id}`;
 const memberIds = (r: Room) =>
   r.seats.flatMap((s) => (s && !s.id.startsWith("bot:") ? [s.id] : []));
 export type ApplicationOptions = {
+  aiScheduler?: AiScheduler;
+  botDifficulty?: number;
   dbPath?: string;
   allowedOrigins?: string[];
   botDelay?: number;
@@ -62,6 +60,12 @@ export type ApplicationOptions = {
   minimumFreeBytes?: number;
 };
 export function createApplication(options: ApplicationOptions = {}) {
+  const aiBudget = {
+    iterations: Number(process.env.AI_SEARCH_ITERATIONS ?? 96),
+    maxDepth: Number(process.env.AI_SEARCH_DEPTH ?? 24),
+    maxTimeMs: Number(process.env.AI_SEARCH_MS ?? 120),
+  };
+  difficultyPolicy(10, aiBudget);
   const app = express(),
     http = createServer(app),
     store = new Store(options.dbPath ?? "data/ludo.sqlite", options),
@@ -74,9 +78,17 @@ export function createApplication(options: ApplicationOptions = {}) {
   const guestSockets = new Map<string, Set<string>>(),
     ipSockets = new Map<string, Set<string>>();
   const proxy = trustedClient(options.trustProxy ?? ["loopback"]),
+    defaultBotDifficulty =
+      options.botDifficulty ??
+      Number(process.env.BOT_DIFFICULTY ?? DEFAULT_BOT_DIFFICULTY),
     adminToken = options.adminToken ?? process.env.ADMIN_TOKEN,
     publicEnabled =
       options.publicRoomsEnabled ?? process.env.PUBLIC_ROOMS_ENABLED === "true";
+  if (!validDifficulty(defaultBotDifficulty)) {
+    store.close();
+    monitor.close();
+    throw new Error("BOT_DIFFICULTY must be an integer from 0 to 10");
+  }
   if (publicEnabled && !adminToken) {
     store.close();
     monitor.close();
@@ -89,6 +101,12 @@ export function createApplication(options: ApplicationOptions = {}) {
     monitor.close();
     throw new Error("ADMIN_TOKEN must contain at least 32 characters");
   }
+  const ai =
+    options.aiScheduler ??
+    new AiScheduler({
+      searchBudget: aiBudget,
+    });
+  const aiJobs = new Map<string, string>();
   let closing = false,
     storageRetryAt = 0,
     lastMaintenance = 0,
@@ -158,6 +176,7 @@ export function createApplication(options: ApplicationOptions = {}) {
     for (const id of memberIds(r)) playerRooms.set(id, r.code);
   }
   function eraseRoom(code: string) {
+    ai.cancel(code);
     const old = rooms.get(code);
     if (old)
       for (const id of memberIds(old))
@@ -253,6 +272,12 @@ export function createApplication(options: ApplicationOptions = {}) {
       newIds = memberIds(draft);
     const deliveries = newIds.map((id) => ({ id, room: view(draft, id) }));
     store.save(draft, config.voice);
+    if (
+      old?.game?.revision !== draft.game?.revision ||
+      old?.game?.seats[old.game.turn]?.id !==
+        draft.game?.seats[draft.game.turn]?.id
+    )
+      ai.cancel(draft.code);
     monitor.success();
     indexRoom(structuredClone(draft));
     if (config.delay !== undefined)
@@ -280,14 +305,52 @@ export function createApplication(options: ApplicationOptions = {}) {
     r.game =
       g.phase === "roll"
         ? roll(g, randomInt(1, 7), now)
-        : move(
-            g,
-            g.seats[g.turn]!.id.startsWith("bot:")
-              ? botMove(g)
-              : legalMoves(g)[0],
-            now,
-          );
+        : move(g, legalMoves(g)[0], now);
     return commit(r, { activity: false, delay: 1100 });
+  }
+  function scheduleBot(r: Room) {
+    const snapshot = structuredClone(r.game!),
+      actor = snapshot.seats[snapshot.turn]!;
+    if (aiJobs.has(r.code)) return;
+    const identity = `${snapshot.revision}:${actor.id}`;
+    aiJobs.set(r.code, identity);
+    void ai
+      .request(
+        r.code,
+        snapshot,
+        actor.botDifficulty ??
+          r.botDifficulty ??
+          snapshot.botDifficulty ??
+          defaultBotDifficulty,
+      )
+      .then((decision) => {
+        const current = rooms.get(r.code),
+          game = current?.game;
+        if (
+          closing ||
+          !current ||
+          current.archived ||
+          !game ||
+          game.revision !== snapshot.revision ||
+          game.phase !== "move" ||
+          game.turn !== snapshot.turn ||
+          game.seats[game.turn]?.id !== actor.id ||
+          !game.seats[game.turn]?.id.startsWith("bot:") ||
+          !legalMoves(game).includes(decision.token) ||
+          !memberIds(current).some((id) => guestSockets.has(id))
+        )
+          return;
+        const draft = structuredClone(current);
+        draft.game = move(game, decision.token, Date.now());
+        commit(draft, { activity: false, delay: 1100 });
+      })
+      .catch((error) => {
+        if (error.name !== "AbortError" && !closing)
+          failure("bot_commit", error);
+      })
+      .finally(() => {
+        if (aiJobs.get(r.code) === identity) aiJobs.delete(r.code);
+      });
   }
   function sessionFor(cookie: string | undefined, ip: string) {
     const secret = secretFromCookie(cookie),
@@ -389,6 +452,7 @@ export function createApplication(options: ApplicationOptions = {}) {
   app.get("/api/config", (_req, res) =>
     res.json({
       publicRoomsEnabled: publicEnabled,
+      defaultBotDifficulty,
       voiceMaxSeconds: VOICE_MAX_SECONDS,
       voiceRetentionHours: store.voiceRetentionMs / 3600000,
       unfinishedRoomRetentionDays: 30,
@@ -416,6 +480,7 @@ export function createApplication(options: ApplicationOptions = {}) {
       disk,
       ...monitor.snapshot(),
       connections: io.engine.clientsCount,
+      ai: { ...ai.stats, pending: ai.pending },
     };
   }
   app.get("/livez", (_req, res) => res.json({ ok: true }));
@@ -655,6 +720,7 @@ export function createApplication(options: ApplicationOptions = {}) {
           playerName: label,
           public: z.boolean(),
           bots: z.number().int().min(0).max(3),
+          botDifficulty: z.number().int().min(0).max(10).optional(),
         })
         .parse(data);
       if (activeRoom(id))
@@ -673,6 +739,7 @@ export function createApplication(options: ApplicationOptions = {}) {
         ).join("");
       } while (store.hasRoom(code));
       const r: Room = {
+        botDifficulty: input.botDifficulty ?? defaultBotDifficulty,
         code,
         name: input.name,
         public: input.public,
@@ -691,6 +758,7 @@ export function createApplication(options: ApplicationOptions = {}) {
           ["", "Milo", "Sunny", "Coco"][i],
           i,
           true,
+          input.botDifficulty ?? defaultBotDifficulty,
         );
       const blocks = new Set(store.blockedSubjects(id)),
         committed = commit(r);
@@ -718,6 +786,27 @@ export function createApplication(options: ApplicationOptions = {}) {
         committed = commit(r);
       return { ok: true, room: view(committed, id, blocks), me: id };
     });
+    handle("room:difficulty", (data) => {
+      const input = z
+          .object({
+            difficulty: z.number().int().min(0).max(10),
+            seat: z.number().int().min(0).max(3).optional(),
+          })
+          .parse(data),
+        r = requireRoom();
+      requireHost(r);
+      if (r.game && r.game.phase !== "finished")
+        throw new PublicError("Change bot difficulty between games.");
+      if (input.seat === undefined) r.botDifficulty = input.difficulty;
+      else {
+        const player = r.seats[input.seat];
+        if (!player?.id.startsWith("bot:"))
+          throw new PublicError("Choose a bot seat.");
+        player.botDifficulty = input.difficulty;
+        if (r.game) r.game.seats = structuredClone(r.seats);
+      }
+      commit(r);
+    });
     handle("room:configure", (data) => {
       const input = z
           .object({ seat: z.number().int().min(0).max(3), bot: z.boolean() })
@@ -740,6 +829,7 @@ export function createApplication(options: ApplicationOptions = {}) {
             ["Ruby", "Milo", "Sunny", "Coco"][input.seat],
             input.seat,
             true,
+            r.botDifficulty ?? defaultBotDifficulty,
           )
         : null;
       commit(r);
@@ -757,6 +847,8 @@ export function createApplication(options: ApplicationOptions = {}) {
         throw new PublicError("At least two players are needed.");
       r.game = newGame(
         r.seats.map((s) => (s ? { ...s, tokens: [-1, -1, -1, -1] } : null)),
+        Date.now(),
+        r.botDifficulty ?? defaultBotDifficulty,
       );
       commit(r, { delay: 900 });
     });
@@ -882,8 +974,9 @@ export function createApplication(options: ApplicationOptions = {}) {
         const p = r.game.seats[index]!;
         p.id = `bot:${randomUUID()}`;
         p.bot = true;
+        p.botDifficulty = r.botDifficulty ?? defaultBotDifficulty;
         p.connected = true;
-        p.name = `${p.name.slice(0, 24)} (CPU)`;
+        p.name = `${p.name.slice(0, 24)} (Bot)`;
         r.seats = structuredClone(r.game.seats);
       } else {
         r.seats[index] = null;
@@ -986,14 +1079,18 @@ export function createApplication(options: ApplicationOptions = {}) {
           r = commit(r, { activity: false });
         }
         const g = r.game;
-        if (!attended || !g || g.phase === "finished") continue;
+        if (!attended || !g || g.phase === "finished") {
+          ai.cancel(r.code);
+          continue;
+        }
         const p = g.seats[g.turn]!,
           due = transitions.get(r.code) ?? 0;
         if (
           now >= g.deadline ||
           (p.bot && now >= due + (options.botDelay ?? 650))
         )
-          automaticallyAdvance(r, now);
+          if (g.phase === "move" && p.id.startsWith("bot:")) scheduleBot(r);
+          else automaticallyAdvance(r, now);
       } catch (error) {
         failure("room_tick", error);
       }
@@ -1059,16 +1156,19 @@ export function createApplication(options: ApplicationOptions = {}) {
     rooms,
     store,
     monitor,
+    ai,
     playerRooms,
     beginShutdown: () => {
       closing = true;
       monitor.closing = true;
+      void ai.close();
     },
     close: () =>
       (closePromise ??= (async () => {
         closing = true;
         monitor.closing = true;
         clearInterval(tick);
+        await ai.close();
         await new Promise<void>((resolve) => io.close(() => resolve()));
         try {
           for (const saved of rooms.values()) {

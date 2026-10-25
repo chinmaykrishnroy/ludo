@@ -1,0 +1,211 @@
+{
+  "at": "2026-10-25T20:35:08.259Z",
+  "scope": "Seeded shared-engine tournament against the previous greedy policy; 2/3/4 players, rotating colours, legal midgame warmups, separate search/dice RNG. Fixed iteration benchmark budgets, not deployment latency.",
+  "games": 6000,
+  "threads": 4,
+  "level10Iterations": 96,
+  "level9Iterations": 48,
+  "elapsedSeconds": 580.14,
+  "processCpuMs": 2139875,
+  "peakSampledProcessRssMiB": 640.4,
+  "groups": [
+    {
+      "level": 0,
+      "players": 2,
+      "games": 334,
+      "wins": 67,
+      "winRatePercent": 20.06,
+      "wilson95Percent": [16.12, 24.68],
+      "meanDecisionMs": 0.002,
+      "p95DecisionMs": 0.003,
+      "fallbacks": 0
+    },
+    {
+      "level": 0,
+      "players": 3,
+      "games": 333,
+      "wins": 51,
+      "winRatePercent": 15.32,
+      "wilson95Percent": [11.84, 19.58],
+      "meanDecisionMs": 0.001,
+      "p95DecisionMs": 0.004,
+      "fallbacks": 0
+    },
+    {
+      "level": 0,
+      "players": 4,
+      "games": 333,
+      "wins": 28,
+      "winRatePercent": 8.41,
+      "wilson95Percent": [5.88, 11.88],
+      "meanDecisionMs": 0.002,
+      "p95DecisionMs": 0.004,
+      "fallbacks": 0
+    },
+    {
+      "level": 3,
+      "players": 2,
+      "games": 334,
+      "wins": 149,
+      "winRatePercent": 44.61,
+      "wilson95Percent": [39.37, 49.97],
+      "meanDecisionMs": 0.013,
+      "p95DecisionMs": 0.031,
+      "fallbacks": 0
+    },
+    {
+      "level": 3,
+      "players": 3,
+      "games": 333,
+      "wins": 90,
+      "winRatePercent": 27.03,
+      "wilson95Percent": [22.54, 32.04],
+      "meanDecisionMs": 0.015,
+      "p95DecisionMs": 0.036,
+      "fallbacks": 0
+    },
+    {
+      "level": 3,
+      "players": 4,
+      "games": 333,
+      "wins": 41,
+      "winRatePercent": 12.31,
+      "wilson95Percent": [9.21, 16.28],
+      "meanDecisionMs": 0.017,
+      "p95DecisionMs": 0.041,
+      "fallbacks": 0
+    },
+    {
+      "level": 5,
+      "players": 2,
+      "games": 334,
+      "wins": 172,
+      "winRatePercent": 51.5,
+      "wilson95Percent": [46.15, 56.81],
+      "meanDecisionMs": 0.019,
+      "p95DecisionMs": 0.043,
+      "fallbacks": 0
+    },
+    {
+      "level": 5,
+      "players": 3,
+      "games": 333,
+      "wins": 134,
+      "winRatePercent": 40.24,
+      "wilson95Percent": [35.11, 45.59],
+      "meanDecisionMs": 0.025,
+      "p95DecisionMs": 0.061,
+      "fallbacks": 0
+    },
+    {
+      "level": 5,
+      "players": 4,
+      "games": 333,
+      "wins": 92,
+      "winRatePercent": 27.63,
+      "wilson95Percent": [23.1, 32.66],
+      "meanDecisionMs": 0.035,
+      "p95DecisionMs": 0.083,
+      "fallbacks": 0
+    },
+    {
+      "level": 7,
+      "players": 2,
+      "games": 334,
+      "wins": 211,
+      "winRatePercent": 63.17,
+      "wilson95Percent": [57.88, 68.17],
+      "meanDecisionMs": 0.384,
+      "p95DecisionMs": 0.971,
+      "fallbacks": 0
+    },
+    {
+      "level": 7,
+      "players": 3,
+      "games": 333,
+      "wins": 144,
+      "winRatePercent": 43.24,
+      "wilson95Percent": [38.03, 48.61],
+      "meanDecisionMs": 0.496,
+      "p95DecisionMs": 1.436,
+      "fallbacks": 0
+    },
+    {
+      "level": 7,
+      "players": 4,
+      "games": 333,
+      "wins": 95,
+      "winRatePercent": 28.53,
+      "wilson95Percent": [23.94, 33.6],
+      "meanDecisionMs": 0.751,
+      "p95DecisionMs": 1.885,
+      "fallbacks": 0
+    },
+    {
+      "level": 9,
+      "players": 2,
+      "games": 334,
+      "wins": 219,
+      "winRatePercent": 65.57,
+      "wilson95Percent": [60.32, 70.46],
+      "meanDecisionMs": 5.346,
+      "p95DecisionMs": 12.216,
+      "fallbacks": 0
+    },
+    {
+      "level": 9,
+      "players": 3,
+      "games": 333,
+      "wins": 170,
+      "winRatePercent": 51.05,
+      "wilson95Percent": [45.7, 56.38],
+      "meanDecisionMs": 7.067,
+      "p95DecisionMs": 16.152,
+      "fallbacks": 0
+    },
+    {
+      "level": 9,
+      "players": 4,
+      "games": 333,
+      "wins": 111,
+      "winRatePercent": 33.33,
+      "wilson95Percent": [28.49, 38.56],
+      "meanDecisionMs": 8.595,
+      "p95DecisionMs": 19.587,
+      "fallbacks": 0
+    },
+    {
+      "level": 10,
+      "players": 2,
+      "games": 334,
+      "wins": 213,
+      "winRatePercent": 63.77,
+      "wilson95Percent": [58.49, 68.74],
+      "meanDecisionMs": 14.975,
+      "p95DecisionMs": 35.225,
+      "fallbacks": 0
+    },
+    {
+      "level": 10,
+      "players": 3,
+      "games": 333,
+      "wins": 153,
+      "winRatePercent": 45.95,
+      "wilson95Percent": [40.67, 51.31],
+      "meanDecisionMs": 20.167,
+      "p95DecisionMs": 46.486,
+      "fallbacks": 0
+    },
+    {
+      "level": 10,
+      "players": 4,
+      "games": 333,
+      "wins": 101,
+      "winRatePercent": 30.33,
+      "wilson95Percent": [25.64, 35.47],
+      "meanDecisionMs": 25.238,
+      "p95DecisionMs": 57.381,
+      "fallbacks": 0
+    }
+  ]
+}

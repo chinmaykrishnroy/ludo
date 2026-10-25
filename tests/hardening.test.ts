@@ -5,6 +5,10 @@ import { io, type Socket } from "socket.io-client";
 import { createApplication, type ApplicationOptions } from "../server/app.js";
 import { hash } from "../server/security.js";
 import type { Reply } from "../shared/protocol.js";
+import { EventEmitter } from "node:events";
+import { AiScheduler, type WorkerPort } from "../server/ai/scheduler.js";
+import { chooseBotMove, type AiJob } from "../shared/ai/index.js";
+import { roll } from "../shared/game.js";
 const delay = (ms = 50) => new Promise((resolve) => setTimeout(resolve, ms));
 async function harness(options: ApplicationOptions = {}) {
   const service = createApplication({ dbPath: ":memory:", ...options }),
@@ -135,6 +139,87 @@ test("simultaneous actions from two tabs advance a revision only once", async ()
     const room = h.service.rooms.get(created.room!.code)!;
     assert.equal(room.game!.revision, 1);
     assert.equal(h.service.store.findByPlayer(created.me!)!.game!.revision, 1);
+  } finally {
+    await h.close();
+  }
+});
+
+test("stale worker decisions cannot overwrite a newer room revision", async () => {
+  class FakeWorker extends EventEmitter implements WorkerPort {
+    jobs: AiJob[] = [];
+    postMessage(job: AiJob) {
+      this.jobs.push(job);
+    }
+    async terminate() {
+      return 0;
+    }
+  }
+  const worker = new FakeWorker(),
+    scheduler = new AiScheduler({ factory: () => worker, timeoutMs: 10000 }),
+    h = await harness({ aiScheduler: scheduler, tickMs: 20, botDelay: 0 });
+  try {
+    const a = await h.client(),
+      created = await h.call(a.socket, "room:create", {
+        name: "Stale AI",
+        playerName: "Alice",
+        public: false,
+        bots: 1,
+      });
+    await h.call(a.socket, "room:start");
+    const r = h.service.rooms.get(created.room!.code)!;
+    r.game!.turn = 1;
+    r.game = roll(r.game!, 6);
+    r.game.deadline = Date.now() - 1;
+    r.seats = structuredClone(r.game.seats);
+    h.service.store.save(r);
+    for (let i = 0; i < 50 && !worker.jobs.length; i++) await delay(20);
+    assert.equal(worker.jobs.length, 1);
+    const snapshot = worker.jobs[0],
+      updated = structuredClone(h.service.rooms.get(r.code)!);
+    updated.game!.revision++;
+    updated.game!.deadline = Date.now() + 60000;
+    h.service.rooms.set(r.code, updated);
+    h.service.store.save(updated);
+    worker.emit("message", {
+      id: snapshot.id,
+      decision: chooseBotMove(snapshot.game, { difficulty: 0 }),
+    });
+    await delay(10);
+    assert.equal(
+      h.service.rooms.get(r.code)!.game!.revision,
+      updated.game!.revision,
+    );
+    assert.deepEqual(
+      h.service.store.findByPlayer(created.me!)!.game!.seats[1]!.tokens,
+      [-1, -1, -1, -1],
+    );
+  } finally {
+    await h.close();
+  }
+});
+test("a temporarily disconnected human uses the simple fallback even at expert room difficulty", async () => {
+  const h = await harness({ tickMs: 20, botDelay: 0 });
+  try {
+    const a = await h.client(),
+      created = await h.call(a.socket, "room:create", {
+        name: "Timeout policy",
+        playerName: "Alice",
+        public: false,
+        bots: 1,
+        botDifficulty: 10,
+      });
+    await h.call(a.socket, "room:start");
+    const r = h.service.rooms.get(created.room!.code)!;
+    r.game!.seats[0]!.tokens = [20, 5, -1, -1];
+    r.game!.seats[0]!.bot = true;
+    r.game!.seats[1]!.tokens = [50, 56, 56, 56];
+    r.game = roll(r.game!, 6);
+    r.game.deadline = Date.now() - 1;
+    r.seats = structuredClone(r.game.seats);
+    h.service.store.save(r);
+    await delay(45);
+    assert.equal(h.service.rooms.get(r.code)!.game!.lastMove!.token, 0);
+    assert.equal(h.service.ai.stats.completed, 0);
   } finally {
     await h.close();
   }
