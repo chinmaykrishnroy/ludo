@@ -1,0 +1,14 @@
+node_modules
+dist
+build
+data
+backups
+.env
+.env.*
+!.env.example
+.git
+.npm-cache
+output
+test-results
+playwright-report
+*.log

@@ -1,0 +1,27 @@
+services:
+  ludo:
+    image: ${LUDO_IMAGE:-ludo-club:local}
+    build: .
+    init: true
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+      DB_PATH: /data/ludo.sqlite
+      BACKUP_DIR: /data/backups
+    ports:
+      - "127.0.0.1:${LUDO_PORT:-3011}:3000"
+    volumes:
+      - ludo-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 768m
+    cpus: 1.5
+    stop_grace_period: 30s
+volumes:
+  ludo-data:

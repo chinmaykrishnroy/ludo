@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Privacy &amp; safety — Ludo Club</title>
+    <style>
+      body {
+        font:
+          17px/1.65 system-ui,
+          sans-serif;
+        background: #f6f3e9;
+        color: #191919;
+        max-width: 760px;
+        margin: 40px auto;
+        padding: 0 24px;
+      }
+      h1 {
+        font-size: 40px;
+        line-height: 1.1;
+      }
+      h2 {
+        font-size: 24px;
+        margin-top: 32px;
+      }
+      a {
+        color: inherit;
+      }
+      section {
+        border: 3px solid #191919;
+        padding: 24px;
+        box-shadow: 6px 6px #191919;
+        background: #fffdf5;
+      }
+      li {
+        margin: 10px 0;
+      }
+      @media (prefers-color-scheme: dark) {
+        body {
+          background: #20231f;
+          color: #f4f1e7;
+        }
+        section {
+          background: #30332f;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <p><a href="/">Back to Ludo Club</a></p>
+    <section>
+      <h1>Privacy &amp; safety</h1>
+      <p>
+        Ludo Club uses guest identities. Public matchmaking stays disabled until
+        the operator enables moderation and completes the launch checks.
+      </p>
+      <h2>What is saved</h2>
+      <ul>
+        <li>
+          An HttpOnly guest cookie restores your seat. Server-issued sessions
+          expire after 30 days without activity, with a maximum lifetime of one
+          year.
+        </li>
+        <li>
+          Offline games and display preferences are stored in your browser.
+          Refreshing preserves progress; confirming Quit clears the offline
+          game. Clearing browser storage also removes it.
+        </li>
+        <li>
+          Online game state is stored on the server. Abandoned unfinished games
+          are retained for 30 days, completed archived games for seven days, and
+          archived waiting rooms for one day.
+        </li>
+        <li>
+          Voice messages are shared with room members. Each recording is limited
+          to 60 seconds and 1 MiB. Only the most recent 20 messages are retained
+          per room, and recordings expire after 24 hours.
+        </li>
+        <li>
+          Reports are accessible only to the moderator and expire after 30 days.
+          Connection addresses are used for per-IP rate limits. Bans remain
+          until their configured expiration.
+        </li>
+      </ul>
+      <h2>Controls</h2>
+      <p>
+        Use Game menu → Report / Block player to report abusive conduct or hide
+        a player's messages and prevent future matching. A moderator can review
+        reports and block guest sessions. Because guests do not have accounts,
+        clearing browser data loses the saved guest identity.
+      </p>
+      <h2>Operational copies</h2>
+      <p>
+        Verified database backups are kept for up to seven days, with at least
+        two recovery copies. Browser offline caches contain the app itself;
+        sessions, API responses, and voice recordings are never placed in the
+        offline app cache. The hosting and tunnel providers may maintain their
+        own security logs.
+      </p>
+      <h2>Activity counters</h2>
+      <p>
+        The homepage shows aggregate online games started, games finished, dice
+        rolls, and active connections. These are server counters, not
+        advertising analytics. Offline games are not uploaded for counting.
+      </p>
+    </section>
+  </body>
+</html>
