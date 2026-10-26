@@ -10,12 +10,28 @@ import {
   COLORS,
   PATH,
   position,
+  soleLegalMove,
+  forcedMoveAt,
 } from "../shared/game.js";
 const full = () =>
   newGame(
     COLORS.map((_, i) => seat(`p${i}`, `Player ${i}`, i)),
     0,
   );
+
+test("forced moves require exactly one legal token and preserve meaningful six choices", () => {
+  const g = full();
+  assert.equal(soleLegalMove(roll(g, 6, 100)), undefined);
+  g.seats[0]!.tokens = [7, -1, -1, -1];
+  const r = roll(g, 3, 100);
+  assert.equal(soleLegalMove(r), 0);
+  assert.equal(forcedMoveAt(r), 1200);
+  assert.equal(soleLegalMove(roll(g, 6, 100)), undefined);
+  g.seats[0]!.tokens = [51, 53, 56, 56];
+  assert.equal(soleLegalMove(roll(g, 4, 100)), 0);
+  g.seats[0]!.tokens = [1, 4, -1, -1];
+  assert.equal(soleLegalMove(roll(g, 2, 100)), undefined);
+});
 test("board has 52 distinct track squares and adjacent steps", () => {
   assert.equal(PATH.length, 52);
   assert.equal(new Set(PATH.map((p) => p.join(","))).size, 52);

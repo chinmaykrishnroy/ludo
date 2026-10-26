@@ -38,9 +38,28 @@ const backupDirectory = resolve(
 );
 function runBackup() {
   if (backupPromise) return backupPromise;
-  backupPromise = createVerifiedBackup(service.store, backupDirectory)
+  const backupStarted = performance.now();
+  backupPromise = createVerifiedBackup(
+    service.store,
+    backupDirectory,
+    undefined,
+    (stage, elapsed) => service.monitor.observe(stage, elapsed),
+  )
     .then(async (result) => {
-      await pruneBackups(backupDirectory);
+      const retentionStarted = performance.now();
+      const retention = await pruneBackups(backupDirectory);
+      service.monitor.observe(
+        "retention",
+        performance.now() - retentionStarted,
+      );
+      service.monitor.backup.retentionWarnings = retention.invalid.length;
+      if (retention.invalid.length)
+        console.warn(
+          JSON.stringify({
+            event: "backup_retention_review",
+            files: retention.invalid.length,
+          }),
+        );
       service.monitor.backup.lastSuccessAt = Date.now();
       console.log(
         JSON.stringify({
@@ -61,6 +80,7 @@ function runBackup() {
       throw error;
     })
     .finally(() => {
+      service.monitor.observe("backup", performance.now() - backupStarted);
       backupPromise = undefined;
     });
   return backupPromise;
@@ -107,6 +127,9 @@ try {
           .json({ ok: false, error: "Backup failed; review operator logs" });
       }
     });
+    service.app.use("/api", (_req, res) =>
+      res.status(404).json({ ok: false, error: "API route not found" }),
+    );
     service.app.get("/sw.js", (_req, res) =>
       res.sendFile(resolve("dist/sw.js"), {
         headers: { "Cache-Control": "no-cache" },

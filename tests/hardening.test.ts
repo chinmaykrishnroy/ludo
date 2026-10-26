@@ -397,6 +397,76 @@ test("late rolls and moves are rejected at the handler boundary before the timer
   }
 });
 
+test("an outdated action after a turn change reports a stale board rather than falsely blaming the player", async () => {
+  const h = await harness({ tickMs: 60000 });
+  try {
+    const a = await h.client(),
+      created = await h.call(a.socket, "room:create", {
+        name: "Stale turn",
+        playerName: "Alice",
+        public: false,
+        bots: 1,
+      });
+    await h.call(a.socket, "room:start");
+    const room = h.service.rooms.get(created.room!.code)!;
+    room.game = roll(room.game!, 2);
+    room.seats = structuredClone(room.game.seats);
+    h.service.store.save(room);
+    const reply = await h.call(a.socket, "game:roll", { revision: 0 });
+    assert.equal(reply.code, "STALE_REVISION", reply.error);
+    assert.equal(reply.room?.game?.revision, 1);
+    assert.equal(reply.room?.game?.turn, 1);
+    const forged = await h.call(a.socket, "game:roll", { revision: 1 });
+    assert.equal(forged.code, "WRONG_TURN");
+    assert.equal(h.service.rooms.get(room.code)!.game!.revision, 1);
+  } finally {
+    await h.close();
+  }
+});
+
+test("server automatically plays a sole legal human move after the roll animation, but leaves choices alone", async () => {
+  const h = await harness({ tickMs: 20, botDelay: 60000 });
+  try {
+    const a = await h.client(),
+      created = await h.call(a.socket, "room:create", {
+        name: "Forced move",
+        playerName: "Alice",
+        public: false,
+        bots: 1,
+      });
+    await h.call(a.socket, "room:start");
+    let r = h.service.rooms.get(created.room!.code)!;
+    r.game!.seats[0]!.tokens = [2, 56, 56, 56];
+    r.game = roll(r.game!, 3);
+    r.seats = structuredClone(r.game.seats);
+    h.service.store.save(r);
+    await delay(650);
+    assert.equal(h.service.rooms.get(r.code)!.game!.revision, 1);
+    for (
+      let i = 0;
+      i < 50 && h.service.rooms.get(r.code)!.game!.revision === 1;
+      i++
+    )
+      await delay(30);
+    r = h.service.rooms.get(r.code)!;
+    assert.equal(r.game!.lastMove?.token, 0);
+    assert.equal(r.game!.seats[0]!.tokens[0], 5);
+    assert.equal(r.game!.revision, 2);
+    r.game!.turn = 0;
+    r.game!.phase = "roll";
+    r.game!.seats[0]!.tokens = [2, -1, -1, -1];
+    r.game = roll(r.game!, 6, Date.now() - 2000);
+    r.seats = structuredClone(r.game.seats);
+    h.service.store.save(r);
+    const revision = r.game.revision;
+    await delay(1200);
+    assert.equal(h.service.rooms.get(r.code)!.game!.revision, revision);
+    assert.equal(h.service.rooms.get(r.code)!.game!.phase, "move");
+  } finally {
+    await h.close();
+  }
+});
+
 test("simultaneous actions from two tabs advance a revision only once", async () => {
   const h = await harness({ tickMs: 60000 });
   try {

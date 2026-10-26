@@ -66,6 +66,8 @@ Guest and IP budgets cover room creation, joining, text, voice count/bytes, repo
 - `GET /api/admin/health`: database counts/quarantine, disk, memory, event-loop latency, connections, errors, action/rejection counts and backup timestamps.
 - `GET /metrics`: Prometheus-format operational gauges/counters.
 
+Bounded operation timings and oldest AI queue age are described in [RUNTIME.md](RUNTIME.md). Correlate them with host I/O and CPU pressure before attributing a stall.
+
 Admin endpoints require `Authorization: Bearer <ADMIN_TOKEN>`. Run operator scripts inside the container so its environment supplies the secret without printing it. Scrape metrics from a trusted monitor; do not embed the bearer token in URLs. Alert on readiness failure, storage errors, disk headroom, growing latency/memory, backup failures or no successful backup for over seven hours. Docker health status alone does not restart an unhealthy but still-running process; investigate the alert.
 
 ```sh
@@ -79,7 +81,7 @@ Ban actions disconnect the affected guest's tabs. Reports contain user-submitted
 
 ## Backup and recovery
 
-Startup and each six-hour interval use the SQLite online backup API. A backup is published only after SQLite integrity/foreign-key checks and saved-room schema validation. A companion JSON manifest contains its SHA-256. Retention keeps at least two backups, removes old copies after seven days and caps managed copies at 28. Room/voice retention deletes live data but older backup copies can retain it until backup expiry.
+Startup and each six-hour interval use the SQLite online backup API. A backup is published only after SQLite integrity/foreign-key checks and saved-room schema validation. A companion JSON manifest contains its SHA-256. Verification runs in a worker with a 20-second deadline and 128-MiB JavaScript heap limit. Owned staging directories are private; the manifest is flushed before exclusive hardlinks publish the verified pair. The backup filesystem must support hardlinks. Failure cleanup removes only owned staging and publication metadata; interrupted staging older than one hour is pruned. Retention keeps at least two manifested backups, removes older managed copies after seven days and caps managed copies at 28. Missing/invalid manifests preserve their database files for operator review and increment the protected health `backup.retentionWarnings` count; they are not counted as recovery copies. Restore verifies the actual checksum again. A hard crash between manifest and database publication can leave an orphan manifest, which can be inspected and removed after confirming no corresponding database exists. Room/voice retention deletes live data but older backup copies can retain it until backup expiry.
 
 Copy verified `.sqlite` **and** `.sqlite.json` files to protected storage on another machine. Local automatic backups do not protect against loss of the Pi or its disk. Never copy just a live database file while ignoring its WAL.
 

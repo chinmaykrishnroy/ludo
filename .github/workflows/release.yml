@@ -87,6 +87,10 @@ jobs:
         run: docker push "$IMAGE:candidate-$SOURCE_SHA-$ARCH"
   publish:
     needs: [metadata, images]
+    concurrency:
+      group: ludo-release-publication
+      queue: max
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -123,7 +127,7 @@ jobs:
           docker buildx imagetools inspect "$IMAGE:$RELEASE_TAG" --format '{{json .Manifest}}' > manifest.json
       - name: Verify immutable contents and anonymous pulls
         run: node scripts/verify-container-release.mjs "$IMAGE" "$RELEASE_TAG" manifest.json amd64.json arm64.json
-      - name: Publish the version alias and latest
+      - name: Publish the immutable version alias
         shell: bash
         run: |
           if docker buildx imagetools inspect "$IMAGE:$VERSION" --format '{{json .Manifest}}' > alias.json 2>/dev/null; then
@@ -131,9 +135,6 @@ jobs:
           else
             docker buildx imagetools create --tag "$IMAGE:$VERSION" "$IMAGE:$RELEASE_TAG"
           fi
-          docker buildx imagetools create --tag "$IMAGE:latest" "$IMAGE:$RELEASE_TAG"
-          docker buildx imagetools inspect "$IMAGE:latest" --format '{{json .Manifest}}' > latest.json
-          node -e "const f=require('node:fs'); if(JSON.parse(f.readFileSync('latest.json')).digest!==JSON.parse(f.readFileSync('image-metadata.json')).digest) throw new Error('Latest does not match the verified version');"
       - name: Prepare image release notes
         run: node scripts/release-notes.mjs
       - name: Create or resume a GitHub release draft
@@ -145,4 +146,17 @@ jobs:
             gh release create "$RELEASE_TAG" --verify-tag --draft --title "Ludo Club $RELEASE_TAG" --notes-file release-notes.md
           fi
           gh release upload "$RELEASE_TAG" image-metadata.json --clobber
-          gh release edit "$RELEASE_TAG" --draft=false --latest
+          gh release edit "$RELEASE_TAG" --draft=false --latest=false
+      - name: Check stable version ordering
+        id: promotion
+        run: |
+          gh api --paginate --slurp "repos/$GH_REPO/releases?per_page=100" > published-releases.json
+          node scripts/release-order.mjs "$RELEASE_TAG" published-releases.json
+      - name: Promote the newest published stable release
+        if: steps.promotion.outputs.promote_latest == 'true'
+        shell: bash
+        run: |
+          docker buildx imagetools create --tag "$IMAGE:latest" "$IMAGE:$RELEASE_TAG"
+          docker buildx imagetools inspect "$IMAGE:latest" --format '{{json .Manifest}}' > latest.json
+          node -e "const f=require('node:fs'); if(JSON.parse(f.readFileSync('latest.json')).digest!==JSON.parse(f.readFileSync('image-metadata.json')).digest) throw new Error('Latest does not match the verified version');"
+          gh release edit "$RELEASE_TAG" --latest=true

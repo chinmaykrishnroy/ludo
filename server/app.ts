@@ -20,7 +20,15 @@ import {
   adminAuthorized,
   PublicError,
 } from "./security.js";
-import { seat, newGame, roll, move, legalMoves } from "../shared/game.js";
+import {
+  seat,
+  newGame,
+  roll,
+  move,
+  legalMoves,
+  soleLegalMove,
+  forcedMoveAt,
+} from "../shared/game.js";
 import { VOICE_MAX_BYTES, VOICE_MAX_SECONDS } from "../shared/voice.js";
 import { CHAT_MAX_GIF_BYTES, CHAT_IDLE_SECONDS } from "../shared/chat.js";
 import { jpegDimensions } from "../shared/photo.js";
@@ -260,9 +268,11 @@ export function createApplication(options: ApplicationOptions = {}) {
     r: Room,
     id: string,
     blocked = new Set(store.blockedSubjects(id)),
+    actionReadyAt = transitions.get(r.code) ?? 0,
   ) {
     return {
       ...r,
+      actionReadyAt,
       voices: r.voices.filter((v) =>
         v.senderId ? !blocked.has(v.senderId) : blocked.size === 0,
       ),
@@ -286,6 +296,7 @@ export function createApplication(options: ApplicationOptions = {}) {
       archive?: boolean;
     } = {},
   ) {
+    const commitStarted = performance.now();
     let draft = structuredClone(input);
     if (draft.game) draft.seats = structuredClone(draft.game.seats);
     draft.updatedAt = Date.now();
@@ -299,8 +310,19 @@ export function createApplication(options: ApplicationOptions = {}) {
     const old = rooms.get(draft.code),
       oldIds = old ? memberIds(old) : [],
       newIds = memberIds(draft);
-    const deliveries = newIds.map((id) => ({ id, room: view(draft, id) }));
-    store.save(draft, config.voice, config.gif);
+    const actionReadyAt =
+      config.delay === undefined
+        ? (transitions.get(draft.code) ?? 0)
+        : Date.now() + config.delay;
+    const deliveries = monitor.measure("views", () =>
+      newIds.map((id) => ({
+        id,
+        room: view(draft, id, undefined, actionReadyAt),
+      })),
+    );
+    monitor.measure("persist", () =>
+      store.save(draft, config.voice, config.gif),
+    );
     if (
       old?.game?.revision !== draft.game?.revision ||
       old?.game?.seats[old.game.turn]?.id !==
@@ -309,8 +331,7 @@ export function createApplication(options: ApplicationOptions = {}) {
       ai.cancel(draft.code);
     monitor.success();
     indexRoom(structuredClone(draft));
-    if (config.delay !== undefined)
-      transitions.set(draft.code, Date.now() + config.delay);
+    if (config.delay !== undefined) transitions.set(draft.code, actionReadyAt);
     // Revocation precedes delivery. Guest channels include all tabs, not just the caller.
     for (const id of oldIds)
       if (!newIds.includes(id)) {
@@ -321,6 +342,7 @@ export function createApplication(options: ApplicationOptions = {}) {
     for (const delivery of deliveries)
       io.to(guestChannel(delivery.id)).emit("room:state", delivery.room);
     if (config.archive) eraseRoom(draft.code);
+    monitor.observe("commit", performance.now() - commitStarted);
     return draft;
   }
   function transfer(r: Room) {
@@ -512,7 +534,11 @@ export function createApplication(options: ApplicationOptions = {}) {
       disk,
       ...monitor.snapshot(),
       connections: io.engine.clientsCount,
-      ai: { ...ai.stats, pending: ai.pending },
+      ai: {
+        ...ai.stats,
+        pending: ai.pending,
+        oldestPendingMs: ai.oldestPendingMs,
+      },
     };
   }
   app.get("/livez", (_req, res) => res.json({ ok: true }));
@@ -762,11 +788,31 @@ export function createApplication(options: ApplicationOptions = {}) {
           if (typeof ack === "function") ack(result ?? { ok: true });
         } catch (error) {
           monitor.rejected++;
+          let currentRoom: Room | undefined;
+          if (
+            error instanceof PublicError &&
+            [
+              "STALE_REVISION",
+              "WRONG_TURN",
+              "TURN_EXPIRED",
+              "ANIMATION_PENDING",
+            ].includes(error.code)
+          ) {
+            try {
+              const saved = activeRoom(id);
+              if (saved) currentRoom = view(saved, id);
+            } catch {
+              /* A failed resync must never escape the handler's error boundary. */
+            }
+          }
           if (!(error instanceof PublicError) && !(error instanceof z.ZodError))
             failure(`action:${event}`, error);
           if (typeof ack === "function")
             ack({
               ok: false,
+              ...(currentRoom
+                ? { room: currentRoom, serverNow: Date.now() }
+                : {}),
               code:
                 error instanceof PublicError
                   ? error.code
@@ -966,15 +1012,15 @@ export function createApplication(options: ApplicationOptions = {}) {
         r = requireRoom(),
         g = r.game;
       if (!g) throw new PublicError("The organiser has not started the game.");
-      if (g.seats[g.turn]?.id !== id || g.seats[g.turn]?.bot)
-        throw new PublicError("It is not your turn.");
-      if (g.phase === "finished")
-        throw new PublicError("The game has finished.");
       if (g.revision !== input.revision)
         throw new PublicError(
           "The board changed. Try again.",
           "STALE_REVISION",
         );
+      if (g.seats[g.turn]?.id !== id || g.seats[g.turn]?.bot)
+        throw new PublicError("It is not your turn.", "WRONG_TURN");
+      if (g.phase === "finished")
+        throw new PublicError("The game has finished.");
       const now = Date.now();
       if (now >= g.deadline) {
         automaticallyAdvance(r, now);
@@ -984,7 +1030,10 @@ export function createApplication(options: ApplicationOptions = {}) {
         );
       }
       if (now < (transitions.get(r.code) ?? 0))
-        throw new PublicError("Wait for the move to finish.");
+        throw new PublicError(
+          "Wait for the move to finish.",
+          "ANIMATION_PENDING",
+        );
       return r;
     }
     handle("game:roll", (data) => {
@@ -1311,6 +1360,16 @@ export function createApplication(options: ApplicationOptions = {}) {
         const p = g.seats[g.turn]!,
           due = transitions.get(r.code) ?? 0;
         if (
+          !p.bot &&
+          soleLegalMove(g) !== undefined &&
+          now >= due &&
+          now >= forcedMoveAt(g)
+        ) {
+          r.game = move(g, soleLegalMove(g)!, now);
+          commit(r, { activity: false, delay: 1100 });
+          continue;
+        }
+        if (
           now >= g.deadline ||
           (p.bot && now >= due + (options.botDelay ?? 650))
         )
@@ -1322,7 +1381,9 @@ export function createApplication(options: ApplicationOptions = {}) {
     if (now - lastMaintenance > (options.maintenanceMs ?? 60000)) {
       lastMaintenance = now;
       try {
-        const result = store.maintenance(now);
+        const result = monitor.measure("maintenance", () =>
+          store.maintenance(now),
+        );
         for (const room of result.updated)
           if (rooms.has(room.code)) {
             indexRoom(room);

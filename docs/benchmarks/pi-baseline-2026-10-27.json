@@ -1,0 +1,19 @@
+{
+  "uptimeSeconds": 2785,
+  "eventLoopP95Ms": 21.14,
+  "eventLoopMaxMs": 4020.24,
+  "memoryRssMiB": 118,
+  "freeDiskMiB": 5846,
+  "connections": 3,
+  "activeRooms": 1,
+  "errors": 0,
+  "storageErrors": 0,
+  "ai": {
+    "completed": 188,
+    "cancelled": 0,
+    "fallbacks": 0,
+    "timeouts": 0,
+    "failures": 0,
+    "pending": 0
+  }
+}

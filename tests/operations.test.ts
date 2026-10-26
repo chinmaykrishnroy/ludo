@@ -4,7 +4,14 @@ import { mkdtempSync, rmSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { Store } from "../server/store.js";
-import { createVerifiedBackup, restoreBackup } from "../server/backups.js";
+import {
+  createVerifiedBackup,
+  restoreBackup,
+  pruneBackups,
+  verifyDatabase,
+} from "../server/backups.js";
+import { readdir, writeFile, link, mkdir, utimes } from "node:fs/promises";
+import { verifyBackupAsync } from "../server/backup-verifier.js";
 import { seat, newGame } from "../shared/game.js";
 import type { Room } from "../shared/protocol.js";
 const fixture = (): Room => {
@@ -135,6 +142,124 @@ test("voice quota is atomic, replacement frees its slot, and retention removes e
     assert.equal(s.findByPlayer("owner")!.voices.length, 0);
   } finally {
     s.close();
+  }
+});
+
+test("interrupted copies and disk-full manifest/publication failures keep previous backups and remove staging", async () => {
+  const root = mkdtempSync(join(tmpdir(), "ludo-backup-faults-")),
+    s = new Store(join(root, "source.sqlite")),
+    directory = join(root, "backups");
+  try {
+    s.save(fixture());
+    const good = await createVerifiedBackup(s, directory),
+      before = (await readdir(directory)).sort();
+    const original = s.backup.bind(s);
+    s.backup = async (path: string) => {
+      await writeFile(path, "unfinished copy");
+      throw Object.assign(new Error("Disk full"), { code: "ENOSPC" });
+    };
+    await assert.rejects(createVerifiedBackup(s, directory), /Disk full/);
+    s.backup = original;
+    await assert.rejects(
+      createVerifiedBackup(s, directory, {
+        writeFile: async () => {
+          throw Object.assign(new Error("Manifest disk full"), {
+            code: "ENOSPC",
+          });
+        },
+        link,
+      }),
+      /Manifest disk full/,
+    );
+    await assert.rejects(
+      createVerifiedBackup(s, directory, {
+        writeFile,
+        link: async (from, to) => {
+          if (String(to).endsWith(".sqlite"))
+            throw new Error("Publication failed");
+          await link(from, to);
+        },
+      }),
+      /Publication failed/,
+    );
+    assert.deepEqual((await readdir(directory)).sort(), before);
+    assert.equal(verifyDatabase(good.path).rooms, 1);
+    await restoreBackup(good.path, join(root, "restored.sqlite"));
+  } finally {
+    s.close();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("backup verification runs in a bounded worker and rejects corruption and timeout", async () => {
+  const root = mkdtempSync(join(tmpdir(), "ludo-backup-worker-")),
+    path = join(root, "source.sqlite"),
+    s = new Store(path);
+  try {
+    s.save(fixture());
+    const backup = await createVerifiedBackup(s, join(root, "backups"));
+    assert.equal((await verifyBackupAsync(backup.path)).rooms, 1);
+    const bad = join(root, "bad.sqlite");
+    await writeFile(bad, "not a database");
+    await assert.rejects(verifyBackupAsync(bad));
+    await assert.rejects(verifyBackupAsync(backup.path, 1), /timed out/);
+  } finally {
+    s.close();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("retention keeps two manifested copies, flags unverified data and cleans only stale owned staging", async () => {
+  const root = mkdtempSync(join(tmpdir(), "ludo-retention-")),
+    s = new Store(join(root, "source.sqlite")),
+    directory = join(root, "backups");
+  try {
+    s.save(fixture());
+    const now = Date.now(),
+      backups = [];
+    for (let i = 0; i < 3; i++) {
+      const backup = await createVerifiedBackup(s, directory);
+      await utimes(
+        backup.path,
+        new Date(now - (10 + i) * 86400000),
+        new Date(now - (10 + i) * 86400000),
+      );
+      backups.push(backup);
+    }
+    const orphan = "ludo-20260101T000000-abcdef01.sqlite";
+    await writeFile(
+      join(directory, orphan),
+      "source preserved for operator review",
+    );
+    const stale = join(
+        directory,
+        ".backup-00000000-0000-4000-8000-000000000001",
+      ),
+      recent = join(directory, ".backup-00000000-0000-4000-8000-000000000002");
+    await mkdir(stale);
+    await mkdir(recent);
+    await writeFile(join(stale, "database.sqlite"), "partial");
+    await utimes(stale, new Date(now - 7200000), new Date(now - 7200000));
+    const legacy = join(
+      directory,
+      "ludo-20260101T000000-abcdef02.sqlite.partial",
+    );
+    await writeFile(legacy, "partial");
+    await utimes(legacy, new Date(now - 7200000), new Date(now - 7200000));
+    const result = await pruneBackups(directory, now);
+    assert.equal(result.removed, 1);
+    assert.deepEqual(result.invalid, [orphan]);
+    const names = await readdir(directory);
+    assert(names.includes(orphan));
+    assert(names.includes(recent.split(/[\\/]/).at(-1)!));
+    assert(!names.includes(stale.split(/[\\/]/).at(-1)!));
+    assert(!names.includes(legacy.split(/[\\/]/).at(-1)!));
+    assert(names.includes(backups[0].path.split(/[\\/]/).at(-1)!));
+    assert(names.includes(backups[1].path.split(/[\\/]/).at(-1)!));
+    assert(!names.includes(backups[2].path.split(/[\\/]/).at(-1)!));
+  } finally {
+    s.close();
+    rmSync(root, { recursive: true, force: true });
   }
 });
 test("expired archived rooms are deleted while recent saved games remain", () => {

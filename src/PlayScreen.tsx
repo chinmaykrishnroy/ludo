@@ -6,7 +6,7 @@ import type { VoiceController } from "./useRoomVoice";
 import { RoomTools } from "./RoomChat";
 import type { ChatController } from "./useRoomChat";
 import VoicePanel from "./VoicePanel";
-import type { Game } from "../shared/game";
+import { soleLegalMove, type Game } from "../shared/game";
 import type { Room } from "../shared/protocol";
 
 export default function PlayScreen({
@@ -51,6 +51,8 @@ export default function PlayScreen({
     0,
     Math.ceil((game.deadline - (now + clockOffset)) / 1000),
   );
+  const inputBusy =
+    busy || (!!room && now + clockOffset < (room.actionReadyAt ?? 0));
   const current = game.seats[game.turn]!,
     mine = current.id === me && !current.bot,
     sharedDevice = !room && game.seats.filter((s) => s && !s.bot).length > 1,
@@ -75,7 +77,7 @@ export default function PlayScreen({
             game={game}
             me={me}
             onMove={onMove}
-            busy={busy || (!connected && !!room)}
+            busy={inputBusy || (!connected && !!room)}
           />
           <button
             className="board-menu"
@@ -97,7 +99,10 @@ export default function PlayScreen({
               } as React.CSSProperties
             }
             disabled={
-              !mine || busy || game.phase !== "roll" || (!!room && !connected)
+              !mine ||
+              inputBusy ||
+              game.phase !== "roll" ||
+              (!!room && !connected)
             }
             onClick={onRoll}
             aria-label="Roll dice"
@@ -120,7 +125,9 @@ export default function PlayScreen({
               {rolling
                 ? "ROLLING"
                 : game.phase === "move" && mine
-                  ? "PICK TOKEN"
+                  ? soleLegalMove(game) !== undefined
+                    ? "AUTO MOVE"
+                    : "PICK TOKEN"
                   : mine
                     ? "ROLL DICE"
                     : "WAITING"}

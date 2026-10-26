@@ -1,6 +1,7 @@
 export const COLORS = ["red", "green", "yellow", "blue"] as const;
 export const ROLL_MS = 15000;
 export const MOVE_MS = 30000;
+export const FORCED_MOVE_MS = 1100;
 export type Color = (typeof COLORS)[number];
 export type Seat = {
   botDifficulty?: number;
@@ -217,6 +218,13 @@ export function legalMoves(g: Game): number[] {
   return g.seats[g.turn]!.tokens.flatMap((t, i) =>
     (t < 0 ? g.dice === 6 : t < 56 && t + g.dice! <= 56) ? [i] : [],
   );
+}
+export function soleLegalMove(g: Game): number | undefined {
+  const choices = legalMoves(g);
+  return choices.length === 1 ? choices[0] : undefined;
+}
+export function forcedMoveAt(g: Game) {
+  return g.deadline - MOVE_MS + FORCED_MOVE_MS;
 }
 function next(g: Game, bonus: boolean, now: number) {
   if (!bonus) {

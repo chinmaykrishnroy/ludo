@@ -2,7 +2,67 @@ import { monitorEventLoopDelay } from "node:perf_hooks";
 import { statfsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 export class Monitor {
+  private timings = new Map<
+    string,
+    {
+      count: number;
+      maxMs: number;
+      maxAt: number;
+      recent: number[];
+      loggedAt: number;
+    }
+  >();
+  observe(
+    operation:
+      | "commit"
+      | "persist"
+      | "views"
+      | "backup"
+      | "retention"
+      | "maintenance"
+      | "backupCopy"
+      | "backupVerify"
+      | "backupHash",
+    elapsedMs: number,
+  ) {
+    if (!Number.isFinite(elapsedMs) || elapsedMs < 0) return;
+    const timing = this.timings.get(operation) ?? {
+      count: 0,
+      maxMs: 0,
+      maxAt: 0,
+      recent: [],
+      loggedAt: 0,
+    };
+    timing.count++;
+    timing.recent.push(elapsedMs);
+    if (timing.recent.length > 128) timing.recent.shift();
+    if (elapsedMs >= timing.maxMs) {
+      timing.maxMs = elapsedMs;
+      timing.maxAt = Date.now();
+    }
+    this.timings.set(operation, timing);
+    if (elapsedMs >= 250 && Date.now() - timing.loggedAt >= 10000) {
+      timing.loggedAt = Date.now();
+      console.warn(
+        JSON.stringify({
+          event: "slow_operation",
+          operation,
+          elapsedMs: Math.round(elapsedMs),
+          at: Date.now(),
+        }),
+      );
+    }
+  }
+  measure<T>(operation: Parameters<Monitor["observe"]>[0], action: () => T): T {
+    const started = performance.now();
+    try {
+      return action();
+    } finally {
+      this.observe(operation, performance.now() - started);
+    }
+  }
   backup = {
+    retentionWarnings: 0,
     lastSuccessAt: null as number | null,
     lastFailureAt: null as number | null,
   };
@@ -49,6 +109,24 @@ export class Monitor {
     return {
       uptimeSeconds: Math.floor(process.uptime()),
       backup: this.backup,
+      timings: Object.fromEntries(
+        [...this.timings].map(([name, timing]) => {
+          const sorted = [...timing.recent].sort((a, b) => a - b);
+          return [
+            name,
+            {
+              count: timing.count,
+              recentSamples: sorted.length,
+              lastMs: Number(timing.recent.at(-1)!.toFixed(2)),
+              p95Ms: Number(
+                sorted[Math.floor((sorted.length - 1) * 0.95)].toFixed(2),
+              ),
+              maxMs: Number(timing.maxMs.toFixed(2)),
+              maxAt: timing.maxAt,
+            },
+          ];
+        }),
+      ),
       memory: process.memoryUsage(),
       eventLoopP95Ms: Number((this.loop.percentile(95) / 1e6).toFixed(2)),
       eventLoopMaxMs: Number((this.loop.max / 1e6).toFixed(2)),

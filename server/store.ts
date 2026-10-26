@@ -530,26 +530,7 @@ export class Store {
     mkdirSync(dirname(resolve(destination)), { recursive: true });
     await backup(this.db, destination);
     if (process.platform !== "win32") chmodSync(destination, 0o600);
-    const check = new DatabaseSync(destination, { readOnly: true });
-    try {
-      if (
-        (
-          check.prepare("PRAGMA integrity_check").get() as {
-            integrity_check: string;
-          }
-        ).integrity_check !== "ok" ||
-        check.prepare("PRAGMA foreign_key_check").all().length
-      )
-        throw new Error("Backup integrity verification failed");
-      for (const row of check
-        .prepare(
-          "SELECT body FROM rooms WHERE code NOT IN (SELECT code FROM quarantine)",
-        )
-        .all() as { body: string }[])
-        this.decode(row.body);
-    } finally {
-      check.close();
-    }
+    // Verification belongs to the backup publisher, outside the request loop.
   }
   close() {
     if (this.closed) return;

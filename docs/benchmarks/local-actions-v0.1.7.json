@@ -1,0 +1,47 @@
+{
+  "at": "2026-10-26T20:14:27.640Z",
+  "scope": "local loopback, one Node process, SQLite snapshots, no audio load",
+  "rooms": 20,
+  "socketClients": 40,
+  "gameActions": 342,
+  "elapsedSeconds": 24.72,
+  "ackMedianMs": 61.99,
+  "ackP95Ms": 83.12,
+  "ackMaxMs": 106.85,
+  "eventLoopP95Ms": 35.65,
+  "rssMiB": 168.1,
+  "operations": {
+    "views": {
+      "count": 460,
+      "recentSamples": 128,
+      "lastMs": 0.05,
+      "p95Ms": 0.17,
+      "maxMs": 0.54,
+      "maxAt": 1793045650297
+    },
+    "persist": {
+      "count": 460,
+      "recentSamples": 128,
+      "lastMs": 1.02,
+      "p95Ms": 1.84,
+      "maxMs": 7.42,
+      "maxAt": 1793045662670
+    },
+    "commit": {
+      "count": 460,
+      "recentSamples": 128,
+      "lastMs": 1.56,
+      "p95Ms": 3.32,
+      "maxMs": 9.02,
+      "maxAt": 1793045662671
+    },
+    "maintenance": {
+      "count": 1,
+      "recentSamples": 1,
+      "lastMs": 0.64,
+      "p95Ms": 0.64,
+      "maxMs": 0.64,
+      "maxAt": 1793045642382
+    }
+  }
+}

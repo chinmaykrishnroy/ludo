@@ -82,3 +82,19 @@ test("release manifests must contain both exact smoke-tested architecture digest
   });
   assert.equal(r.status, 0, r.stderr);
 });
+
+test("out-of-order stable releases never downgrade latest and a failed promotion can be retried", () => {
+  const url = pathToFileURL(resolve("scripts/release-order.mjs")).href;
+  const script = `import assert from 'node:assert/strict'; import {compareReleaseTags,shouldPromoteRelease} from ${JSON.stringify(url)};
+    const published=[];let latest;
+    for(const tag of ['v0.1.9','v0.1.10','v0.1.8','v1.0.0','v0.2.0']){published.push({tag_name:tag});if(shouldPromoteRelease(tag,published)){if(latest)assert(compareReleaseTags(tag,latest)>=0);latest=tag;}}
+    assert.equal(published.length,5);assert.equal(latest,'v1.0.0');assert(!shouldPromoteRelease('v0.1.10',published));assert(shouldPromoteRelease('v1.0.0',published));
+    assert(shouldPromoteRelease('v1.0.0',[{tag_name:'v2.0.0',draft:true},{tag_name:'v3.0.0',prerelease:true},{tag_name:'preview'}]));
+    assert(compareReleaseTags('v0.1.10','v0.1.9')>0); assert(compareReleaseTags('v9007199254740993.0.0','v9007199254740992.0.0')>0); assert.throws(()=>shouldPromoteRelease('v1.0.0-rc1',[]));`;
+  const result = spawnSync(
+    process.execPath,
+    ["--input-type=module", "-e", script],
+    { encoding: "utf8" },
+  );
+  assert.equal(result.status, 0, result.stderr);
+});

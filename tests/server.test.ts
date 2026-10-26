@@ -348,6 +348,7 @@ test("human deadlines auto-roll after 15 seconds, then use the first legal token
     );
     await delay(950);
     room.game!.seats[0]!.tokens[0] = 0;
+    room.game!.seats[0]!.tokens[1] = 40;
     room.game!.deadline = Date.now() - 1;
     room.seats = structuredClone(room.game!.seats);
     await delay(250);

@@ -16,6 +16,7 @@ export interface WorkerPort {
   unref?(): void;
 }
 type Pending = {
+  queuedAt: number;
   key: string;
   job: AiJob;
   resolve: (decision: BotDecision) => void;
@@ -70,6 +71,7 @@ export class AiScheduler {
             : this.options.searchBudget,
       };
       const pending: Pending = {
+        queuedAt: performance.now(),
         key,
         job,
         resolve,
@@ -191,6 +193,14 @@ export class AiScheduler {
   }
   get pending() {
     return this.jobs.size;
+  }
+  get oldestPendingMs() {
+    return Math.max(
+      0,
+      ...[...this.jobs.values()].map((task) =>
+        Math.round(performance.now() - task.queuedAt),
+      ),
+    );
   }
   async close() {
     this.closed = true;

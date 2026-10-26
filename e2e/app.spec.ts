@@ -209,6 +209,9 @@ test("missing hashed assets return 404 instead of the application HTML", async (
   const response = await request.get("/assets/removed-build-chunk.js");
   expect(response.status()).toBe(404);
   expect(await response.text()).not.toContain('<div id="root">');
+  const missingApi = await request.get("/api/does-not-exist");
+  expect(missingApi.status()).toBe(404);
+  expect((await missingApi.json()).ok).toBe(false);
 });
 
 test("voice capture sends and cancels, or explains an unavailable browser encoder", async ({
@@ -277,13 +280,11 @@ test("voice capture sends and cancels, or explains an unavailable browser encode
     expect(await page.evaluate(() => Reflect.get(window, "testMicCalls"))).toBe(
       0,
     );
-    test
-      .info()
-      .annotations.push({
-        type: "capability",
-        description:
-          "This browser build has no MediaRecorder; unsupported behavior verified. Real iOS/Safari recording requires a device check.",
-      });
+    test.info().annotations.push({
+      type: "capability",
+      description:
+        "This browser build has no MediaRecorder; unsupported behavior verified. Real iOS/Safari recording requires a device check.",
+    });
     return;
   }
   await mic.scrollIntoViewIfNeeded();
