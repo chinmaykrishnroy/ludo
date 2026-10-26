@@ -80,6 +80,15 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      - name: Use official Ubuntu mirrors for browser dependencies
+        run: |
+          # Avoid the runner's Azure mirror when archive downloads are throttled.
+          if [ -f /etc/apt/apt-mirrors.txt ]; then
+            printf '%s\n' 'https://archive.ubuntu.com/ubuntu' | sudo tee /etc/apt/apt-mirrors.txt >/dev/null
+          fi
+          if [ -f /etc/apt/apt-mirrors-security.txt ]; then
+            printf '%s\n' 'https://security.ubuntu.com/ubuntu' | sudo tee /etc/apt/apt-mirrors-security.txt >/dev/null
+          fi
       - run: npx playwright install --with-deps chromium firefox webkit
       - run: npm run test:browser
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
