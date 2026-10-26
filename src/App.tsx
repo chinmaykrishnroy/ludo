@@ -541,7 +541,7 @@ function Rules({ onClose }: { onClose: () => void }) {
       <div className="rule-note">
         <ShieldCheck />
         <p>
-          Each human has 60 seconds to roll, then 60 seconds to choose a token.
+          Each human has 15 seconds to roll, then 30 seconds to choose a token.
           If time runs out, the game rolls automatically or moves the first
           legal token. Your seat stays saved until you explicitly quit.
         </p>

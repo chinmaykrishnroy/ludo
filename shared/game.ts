@@ -1,5 +1,6 @@
 export const COLORS = ["red", "green", "yellow", "blue"] as const;
-export const TURN_MS = 60000;
+export const ROLL_MS = 15000;
+export const MOVE_MS = 30000;
 export type Color = (typeof COLORS)[number];
 export type Seat = {
   botDifficulty?: number;
@@ -208,7 +209,7 @@ export function newGame(
     revision: 0,
     lastMove: null,
     notice: `${seats[turn]!.name === "You" ? "Your turn" : `${seats[turn]!.name} starts`}. Roll a six to leave home.`,
-    deadline: now + TURN_MS,
+    deadline: now + ROLL_MS,
   };
 }
 export function legalMoves(g: Game): number[] {
@@ -225,7 +226,7 @@ function next(g: Game, bonus: boolean, now: number) {
     g.sixes = 0;
   }
   g.phase = "roll";
-  g.deadline = now + TURN_MS;
+  g.deadline = now + ROLL_MS;
 }
 function cloneGame(g: Game): Game {
   // Explicitly clone the known rule state; avoids structured-clone overhead in
@@ -251,7 +252,7 @@ export function roll(g: Game, value: number, now = Date.now()): Game {
     return n;
   }
   n.phase = "move";
-  n.deadline = now + TURN_MS;
+  n.deadline = now + MOVE_MS;
   if (!legalMoves(n).length) {
     n.notice = `${player.name} rolled ${value}. No available moves.`;
     next(n, value === 6, now);

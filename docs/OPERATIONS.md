@@ -94,7 +94,7 @@ The command verifies checksum, integrity and room schema, and clears the copied 
 
 ## Shutdown and rollback
 
-SIGTERM drains the service, stops game/backup timers, persists presence and closes SQLite. Docker gives it 30 seconds. Unfinished tokens, phase and absolute deadlines are retained; reconnect does not grant a new minute.
+SIGTERM drains the service, stops game/backup timers, persists presence and closes SQLite. Docker gives it 30 seconds. Unfinished tokens, phase and absolute deadlines are retained; reconnect does not grant a new turn deadline. Human turns allow 15 seconds to roll and 30 seconds to choose a token.
 
 For a failed manual update, use the immutable image recorded in `shared/previous-image`, the same environment and data mount, and the same security flags in `ops/deploy-pi.sh`. Validate readiness and a private room after rollback. A binary rollback cannot undo an incompatible database migration; restore a pre-update backup into a new file when needed. Review schema compatibility before updates.
 

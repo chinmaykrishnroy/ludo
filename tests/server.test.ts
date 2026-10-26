@@ -322,7 +322,7 @@ test("archived seats and tokens survive a full server restart until explicit dep
   }
 });
 
-test("human deadlines auto-roll after a minute, then use the first legal token after a fresh minute", async () => {
+test("human deadlines auto-roll after 15 seconds, then use the first legal token after 30 seconds", async () => {
   const service = createApplication({ dbPath: ":memory:" }),
     clients: Socket[] = [];
   try {
@@ -342,7 +342,7 @@ test("human deadlines auto-roll after a minute, then use the first legal token a
     });
     await a.socket.timeout(2000).emitWithAck("room:start", {});
     let room = service.rooms.get(created.room!.code)!;
-    assert(room.game!.deadline - Date.now() > 59000);
+    assert(room.game!.deadline - Date.now() > 14000);
     await delay(950);
     room.game!.seats[0]!.tokens[0] = 0;
     room.game!.deadline = Date.now() - 1;
@@ -352,8 +352,8 @@ test("human deadlines auto-roll after a minute, then use the first legal token a
     assert.equal(room.game!.phase, "move");
     assert.equal(room.game!.revision, 1);
     assert(
-      room.game!.deadline - Date.now() > 59000,
-      "moving gets its own fresh minute",
+      room.game!.deadline - Date.now() > 29000,
+      "moving gets its own fresh 30-second deadline",
     );
     await delay(1150);
     room.game!.dice = 1;

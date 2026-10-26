@@ -37,7 +37,7 @@ test("a six releases a token and grants a bonus roll without mutating input", ()
   assert.equal(n.turn, 0);
   assert.equal(n.phase, "roll");
   assert.deepEqual(g.seats[0]!.tokens, [-1, -1, -1, -1]);
-  assert.equal(n.deadline, 60200);
+  assert.equal(n.deadline, 15200);
 });
 test("a non-six cannot leave the yard and skips the turn", () => {
   const g = roll(full(), 3);
