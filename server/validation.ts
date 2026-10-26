@@ -1,59 +1,8 @@
 import { z } from "zod";
-import { COLORS, legalMoves } from "../shared/game.js";
+import { COLORS } from "../shared/game.js";
+import { gameSchema, seatsSchema } from "../shared/state-schema.js";
 import { VOICE_MAX_SECONDS } from "../shared/voice.js";
-const token = z.number().int().min(-1).max(56),
-  timestamp = z.number().finite().nonnegative();
-const seat = z.object({
-  botDifficulty: z.number().int().min(0).max(10).optional(),
-  id: z.string().min(1).max(100),
-  name: z.string().min(1).max(64),
-  color: z.enum(COLORS),
-  bot: z.boolean(),
-  connected: z.boolean(),
-  tokens: z.array(token).length(4),
-});
-const seats = z
-  .array(seat.nullable())
-  .length(4)
-  .refine(
-    (s) => s.every((p, i) => !p || p.color === COLORS[i]),
-    "Seat colours do not match board positions",
-  );
-const game = z
-  .object({
-    botDifficulty: z.number().int().min(0).max(10).optional(),
-    seats,
-    turn: z.number().int().min(0).max(3),
-    dice: z.number().int().min(1).max(6).nullable(),
-    phase: z.enum(["roll", "move", "finished"]),
-    sixes: z.number().int().min(0).max(2),
-    winner: z.string().nullable(),
-    revision: z.number().int().nonnegative(),
-    lastMove: z
-      .object({
-        color: z.enum(COLORS),
-        token: z.number().int().min(0).max(3),
-        from: z.number().int().min(-1).max(55),
-        to: z.number().int().min(0).max(56),
-        captured: z.number().int().min(0).max(12),
-      })
-      .nullable(),
-    notice: z.string().max(512),
-    deadline: timestamp,
-  })
-  .superRefine((g, c) => {
-    if (!g.seats[g.turn] || g.seats.filter(Boolean).length < 2)
-      c.addIssue({ code: "custom", message: "Invalid active seats" });
-    else if (g.phase === "move" && !legalMoves(g).length)
-      c.addIssue({ code: "custom", message: "No legal move for pending dice" });
-    if (
-      g.phase === "finished" &&
-      !g.seats.some(
-        (s) => s?.id === g.winner && s.tokens.every((t) => t === 56),
-      )
-    )
-      c.addIssue({ code: "custom", message: "Invalid winner" });
-  });
+const timestamp = z.number().finite().nonnegative();
 export const roomSchema = z
   .object({
     botDifficulty: z.number().int().min(0).max(10).optional(),
@@ -62,8 +11,8 @@ export const roomSchema = z
     name: z.string().min(1).max(64),
     public: z.boolean(),
     host: z.string().min(1).max(100),
-    seats,
-    game: game.nullable(),
+    seats: seatsSchema,
+    game: gameSchema.nullable(),
     voices: z
       .array(
         z.object({

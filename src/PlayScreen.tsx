@@ -2,9 +2,10 @@ import { DotsThree, ArrowLeft } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { Board, PALETTE } from "./Board";
 import Dice from "./Dice";
+import type { VoiceController } from "./useRoomVoice";
 import VoicePanel from "./VoicePanel";
 import type { Game } from "../shared/game";
-import type { Reply, Room } from "../shared/protocol";
+import type { Room } from "../shared/protocol";
 
 export default function PlayScreen({
   game,
@@ -16,8 +17,7 @@ export default function PlayScreen({
   onRoll,
   onMove,
   onMenu,
-  send,
-  notify,
+  voice,
   onOnline,
   showVoice = true,
   onBack,
@@ -32,8 +32,7 @@ export default function PlayScreen({
   onRoll: () => void;
   onMove: (n: number) => void;
   onMenu: () => void;
-  send: (e: string, d: unknown) => Promise<Reply>;
-  notify: (s: string) => void;
+  voice: VoiceController;
   onOnline: () => void;
   showVoice?: boolean;
   onBack: () => void;
@@ -89,7 +88,7 @@ export default function PlayScreen({
               {
                 "--turn-colour": PALETTE[current.color],
                 background: PALETTE[current.color],
-                color: current.color === "yellow" ? "#191919" : "#fffdf5",
+                color: "#111111",
               } as React.CSSProperties
             }
             disabled={
@@ -123,13 +122,7 @@ export default function PlayScreen({
             </span>
           </button>
           {showVoice && (
-            <VoicePanel
-              compact
-              room={room}
-              send={send}
-              notify={notify}
-              onOnline={onOnline}
-            />
+            <VoicePanel compact room={room} voice={voice} onOnline={onOnline} />
           )}
           <span className="sr-only" role="status" aria-live="polite">
             {game.notice}

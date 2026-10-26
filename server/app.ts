@@ -629,6 +629,11 @@ export function createApplication(options: ApplicationOptions = {}) {
     try {
       const saved = activeRoom(id) ?? store.findByPlayer(id);
       if (saved) {
+        if (!rooms.has(saved.code) && rooms.size >= (options.maxRooms ?? 500))
+          throw new PublicError(
+            "All room slots are busy. Your saved game is retained; please retry shortly.",
+            "ROOM_CAPACITY",
+          );
         const r = structuredClone(saved);
         r.archived = false;
         for (const other of r.seats)
@@ -645,9 +650,13 @@ export function createApplication(options: ApplicationOptions = {}) {
         offlineSince.delete(id);
       }
     } catch (error) {
-      failure("restore_room", error);
+      if (error instanceof PublicError) monitor.rejected++;
+      else failure("restore_room", error);
       socket.emit("server:unavailable", {
-        message: "Saved game could not be restored. Please retry shortly.",
+        message:
+          error instanceof PublicError
+            ? error.message
+            : "Saved game could not be restored. Please retry shortly.",
       });
       socket.disconnect(true);
       return;
@@ -952,7 +961,12 @@ export function createApplication(options: ApplicationOptions = {}) {
           })
           .parse(data),
         r = requireRoom();
-      if (input.audio.length < 16 || input.audio.length > VOICE_MAX_BYTES)
+      if (input.audio.length < 16)
+        throw new PublicError(
+          "No audio was captured. Hold the button a little longer and try again.",
+          "EMPTY_RECORDING",
+        );
+      if (input.audio.length > VOICE_MAX_BYTES)
         throw new PublicError("The voice message exceeds the size limit.");
       limited(
         `voice-bytes:user:${id}`,

@@ -1,10 +1,11 @@
 import { useEffect, useLayoutEffect, useState } from "react";
+import { browserStorage } from "./storage";
 
 export type Appearance = "system" | "light" | "dark";
 
 export function useAppearance() {
   const [appearance, setAppearance] = useState<Appearance>(() => {
-    const saved = localStorage.getItem("ludo-appearance");
+    const saved = browserStorage.getItem("ludo-appearance");
     return saved === "light" || saved === "dark" ? saved : "system";
   });
   const [systemDark, setSystemDark] = useState(
@@ -20,7 +21,7 @@ export function useAppearance() {
   useLayoutEffect(() => {
     document.documentElement.dataset.theme =
       appearance === "system" ? (systemDark ? "dark" : "light") : appearance;
-    localStorage.setItem("ludo-appearance", appearance);
+    browserStorage.setItem("ludo-appearance", appearance);
   }, [appearance, systemDark]);
   return [appearance, setAppearance] as const;
 }

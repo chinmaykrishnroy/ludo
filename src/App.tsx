@@ -1,5 +1,7 @@
 import {
   useCallback,
+  useId,
+  useSyncExternalStore,
   useEffect,
   useRef,
   useState,
@@ -34,10 +36,12 @@ import PlayScreen from "./PlayScreen";
 import { useAppearance, type Appearance } from "./useAppearance";
 import Home, { type ClubStats } from "./Home";
 import { useInstall } from "./useInstall";
+import { browserStorage } from "./storage";
 import { loadPractice, savePractice } from "./persistence";
 import { loadDisplayName, rememberDisplayName } from "./profile";
 import { requestOfflineMove } from "./offlineAi";
 import VoicePanel from "./VoicePanel";
+import { useRoomVoice } from "./useRoomVoice";
 import {
   COLORS,
   seat,
@@ -103,6 +107,7 @@ function Dialog({
   const ref = useRef<HTMLDialogElement>(null),
     closeRef = useRef(onClose);
   closeRef.current = onClose;
+  const titleId = useId();
   useEffect(() => {
     const d = ref.current!;
     d.showModal();
@@ -111,6 +116,7 @@ function Dialog({
   return (
     <dialog
       ref={ref}
+      aria-labelledby={titleId}
       className={`dialog ${wide ? "wide" : ""}`}
       onCancel={(e) => {
         e.preventDefault();
@@ -132,7 +138,7 @@ function Dialog({
       <div className="dialog-head">
         <div>
           {eyebrow && <p className="eyebrow">{eyebrow}</p>}
-          <h2>{title}</h2>
+          <h2 id={titleId}>{title}</h2>
         </div>
         <button
           className="icon-button"
@@ -545,7 +551,13 @@ function Rules({ onClose }: { onClose: () => void }) {
 }
 
 export default function App() {
-  const [name, setName] = useState(() => loadDisplayName(localStorage));
+  const storageUnavailable = useSyncExternalStore(
+    browserStorage.subscribe,
+    browserStorage.unavailable,
+    () => false,
+  );
+  const [storageDismissed, setStorageDismissed] = useState(false);
+  const [name, setName] = useState(() => loadDisplayName(browserStorage));
   const [botDifficulty, setBotDifficulty] = useState(10);
   const [offlineBotLevels, setOfflineBotLevels] = useState([10, 10, 10]);
   const difficultyTouched = useRef(false);
@@ -560,7 +572,7 @@ export default function App() {
     [moderationTarget, setModerationTarget] = useState(""),
     [moderationReason, setModerationReason] = useState("");
   const { installed, install } = useInstall();
-  const [initialPractice] = useState(() => loadPractice(localStorage));
+  const [initialPractice] = useState(() => loadPractice(browserStorage));
   const [local, setLocal] = useState<Game>(
       () => initialPractice ?? practice(name),
     ),
@@ -585,7 +597,7 @@ export default function App() {
     [busy, setBusy] = useState(false),
     [rolling, setRolling] = useState(false),
     [sound, setSound] = useState(
-      () => localStorage.getItem("ludo-sound") !== "off",
+      () => browserStorage.getItem("ludo-sound") !== "off",
     ),
     [botCount, setBotCount] = useState(3),
     [localMode, setLocalMode] = useState("computer"),
@@ -700,9 +712,10 @@ export default function App() {
             s?.disconnect();
             if (retry) clearTimeout(retry);
           });
-          s.on("server:unavailable", () => {
+          s.on("server:unavailable", (value?: { message?: string }) => {
             notify(
-              "Saved game storage is temporarily unavailable. Reconnecting shortly.",
+              value?.message ??
+                "Saved game is temporarily unavailable. Reconnecting shortly.",
             );
             if (retry) clearTimeout(retry);
             retry = setTimeout(connect, 5000);
@@ -790,6 +803,12 @@ export default function App() {
       clearInterval(timer);
     };
   }, [setup, room]);
+  const voice = useRoomVoice({
+    room,
+    send,
+    notify,
+    onOnline: () => setModal("rooms"),
+  });
   const game =
       room?.game ??
       (room
@@ -812,7 +831,7 @@ export default function App() {
     myTurn = !!current && current.id === playerId && !current.bot && !lobby,
     finished = game.phase === "finished";
   useEffect(() => {
-    savePractice(localStorage, practiceOpen ? local : null);
+    if (practiceOpen) savePractice(browserStorage, local);
   }, [local, practiceOpen]);
   useEffect(() => {
     if (room || !practiceOpen || setup || modal || local.phase === "finished")
@@ -918,10 +937,10 @@ export default function App() {
   }, [room, setup, modal, local, notify]);
 
   useEffect(() => {
-    rememberDisplayName(localStorage, name);
+    rememberDisplayName(browserStorage, name);
   }, [name]);
   useEffect(() => {
-    localStorage.setItem("ludo-sound", sound ? "on" : "off");
+    browserStorage.setItem("ludo-sound", sound ? "on" : "off");
   }, [sound]);
   async function act(event: "game:roll" | "game:move", token?: number) {
     if (busy || !myTurn || finished) return;
@@ -1087,6 +1106,21 @@ export default function App() {
   );
   return (
     <div className="app-shell">
+      {storageUnavailable && !storageDismissed && (
+        <div className="storage-notice" role="status">
+          <span>
+            Browser storage is unavailable. Keep this tab open; changes may not
+            survive a refresh.
+          </span>
+          <button
+            className="icon-button"
+            aria-label="Dismiss storage notice"
+            onClick={() => setStorageDismissed(true)}
+          >
+            <X />
+          </button>
+        </div>
+      )}
       {!setup && !lobby ? (
         <PlayScreen
           game={game}
@@ -1101,8 +1135,7 @@ export default function App() {
           onRoll={() => void act("game:roll")}
           onMove={(n) => void act("game:move", n)}
           onMenu={() => setModal("menu")}
-          send={send}
-          notify={notify}
+          voice={voice}
           onOnline={() => setModal("rooms")}
         />
       ) : (
@@ -1333,8 +1366,7 @@ export default function App() {
             {room && (
               <VoicePanel
                 room={room}
-                send={send}
-                notify={notify}
+                voice={voice}
                 onOnline={() => setModal("rooms")}
               />
             )}
@@ -1496,7 +1528,10 @@ export default function App() {
                 modal === "leave"
                   ? room
                     ? void leave().then(() => setSetup(true))
-                    : (setPracticeOpen(false), setSetup(true), setModal(null))
+                    : (savePractice(browserStorage, null),
+                      setPracticeOpen(false),
+                      setSetup(true),
+                      setModal(null))
                   : (setLocal(practice(name, botCount)),
                     setModal(null),
                     setBusy(false),

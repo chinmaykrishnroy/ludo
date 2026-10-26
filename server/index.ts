@@ -114,9 +114,18 @@ try {
     service.app.use(
       express.static(resolve("dist"), { maxAge: "1h", index: false }),
     );
-    service.app.get("/{*path}", (_req, res) =>
-      res.sendFile(resolve("dist/index.html")),
-    );
+    service.app.use("/assets", (_req, res) => {
+      res.status(404).type("text/plain").send("Asset not found");
+    });
+    service.app.get("/{*path}", (req, res) => {
+      if (/\.[^/]+$/.test(req.path)) {
+        res.sendStatus(404);
+        return;
+      }
+      res.sendFile(resolve("dist/index.html"), {
+        headers: { "Cache-Control": "no-cache" },
+      });
+    });
   } else {
     const { createServer } = await import("vite");
     const vite = await createServer({

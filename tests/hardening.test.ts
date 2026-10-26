@@ -49,6 +49,79 @@ async function harness(options: ApplicationOptions = {}) {
     },
   };
 }
+
+test("archived reconnect respects room capacity without losing the saved game", async () => {
+  const h = await harness({ maxRooms: 1, botDelay: 60000 });
+  try {
+    const a = await h.client();
+    const created = await h.call(a.socket, "room:create", {
+      name: "Archived",
+      playerName: "Alice",
+      public: false,
+      bots: 1,
+    });
+    await h.call(a.socket, "room:start");
+    const saved = structuredClone(h.service.rooms.get(created.room!.code)!);
+    saved.archived = true;
+    h.service.store.save(saved);
+    h.service.rooms.delete(saved.code);
+    a.socket.disconnect();
+    await delay();
+    const b = await h.client();
+    assert(
+      (
+        await h.call(b.socket, "room:create", {
+          name: "At capacity",
+          playerName: "Bob",
+          public: false,
+          bots: 0,
+        })
+      ).ok,
+    );
+    const rejected = await h.client(a.cookie);
+    assert.equal(rejected.socket.connected, false);
+    assert.equal(h.service.rooms.size, 1);
+    const retained = h.service.store.findByPlayer(saved.host)!;
+    assert(retained.archived);
+    assert.deepEqual(retained.game, saved.game);
+    await h.call(b.socket, "room:leave");
+    for (let attempt = 0; attempt < 20 && h.service.rooms.size; attempt++)
+      await delay();
+    assert.equal(h.service.rooms.size, 0);
+    const resumed = await h.client(a.cookie);
+    assert(resumed.socket.connected);
+    assert.equal(
+      h.service.rooms.get(saved.code)!.game!.deadline,
+      saved.game!.deadline,
+    );
+  } finally {
+    await h.close();
+  }
+});
+
+test("empty voice data is reported as empty rather than oversized and never stored", async () => {
+  const h = await harness();
+  try {
+    const a = await h.client();
+    const room = await h.call(a.socket, "room:create", {
+      name: "Voice",
+      playerName: "Alice",
+      public: false,
+      bots: 0,
+    });
+    const response = await h.call(a.socket, "voice:send", {
+      audio: Buffer.alloc(0),
+      mime: "audio/webm",
+      duration: 1,
+    });
+    assert.equal(response.ok, false);
+    assert.equal(response.code, "EMPTY_RECORDING");
+    assert.match(response.error!, /no audio|empty/i);
+    assert.equal(h.service.rooms.get(room.room!.code)!.voices.length, 0);
+  } finally {
+    await h.close();
+  }
+});
 test("leaving evicts every tab of the same guest before private updates", async () => {
   const h = await harness();
   try {
