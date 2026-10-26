@@ -59,6 +59,7 @@ export default function VoicePanel({
             <button
               key={v.id}
               className="voice-message"
+              disabled={voice.muted}
               aria-label={`${playing === v.id ? "Pause" : "Play"} voice message from ${v.name}`}
               onClick={() => togglePlay(v.id)}
             >
@@ -101,6 +102,15 @@ export default function VoicePanel({
           </div>
         )}
       </div>
+      {voice.needsPlayback && !voice.muted && (
+        <button
+          className="voice-playback-prompt"
+          onClick={voice.resumePlayback}
+        >
+          <Play weight="fill" />
+          Play voice messages
+        </button>
+      )}
       <button
         className={`record-button ${recording ? "is-recording" : ""}`}
         aria-label="Hold to record a voice message"

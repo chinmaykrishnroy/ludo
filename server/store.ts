@@ -51,6 +51,7 @@ export class Store {
       this.db
         .exec(`CREATE TABLE IF NOT EXISTS rooms(code TEXT PRIMARY KEY,body TEXT NOT NULL,archived INTEGER NOT NULL DEFAULT 0);
     CREATE TABLE IF NOT EXISTS voices(id TEXT PRIMARY KEY,room TEXT NOT NULL REFERENCES rooms(code) ON DELETE CASCADE,mime TEXT NOT NULL,data BLOB NOT NULL,createdAt INTEGER NOT NULL DEFAULT 0);
+    CREATE TABLE IF NOT EXISTS chat_media(id TEXT PRIMARY KEY,room TEXT NOT NULL REFERENCES rooms(code) ON DELETE CASCADE,data BLOB NOT NULL);
     CREATE TABLE IF NOT EXISTS room_members(player TEXT PRIMARY KEY,room TEXT NOT NULL REFERENCES rooms(code) ON DELETE CASCADE);
     CREATE TABLE IF NOT EXISTS sessions(id TEXT PRIMARY KEY,createdAt INTEGER NOT NULL,expiresAt INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS quarantine(code TEXT PRIMARY KEY,reason TEXT NOT NULL,at INTEGER NOT NULL);
@@ -203,7 +204,7 @@ export class Store {
     }
     return result;
   }
-  save(room: Room, voice?: VoiceWrite) {
+  save(room: Room, voice?: VoiceWrite, gif?: { id: string; data: Buffer }) {
     const valid = roomSchema.parse(room);
     this.transaction(() => {
       const previous = this.db
@@ -211,6 +212,31 @@ export class Store {
         .get(valid.code) as { body: string } | undefined;
       const old = previous ? this.decode(previous.body) : undefined;
       this.writeRoom(valid);
+      const images = new Set(
+        valid.chat.flatMap((m) => (m.gif ? [m.gif.id] : [])),
+      );
+      for (const row of this.db
+        .prepare("SELECT id FROM chat_media WHERE room=?")
+        .all(valid.code) as { id: string }[])
+        if (!images.has(row.id))
+          this.db.prepare("DELETE FROM chat_media WHERE id=?").run(row.id);
+      if (gif) {
+        const bytes = (
+          this.db
+            .prepare(
+              "SELECT COALESCE(SUM(length(data)),0) AS size FROM chat_media",
+            )
+            .get() as { size: number }
+        ).size;
+        if (bytes + gif.data.length > 64 * 1024 * 1024)
+          throw new PublicError(
+            "GIF storage is full. Send a text message instead.",
+            "CHAT_CAPACITY",
+          );
+        this.db
+          .prepare("INSERT INTO chat_media VALUES(?,?,?)")
+          .run(gif.id, valid.code, gif.data);
+      }
       const keep = valid.voices.map((v) => v.id);
       for (const row of this.db
         .prepare("SELECT id FROM voices WHERE room=?")
@@ -290,6 +316,11 @@ export class Store {
       .get(id, Date.now() - this.voiceRetentionMs) as
       | { room: string; mime: string; data: Uint8Array; createdAt: number }
       | undefined;
+  }
+  getChatMedia(id: string) {
+    return this.db
+      .prepare("SELECT room,data FROM chat_media WHERE id=?")
+      .get(id) as { room: string; data: Uint8Array } | undefined;
   }
   session(id: string, now = Date.now()) {
     return this.db
@@ -448,6 +479,11 @@ export class Store {
       voiceBytes: (
         this.db
           .prepare("SELECT COALESCE(SUM(length(data)),0) AS n FROM voices")
+          .get() as { n: number }
+      ).n,
+      chatMediaBytes: (
+        this.db
+          .prepare("SELECT COALESCE(SUM(length(data)),0) AS n FROM chat_media")
           .get() as { n: number }
       ).n,
       quarantined: (

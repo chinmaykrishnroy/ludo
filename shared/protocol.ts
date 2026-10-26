@@ -1,4 +1,12 @@
 import type { Game, Seat } from "./game.js";
+import type { Mention } from "./chat.js";
+export type Typing = {
+  room: string;
+  playerId: string;
+  name: string;
+  color: string;
+  active: boolean;
+};
 export type Voice = {
   senderId?: string;
   id: string;
@@ -14,6 +22,9 @@ export type Chat = {
   name: string;
   color: string;
   text: string;
+  replyTo?: string;
+  mentions?: Mention[];
+  gif?: { id: string; width: number; height: number };
   at: number;
 };
 export type Room = {

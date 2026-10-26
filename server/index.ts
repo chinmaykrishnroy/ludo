@@ -27,6 +27,7 @@ const service = createApplication({
   trustProxy: process.env.TRUST_PROXY_CIDRS?.split(",").map((s) => s.trim()),
   maxVoiceBytes: integer("MAX_VOICE_BYTES", 268435456),
   voiceRetentionMs: integer("VOICE_RETENTION_MS", 86400000),
+  chatIdleSeconds: integer("CHAT_IDLE_SECONDS", 10, 1, 300),
 });
 let devServer: { close: () => Promise<void> } | undefined,
   backupTimer: ReturnType<typeof setInterval> | undefined,

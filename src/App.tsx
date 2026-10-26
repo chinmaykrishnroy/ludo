@@ -42,6 +42,9 @@ import { loadDisplayName, rememberDisplayName } from "./profile";
 import { requestOfflineMove } from "./offlineAi";
 import VoicePanel from "./VoicePanel";
 import { useRoomVoice } from "./useRoomVoice";
+import RoomChat, { RoomTools } from "./RoomChat";
+import { useRoomChat } from "./useRoomChat";
+import type { Typing, Voice } from "../shared/protocol";
 import {
   COLORS,
   ROLL_MS,
@@ -581,6 +584,11 @@ export default function App() {
     ),
     [practiceOpen, setPracticeOpen] = useState(!!initialPractice),
     [room, setRoom] = useState<Room | null>(null),
+    [mutedVoice, setMutedVoice] = useState<Voice | null>(null),
+    [typingEvent, setTypingEvent] = useState<(Typing & { at: number }) | null>(
+      null,
+    ),
+    [chatIdleSeconds, setChatIdleSeconds] = useState(10),
     [me, setMe] = useState(""),
     [connected, setConnected] = useState(false),
     [clockOffset, setClockOffset] = useState(0),
@@ -609,6 +617,9 @@ export default function App() {
     [copied, setCopied] = useState(false);
   const socket = useRef<Socket | null>(null),
     toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null),
+    mutedVoiceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+      undefined,
+    ),
     animationTimers = useRef<ReturnType<typeof setTimeout>[]>([]),
     lastRevision = useRef(""),
     audioContext = useRef<AudioContext | null>(null),
@@ -735,6 +746,9 @@ export default function App() {
             setRoom(r);
             setSetup(!r.game);
           });
+          s.on("chat:typing", (event: Typing) =>
+            setTypingEvent({ ...event, at: Date.now() }),
+          );
           s.on("room:closed", () => {
             setRoom(null);
             notify("That room expired. A new table is ready whenever you are.");
@@ -771,6 +785,12 @@ export default function App() {
         .then((c) => {
           setPublicRoomsEnabled(c.publicRoomsEnabled === true);
           if (
+            Number.isInteger(c.chatIdleSeconds) &&
+            c.chatIdleSeconds >= 1 &&
+            c.chatIdleSeconds <= 300
+          )
+            setChatIdleSeconds(c.chatIdleSeconds);
+          if (
             !difficultyTouched.current &&
             Number.isInteger(c.defaultBotDifficulty) &&
             c.defaultBotDifficulty >= 0 &&
@@ -806,12 +826,25 @@ export default function App() {
       clearInterval(timer);
     };
   }, [setup, room]);
+  const announceMutedVoice = useCallback((message: Voice) => {
+    setMutedVoice(message);
+    clearTimeout(mutedVoiceTimer.current);
+    mutedVoiceTimer.current = setTimeout(() => setMutedVoice(null), 5000);
+  }, []);
   const voice = useRoomVoice({
     room,
     send,
     notify,
     onOnline: () => setModal("rooms"),
+    me,
+    onMutedVoice: announceMutedVoice,
   });
+  useEffect(() => {
+    setMutedVoice(null);
+    clearTimeout(mutedVoiceTimer.current);
+    return () => clearTimeout(mutedVoiceTimer.current);
+  }, [room?.code, voice.muted]);
+  const chat = useRoomChat(room, me, chatIdleSeconds, typingEvent);
   const game =
       room?.game ??
       (room
@@ -857,7 +890,7 @@ export default function App() {
     return () => clearInterval(timer);
   }, [room, practiceOpen, setup, modal, local.phase]);
   function chime(high = false) {
-    if (!soundRef.current) return;
+    if (!soundRef.current || voice.muted) return;
     try {
       const a = (audioContext.current ??= new AudioContext());
       void a.resume();
@@ -1107,6 +1140,43 @@ export default function App() {
       </button>
     </>
   );
+  const notices = (
+    <>
+      {mutedVoice && voice.muted && (
+        <div className="muted-voice-toast" role="status">
+          <span>
+            <strong>{mutedVoice.name}</strong> spoke
+          </span>
+          <button
+            onClick={() => {
+              voice.unmuteAndPlay(mutedVoice.id);
+              setMutedVoice(null);
+            }}
+          >
+            Unmute to listen
+          </button>
+          <button
+            className="muted-toast-close"
+            aria-label="Dismiss voice notice"
+            onClick={() => setMutedVoice(null)}
+          >
+            <X />
+          </button>
+        </div>
+      )}
+      {toast && (
+        <div className="toast" role="status">
+          <span>{toast}</span>
+          <button
+            aria-label="Dismiss notification"
+            onClick={() => setToast("")}
+          >
+            <X />
+          </button>
+        </div>
+      )}
+    </>
+  );
   return (
     <div className="app-shell">
       {storageUnavailable && !storageDismissed && (
@@ -1131,7 +1201,7 @@ export default function App() {
           room={room}
           busy={busy}
           rolling={rolling}
-          showVoice={modal !== "menu"}
+          showVoice={modal !== "menu" && !chat.open}
           onBack={() => setModal("leave")}
           connected={connected}
           clockOffset={room ? clockOffset : 0}
@@ -1139,6 +1209,7 @@ export default function App() {
           onMove={(n) => void act("game:move", n)}
           onMenu={() => setModal("menu")}
           voice={voice}
+          chat={chat}
           onOnline={() => setModal("rooms")}
         />
       ) : (
@@ -1148,6 +1219,7 @@ export default function App() {
               <DiceFive weight="fill" />
               LUDO CLUB
             </a>
+            {room && <RoomTools voice={voice} chat={chat} />}
             <button
               className="square-button"
               aria-label="Settings"
@@ -1597,17 +1669,19 @@ export default function App() {
           </button>
         </Dialog>
       )}
-      {toast && (
-        <div className="toast" role="status">
-          <span>{toast}</span>
-          <button
-            aria-label="Dismiss notification"
-            onClick={() => setToast("")}
-          >
-            <X />
-          </button>
-        </div>
+      {room && (
+        <RoomChat
+          room={room}
+          me={me}
+          chat={chat}
+          voice={voice}
+          notice={notices}
+          send={send}
+          notify={notify}
+          connected={connected}
+        />
       )}
+      {!chat.open && notices}
     </div>
   );
 }

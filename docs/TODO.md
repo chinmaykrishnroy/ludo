@@ -4,6 +4,12 @@ Reviewed 26 October 2026 against `29a835a0b8fa60f954f973b1e01c7b256aadd7ad`, wit
 
 The checked fixes are included in **v0.1.5**, deployed to the Pi and verified through the public HTTPS route. Rolls allow 15 seconds and moves allow 30 seconds; voice capture remains limited to 60 seconds / 1 MiB. Unchecked items below remain open.
 
+The **v0.1.6** update adds room chat, GIF uploads, replies, mentions, typing,
+speaker mute, visible autoplay recovery and more conversational voice rate limits.
+The owner confirmed v0.1.5 recording/upload from the public site; iPhone playback
+and the new touch/keyboard flows still need physical-device confirmation. Voice
+retention remains unchanged pending a separate decision about listening receipts.
+
 ## P1 — Fix before expanding public access
 
 - [x] **Bound binary input before Socket.IO reconstruction.** Added `server/transport.ts`: one attachment maximum, 16-KiB UTF-8 text and 1-MiB decoded binary caps, shared guest/IP byte and packet budgets before decoder delivery, and a 30-second absolute unfinished-upload deadline. Discard/close releases reconstruction and timer state. Seven new regressions cover the original retention path, equivalent numeric counts, unknown events/ACKs, malformed sizes, shared budgets across tabs/reconnects, deadline cleanup and full-size voice over polling, WebSocket and base64 WebSocket. All 75 tests and production build pass; independent review found no concrete bypass. Upgrade continuity was source-traced rather than tested on the wire. Included in the v0.1.3 changes.

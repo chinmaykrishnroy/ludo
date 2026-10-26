@@ -9,6 +9,10 @@ import { EventEmitter } from "node:events";
 import { AiScheduler, type WorkerPort } from "../server/ai/scheduler.js";
 import { chooseBotMove, type AiJob } from "../shared/ai/index.js";
 import { roll } from "../shared/game.js";
+const gifFile = Buffer.from(
+  "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
+  "base64",
+);
 const delay = (ms = 50) => new Promise((resolve) => setTimeout(resolve, ms));
 async function harness(options: ApplicationOptions = {}) {
   const service = createApplication({ dbPath: ":memory:", ...options }),
@@ -49,6 +53,208 @@ async function harness(options: ApplicationOptions = {}) {
     },
   };
 }
+
+test("a normal burst of short voice notes succeeds across tabs while excessive sends remain limited", async () => {
+  const h = await harness();
+  try {
+    const a = await h.client(),
+      room = await h.call(a.socket, "room:create", {
+        name: "Voice burst",
+        playerName: "Alice",
+        public: false,
+        bots: 0,
+      }),
+      tab = await h.client(a.cookie);
+    for (let i = 0; i < 30; i++) {
+      const reply = await h.call(i % 2 ? tab.socket : a.socket, "voice:send", {
+        audio: Buffer.from([0x1a, 0x45, 0xdf, 0xa3, ...Array(60).fill(0)]),
+        mime: "audio/webm",
+        duration: 1,
+      });
+      assert(reply.ok, `short recording ${i + 1}: ${reply.error}`);
+    }
+    assert.equal(h.service.rooms.get(room.room!.code)!.voices.length, 20);
+    const voiceId = h.service.rooms.get(room.room!.code)!.voices.at(-1)!.id;
+    const partial = await fetch(`${h.url}/api/voice/${voiceId}`, {
+      headers: { Cookie: a.cookie, Range: "bytes=0-3" },
+    });
+    assert.equal(partial.status, 206);
+    assert.equal(partial.headers.get("content-range"), "bytes 0-3/64");
+    assert.deepEqual(
+      Buffer.from(await partial.arrayBuffer()),
+      Buffer.from([0x1a, 0x45, 0xdf, 0xa3]),
+    );
+    const invalid = await fetch(`${h.url}/api/voice/${voiceId}`, {
+      headers: { Cookie: a.cookie, Range: "bytes=999-" },
+    });
+    assert.equal(invalid.status, 416);
+    const capped = await h.call(tab.socket, "voice:send", {
+      audio: Buffer.from([0x1a, 0x45, 0xdf, 0xa3, ...Array(60).fill(0)]),
+      mime: "audio/webm",
+      duration: 1,
+    });
+    assert(!capped.ok);
+    assert.equal(capped.code, "RATE_LIMITED");
+  } finally {
+    await h.close();
+  }
+});
+
+test("chat replies, verified mentions, GIF access and transient typing stay within the room and respect blocks", async () => {
+  const h = await harness();
+  try {
+    const a = await h.client(),
+      created = await h.call(a.socket, "room:create", {
+        name: "Chat",
+        playerName: "Alice",
+        public: false,
+        bots: 0,
+      }),
+      b = await h.client(),
+      joined = await h.call(b.socket, "room:join", {
+        code: created.room!.code,
+        playerName: "Bob",
+      }),
+      stranger = await h.client();
+    const events: unknown[] = [],
+      leaks: unknown[] = [];
+    b.socket.on("chat:typing", (v) => events.push(v));
+    stranger.socket.on("chat:typing", (v) => leaks.push(v));
+    assert((await h.call(a.socket, "chat:typing", { active: true })).ok);
+    await delay();
+    assert.equal(events.length, 1);
+    assert.equal(leaks.length, 0);
+    assert.equal(h.service.rooms.get(created.room!.code)!.chat.length, 0);
+    assert(
+      (
+        await h.call(a.socket, "chat:send", {
+          text: "Hi @Bob",
+          mentions: [
+            {
+              playerId: joined.me,
+              start: 3,
+              end: 7,
+              name: "Fake",
+              color: "red",
+            },
+          ],
+        })
+      ).ok,
+    );
+    const first = h.service.rooms.get(created.room!.code)!.chat[0];
+    assert.deepEqual(first.mentions, [
+      { playerId: joined.me, start: 3, end: 7, name: "Bob", color: "green" },
+    ]);
+    assert(
+      !(
+        await h.call(a.socket, "chat:send", {
+          text: "Hi @Bob",
+          mentions: [{ playerId: joined.me, start: 0, end: 7 }],
+        })
+      ).ok,
+    );
+    assert(
+      (
+        await h.call(b.socket, "chat:send", {
+          text: "",
+          replyTo: first.id,
+          gif: gifFile,
+        })
+      ).ok,
+    );
+    const image = h.service.rooms.get(created.room!.code)!.chat[1];
+    assert.equal(image.replyTo, first.id);
+    const url = `${h.url}/api/chat-media/${image.gif!.id}`;
+    const response = await fetch(url, { headers: { Cookie: a.cookie } });
+    assert.equal(response.status, 200);
+    assert.deepEqual(Buffer.from(await response.arrayBuffer()), gifFile);
+    assert.equal(
+      (await fetch(url, { headers: { Cookie: stranger.cookie } })).status,
+      404,
+    );
+    assert(
+      (await h.call(a.socket, "moderation:block", { player: joined.me })).ok,
+    );
+    assert.equal(
+      (await fetch(url, { headers: { Cookie: a.cookie } })).status,
+      404,
+    );
+    assert(
+      !(
+        await h.call(a.socket, "chat:send", {
+          text: "hidden reply",
+          replyTo: image.id,
+        })
+      ).ok,
+    );
+    events.length = 0;
+    assert((await h.call(a.socket, "chat:typing", { active: true })).ok);
+    await delay();
+    // Blocks apply in both directions, including transient metadata.
+    assert.equal(events.length, 0);
+    const persisted = h.service.store.findByPlayer(created.me!)!;
+    assert.deepEqual(
+      persisted.chat,
+      h.service.rooms.get(created.room!.code)!.chat,
+    );
+  } finally {
+    await h.close();
+  }
+});
+
+test("failed GIF writes roll back messages and successful media is removed with its message or room", async () => {
+  const h = await harness();
+  try {
+    const a = await h.client(),
+      created = await h.call(a.socket, "room:create", {
+        name: "Atomic chat",
+        playerName: "Alice",
+        public: false,
+        bots: 0,
+      }),
+      code = created.room!.code,
+      before = JSON.stringify(h.service.rooms.get(code));
+    h.service.store.db.exec(
+      "CREATE TEMP TRIGGER fail_gif BEFORE INSERT ON chat_media BEGIN SELECT RAISE(ABORT,'injected GIF write failure'); END",
+    );
+    assert(
+      !(await h.call(a.socket, "chat:send", { text: "test", gif: gifFile })).ok,
+    );
+    assert.equal(JSON.stringify(h.service.rooms.get(code)), before);
+    assert.equal(h.service.store.findByPlayer(created.me!)!.chat.length, 0);
+    assert.equal(
+      (
+        h.service.store.db
+          .prepare("SELECT COUNT(*) AS n FROM chat_media")
+          .get() as { n: number }
+      ).n,
+      0,
+    );
+    h.service.store.db.exec("DROP TRIGGER fail_gif");
+    // Storage backoff is brief after injected write failures.
+    await delay(1100);
+    assert(
+      (await h.call(a.socket, "chat:send", { text: "", gif: gifFile })).ok,
+    );
+    const room = structuredClone(h.service.rooms.get(code)!);
+    const imageId = room.chat[0].gif!.id;
+    assert(h.service.store.getChatMedia(imageId));
+    room.chat = [];
+    h.service.store.save(room);
+    assert(!h.service.store.getChatMedia(imageId));
+    // Use the normal handler again so the memory draft and persisted snapshot agree.
+    assert(
+      (await h.call(a.socket, "chat:send", { text: "second", gif: gifFile }))
+        .ok,
+    );
+    const second = h.service.rooms.get(code)!.chat.at(-1)!.gif!.id;
+    assert(h.service.store.getChatMedia(second));
+    h.service.store.delete(code);
+    assert(!h.service.store.getChatMedia(second));
+  } finally {
+    await h.close();
+  }
+});
 
 test("archived reconnect respects room capacity without losing the saved game", async () => {
   const h = await harness({ maxRooms: 1, botDelay: 60000 });

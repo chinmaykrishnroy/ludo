@@ -35,6 +35,16 @@ The shared AI returns a legal token choice and diagnostics without network or st
 
 Hold-to-speak records a message for upload over HTTPS; it does not create a live call. Permission is requested on first use. Recordings are capped at 60 seconds and 1 MiB, membership checked, and subject to count, age and storage retention. SQLite stores recording blobs and metadata together.
 
+`useRoomVoice` owns recording and playback above its compact/menu presentations. `VoicePlayback` reuses one audio element so a user tap can unlock playback on iOS. Blocked autoplay retains a bounded queue and exposes a visible playback action; speaker mute stops queued audio and game sounds. Up to 30 voice sends per guest and 180 per IP per minute allow normal conversation, with separate byte, transport and storage limits retained.
+
+## Room chat
+
+The header opens a chat dialog without changing the board layout. It shows the most recent 50 chat messages and retained voice recordings, unread counts, selectable/copyable text, large standalone emoji, replies and player mentions. Reply references point to message IDs; the client renders only originals present in its filtered room view. Mention positions and player IDs are checked on the server, which assigns canonical names and colours. Text is rendered as React text, never HTML.
+
+GIFs are uploaded or pasted as files rather than fetched from arbitrary third-party URLs. A single GIF is bounded to 1 MiB and dimensions up to 2048 pixels per side. Binary data lives in `chat_media`, with a 64-MiB server quota; snapshots contain only metadata. A single transaction persists message metadata and media, deletes GIFs whose messages left the 50-message history, then broadcasts. Room deletion cascades to its GIFs. Media routes recheck session, membership and blocks on each request and are excluded from offline caching.
+
+Typing events use authenticated room membership and player identity, respect blocks, are rate limited, and expire on clients after four seconds without refresh. They do not write SQLite or keep abandoned rooms alive. The overlay closes after `CHAT_IDLE_SECONDS` without local input, scrolling, new messages or typing updates; the default is 10 seconds. Drafts survive closing the overlay but are cleared when changing rooms. Disconnecting remains distinct from explicitly leaving; existing room and voice retention policies are unchanged.
+
 The PWA caches the static app, fonts and browser worker. Offline computer games and manual pass-and-play use the shared rules locally. Session endpoints, private API responses and recordings are excluded from the offline cache. Online rooms still require connectivity.
 
 ## Deployment boundary

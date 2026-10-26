@@ -22,6 +22,7 @@ import {
 } from "./security.js";
 import { seat, newGame, roll, move, legalMoves } from "../shared/game.js";
 import { VOICE_MAX_BYTES, VOICE_MAX_SECONDS } from "../shared/voice.js";
+import { CHAT_MAX_GIF_BYTES, CHAT_IDLE_SECONDS } from "../shared/chat.js";
 import type { Room, Reply } from "../shared/protocol.js";
 import { DEFAULT_BOT_DIFFICULTY, validDifficulty } from "../shared/bot.js";
 import { AiScheduler } from "./ai/scheduler.js";
@@ -66,6 +67,7 @@ export type ApplicationOptions = {
   maintenanceMs?: number;
   minimumFreeBytes?: number;
   binaryTimeoutMs?: number;
+  chatIdleSeconds?: number;
 };
 export function createApplication(options: ApplicationOptions = {}) {
   const aiBudget = {
@@ -279,6 +281,7 @@ export function createApplication(options: ApplicationOptions = {}) {
       activity?: boolean;
       delay?: number;
       voice?: VoiceWrite;
+      gif?: { id: string; data: Buffer };
       archive?: boolean;
     } = {},
   ) {
@@ -296,7 +299,7 @@ export function createApplication(options: ApplicationOptions = {}) {
       oldIds = old ? memberIds(old) : [],
       newIds = memberIds(draft);
     const deliveries = newIds.map((id) => ({ id, room: view(draft, id) }));
-    store.save(draft, config.voice);
+    store.save(draft, config.voice, config.gif);
     if (
       old?.game?.revision !== draft.game?.revision ||
       old?.game?.seats[old.game.turn]?.id !==
@@ -481,6 +484,7 @@ export function createApplication(options: ApplicationOptions = {}) {
       publicRoomsEnabled: publicEnabled,
       defaultBotDifficulty,
       voiceMaxSeconds: VOICE_MAX_SECONDS,
+      chatIdleSeconds: options.chatIdleSeconds ?? CHAT_IDLE_SECONDS,
       voiceRetentionHours: store.voiceRetentionMs / 3600000,
       unfinishedRoomRetentionDays: 30,
     }),
@@ -578,7 +582,7 @@ export function createApplication(options: ApplicationOptions = {}) {
       }
       throw error;
     }
-    limited(`voice-download:${id}`, 120);
+    limited(`voice-download:${id}`, 600);
     const blob = store.getVoice(String(req.params.id)),
       room = blob && activeRoom(id),
       metadata = room?.voices.find((v) => v.id === req.params.id);
@@ -594,15 +598,79 @@ export function createApplication(options: ApplicationOptions = {}) {
       res.sendStatus(404);
       return;
     }
+    res.set({
+      "Content-Type": blob.mime,
+      "Cache-Control": "private, no-store",
+      "X-Content-Type-Options": "nosniff",
+      "Accept-Ranges": "bytes",
+    });
+    const bytes = Buffer.from(blob.data),
+      range = req.headers.range;
+    if (range) {
+      const match = /^bytes=(\d*)-(\d*)$/.exec(range);
+      const start = match?.[1]
+        ? Number(match[1])
+        : Math.max(0, bytes.length - Number(match?.[2]));
+      const end =
+        match?.[1] && match[2]
+          ? Math.min(bytes.length - 1, Number(match[2]))
+          : bytes.length - 1;
+      if (
+        !match ||
+        (!match[1] && !match[2]) ||
+        !Number.isSafeInteger(start) ||
+        !Number.isSafeInteger(end) ||
+        start < 0 ||
+        start >= bytes.length ||
+        end < start
+      ) {
+        res.status(416).set("Content-Range", `bytes */${bytes.length}`).end();
+        return;
+      }
+      res
+        .status(206)
+        .set("Content-Range", `bytes ${start}-${end}/${bytes.length}`)
+        .send(bytes.subarray(start, end + 1));
+      return;
+    }
+    res.send(bytes);
+  });
+  app.use("/api/admin", admin, express.json({ limit: "8kb" }));
+  app.get("/api/chat-media/:id", (req, res) => {
+    let id: string;
+    try {
+      id = sessionFor(req.headers.cookie, proxy.address(req));
+    } catch (error) {
+      if (error instanceof PublicError) {
+        res.sendStatus(404);
+        return;
+      }
+      throw error;
+    }
+    limited(`chat-download:${id}`, 600);
+    const blob = store.getChatMedia(String(req.params.id)),
+      room = blob && activeRoom(id),
+      message = room?.chat.find((m) => m.gif?.id === req.params.id);
+    if (
+      !blob ||
+      !room ||
+      room.code !== blob.room ||
+      !message ||
+      (message.senderId
+        ? store.blocked(id, message.senderId)
+        : store.blockedSubjects(id).length > 0)
+    ) {
+      res.sendStatus(404);
+      return;
+    }
     res
       .set({
-        "Content-Type": blob.mime,
+        "Content-Type": "image/gif",
         "Cache-Control": "private, no-store",
         "X-Content-Type-Options": "nosniff",
       })
       .send(Buffer.from(blob.data));
   });
-  app.use("/api/admin", admin, express.json({ limit: "8kb" }));
   app.get("/api/admin/reports", (_req, res) => res.json(store.reports()));
   app.post("/api/admin/bans", (req, res) => {
     const input = z
@@ -675,8 +743,9 @@ export function createApplication(options: ApplicationOptions = {}) {
           const categories: Record<string, [number, number, number]> = {
             "room:create": [3, 20, 600000],
             "room:join": [20, 100, 60000],
-            "chat:send": [20, 100, 60000],
-            "voice:send": [6, 30, 60000],
+            "chat:send": [60, 300, 60000],
+            "chat:typing": [12, 80, 10000],
+            "voice:send": [30, 180, 60000],
             "moderation:report": [5, 30, 3600000],
             "moderation:block": [20, 100, 3600000],
           };
@@ -932,22 +1001,100 @@ export function createApplication(options: ApplicationOptions = {}) {
       r.game = move(r.game!, input.token);
       commit(r, { delay: 1100 });
     });
+    handle("chat:typing", (data) => {
+      const input = z.object({ active: z.boolean() }).parse(data),
+        r = requireRoom(),
+        p = r.seats.find((s) => s?.id === id)!;
+      for (const recipient of memberIds(r)) {
+        if (!store.blocked(recipient, id))
+          io.to(guestChannel(recipient)).emit("chat:typing", {
+            room: r.code,
+            playerId: id,
+            name: p.name,
+            color: p.color,
+            active: input.active,
+          });
+      }
+    });
     handle("chat:send", (data) => {
       const input = z
-          .object({ text: z.string().trim().min(1).max(180) })
+          .object({
+            text: z.string().max(180),
+            replyTo: z.string().uuid().optional(),
+            gif: z.instanceof(Buffer).optional(),
+            mentions: z
+              .array(
+                z.object({
+                  playerId: z.string().max(100),
+                  start: z.number().int().min(0),
+                  end: z.number().int().max(180),
+                }),
+              )
+              .max(10)
+              .optional(),
+          })
           .parse(data),
         r = requireRoom(),
         p = r.seats.find((s) => s?.id === id)!;
+      if (!input.text.trim() && !input.gif)
+        throw new PublicError("Write a message or choose a GIF.");
+      if (
+        input.replyTo &&
+        !view(r, id).chat.some((m) => m.id === input.replyTo)
+      )
+        throw new PublicError(
+          "That message is no longer available to reply to.",
+        );
+      let gif: { id: string; width: number; height: number } | undefined;
+      if (input.gif) {
+        const b = input.gif;
+        if (
+          b.length < 14 ||
+          b.length > CHAT_MAX_GIF_BYTES ||
+          !["GIF87a", "GIF89a"].includes(b.subarray(0, 6).toString())
+        )
+          throw new PublicError("Choose a GIF file up to 1 MB.");
+        const width = b.readUInt16LE(6),
+          height = b.readUInt16LE(8);
+        if (!width || !height || width > 2048 || height > 2048)
+          throw new PublicError("GIF dimensions must be at most 2048 × 2048.");
+        limited(
+          `gif-bytes:user:${id}`,
+          4 * CHAT_MAX_GIF_BYTES,
+          60000,
+          b.length,
+        );
+        limited(`gif-bytes:ip:${ip}`, 16 * CHAT_MAX_GIF_BYTES, 60000, b.length);
+        gif = { id: randomUUID(), width, height };
+      }
+      let previousEnd = 0;
+      const mentions = (input.mentions ?? []).map((m) => {
+        const player = r.seats.find((s) => s?.id === m.playerId);
+        if (
+          !player ||
+          m.start < previousEnd ||
+          m.end <= m.start ||
+          input.text.slice(m.start, m.end) !== `@${player.name}`
+        )
+          throw new PublicError(
+            "Choose a player from the mention suggestions.",
+          );
+        previousEnd = m.end;
+        return { ...m, name: player.name, color: player.color };
+      });
       r.chat.push({
         id: randomUUID(),
         senderId: id,
         name: p.name,
         color: p.color,
         text: input.text,
+        ...(input.replyTo ? { replyTo: input.replyTo } : {}),
+        ...(gif ? { gif } : {}),
+        ...(mentions.length ? { mentions } : {}),
         at: Date.now(),
       });
       r.chat = r.chat.slice(-50);
-      commit(r);
+      commit(r, { gif: gif && { id: gif.id, data: input.gif! } });
     });
     handle("voice:send", (data) => {
       const input = z

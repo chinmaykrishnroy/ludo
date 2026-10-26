@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { Board, PALETTE } from "./Board";
 import Dice from "./Dice";
 import type { VoiceController } from "./useRoomVoice";
+import { RoomTools } from "./RoomChat";
+import type { ChatController } from "./useRoomChat";
 import VoicePanel from "./VoicePanel";
 import type { Game } from "../shared/game";
 import type { Room } from "../shared/protocol";
@@ -22,6 +24,7 @@ export default function PlayScreen({
   showVoice = true,
   onBack,
   clockOffset,
+  chat,
 }: {
   game: Game;
   me: string;
@@ -37,6 +40,7 @@ export default function PlayScreen({
   showVoice?: boolean;
   onBack: () => void;
   clockOffset: number;
+  chat: ChatController;
 }) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -58,6 +62,7 @@ export default function PlayScreen({
           <ArrowLeft weight="bold" />
           BACK
         </button>
+        <RoomTools voice={voice} chat={chat} online={!!room} />
       </header>
       <main className="play-screen">
         <div

@@ -1,18 +1,23 @@
 import { useEffect, useRef, useState } from "react";
-import type { Room, Reply } from "../shared/protocol";
+import type { Room, Reply, Voice } from "../shared/protocol";
 import { VOICE_MAX_SECONDS } from "../shared/voice";
 import { browserStorage } from "./storage";
 import { createVoiceRecording, type VoiceRecording } from "./voiceRecording";
+import { VoicePlayback } from "./voicePlayback";
 export function useRoomVoice({
   room,
   send,
   notify,
   onOnline,
+  me,
+  onMutedVoice,
 }: {
   room: Room | null;
   send: (event: string, data: unknown) => Promise<Reply>;
   notify: (text: string) => void;
   onOnline: () => void;
+  me: string;
+  onMutedVoice: (voice: Voice) => void;
 }) {
   const [recording, setRecording] = useState(false),
     [pending, setPending] = useState(false),
@@ -20,17 +25,27 @@ export function useRoomVoice({
     [auto, setAuto] = useState(
       () => browserStorage.getItem("ludo-voice-auto") !== "off",
     ),
-    [playing, setPlaying] = useState<string | null>(null);
+    [playing, setPlaying] = useState<string | null>(null),
+    [needsPlayback, setNeedsPlayback] = useState(false),
+    [muted, setMuted] = useState(
+      () => browserStorage.getItem("ludo-room-muted") === "on",
+    );
+  const playback = useRef<VoicePlayback | null>(null);
+  if (!playback.current)
+    playback.current = new VoicePlayback(
+      (id, blocked) => {
+        setPlaying(id);
+        setNeedsPlayback(blocked);
+      },
+      () => notify("This voice message could not be played."),
+    );
   const recorder = useRef<VoiceRecording | null>(null),
     held = useRef(false),
     mounted = useRef(true),
     stream = useRef<MediaStream | null>(null),
     started = useRef(0),
-    audio = useRef<HTMLAudioElement | null>(null),
     cancelled = useRef(false),
-    playbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null),
-    seen = useRef(new Set<string>()),
-    queue = useRef<string[]>([]);
+    seen = useRef(new Set<string>());
   const microphoneReady = useRef(false),
     permissionPending = useRef(false);
   const roomCode = useRef(room?.code);
@@ -49,13 +64,7 @@ export function useRoomVoice({
     if (r) setPending(true);
   }
   function pausePlayback() {
-    if (playbackTimer.current) clearTimeout(playbackTimer.current);
-    if (audio.current) {
-      audio.current.onended = null;
-      audio.current.onerror = null;
-      audio.current.pause();
-      audio.current = null;
-    }
+    playback.current!.clear();
   }
   useEffect(() => {
     const cancelOnEscape = (event: KeyboardEvent) => {
@@ -97,7 +106,6 @@ export function useRoomVoice({
   }, []);
   useEffect(() => {
     seen.current = new Set(room?.voices.map((v) => v.id) ?? []);
-    queue.current = [];
     pausePlayback();
     setPlaying(null);
     return () => {
@@ -121,54 +129,18 @@ export function useRoomVoice({
     );
     return () => clearInterval(t);
   }, [recording]);
-  function playNext() {
-    pausePlayback();
-    const id = queue.current.shift();
-    if (!id) {
-      setPlaying(null);
-      return;
-    }
-    const a = new Audio(`/api/voice/${id}`);
-    audio.current = a;
-    setPlaying(id);
-    a.onended = playNext;
-    a.onerror = () => {
-      notify("This voice message could not be played.");
-      playNext();
-    };
-    void a
-      .play()
-      .then(() => {
-        // Uploaded duration is untrusted. Bound actual playback too.
-        if (audio.current === a)
-          playbackTimer.current = setTimeout(
-            playNext,
-            (VOICE_MAX_SECONDS + 0.5) * 1000,
-          );
-      })
-      .catch(() => {
-        if (audio.current !== a) return;
-        setPlaying(null);
-        queue.current = [];
-        notify("Tap a voice message to allow audio playback.");
-      });
-  }
   useEffect(() => {
-    if (playing && !room?.voices.some((v) => v.id === playing)) {
-      pausePlayback();
-      setPlaying(null);
-    }
-    queue.current = queue.current.filter((id) =>
-      room?.voices.some((v) => v.id === id),
-    );
+    playback.current!.available(new Set(room?.voices.map((v) => v.id) ?? []));
+    const fresh: string[] = [];
     for (const v of room?.voices ?? []) {
       if (!seen.current.has(v.id)) {
         seen.current.add(v.id);
-        if (auto) queue.current.push(v.id);
+        if (auto && !muted) fresh.push(v.id);
+        if (muted && v.senderId !== me) onMutedVoice(v);
       }
     }
-    if (auto && !playing && queue.current.length) playNext();
-  }, [room?.voices, auto, playing]);
+    playback.current!.enqueue(fresh);
+  }, [room?.voices, auto, muted]);
   async function begin() {
     if (permissionPending.current || recorder.current) return;
     if (!room) {
@@ -290,15 +262,7 @@ export function useRoomVoice({
     }
   }
   function togglePlay(id: string) {
-    if (playing === id) {
-      pausePlayback();
-      queue.current = [];
-      setPlaying(null);
-    } else {
-      pausePlayback();
-      queue.current = [id];
-      playNext();
-    }
+    playback.current!.toggle(id);
   }
   useEffect(() => {
     browserStorage.setItem("ludo-voice-auto", auto ? "on" : "off");
@@ -308,8 +272,17 @@ export function useRoomVoice({
     if (auto) {
       pausePlayback();
       setPlaying(null);
-      queue.current = [];
     }
+  }
+  useEffect(() => {
+    playback.current!.setMuted(muted);
+    browserStorage.setItem("ludo-room-muted", muted ? "on" : "off");
+  }, [muted]);
+  function toggleMuted() {
+    const next = !muted;
+    playback.current!.setMuted(next);
+    setMuted(next);
+    if (!next) playback.current!.resume();
   }
   return {
     recording,
@@ -318,6 +291,15 @@ export function useRoomVoice({
     seconds,
     auto,
     playing,
+    muted,
+    needsPlayback,
+    toggleMuted,
+    unmuteAndPlay: (id: string) => {
+      playback.current!.setMuted(false);
+      setMuted(false);
+      playback.current!.toggle(id);
+    },
+    resumePlayback: () => playback.current!.resume(),
     toggleAuto,
     togglePlay,
     begin,

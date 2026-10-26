@@ -36,6 +36,26 @@ export const roomSchema = z
           name: z.string().max(64),
           color: z.enum(COLORS),
           text: z.string().max(180),
+          replyTo: z.string().max(100).optional(),
+          mentions: z
+            .array(
+              z.object({
+                playerId: z.string().max(100),
+                name: z.string().max(64),
+                color: z.enum(COLORS),
+                start: z.number().int().min(0).max(180),
+                end: z.number().int().min(1).max(180),
+              }),
+            )
+            .max(10)
+            .optional(),
+          gif: z
+            .object({
+              id: z.string().uuid(),
+              width: z.number().int().min(1).max(2048),
+              height: z.number().int().min(1).max(2048),
+            })
+            .optional(),
           senderId: z.string().max(100).optional(),
           at: timestamp,
         }),
