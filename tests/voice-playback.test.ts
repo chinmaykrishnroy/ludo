@@ -77,3 +77,22 @@ test("muting stops playback and late autoplay rejections cannot resurrect a clea
   assert.equal(p.state.playing, "three");
   p.playback.clear();
 });
+
+test("speaker unlock uses an allowed local blob and releases it before the next recording", async () => {
+  const p = player();
+  p.allow();
+  try {
+    p.playback.resume();
+    await flush();
+    const url = p.element.src;
+    assert(url.startsWith("blob:"));
+    assert.equal((await fetch(url)).headers.get("content-type"), "audio/wav");
+    p.playback.enqueue(["one"]);
+    await flush();
+    assert.equal(p.element.src, "/api/voice/one");
+    assert.equal(p.created(), 1);
+    await assert.rejects(fetch(url));
+  } finally {
+    p.playback.clear();
+  }
+});

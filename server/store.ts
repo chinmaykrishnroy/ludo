@@ -91,7 +91,7 @@ export class Store {
           "ALTER TABLE voices ADD COLUMN createdAt INTEGER NOT NULL DEFAULT 0",
         );
       this.db.exec(
-        "CREATE INDEX IF NOT EXISTS rooms_archive ON rooms(archived); CREATE INDEX IF NOT EXISTS voices_age ON voices(createdAt); CREATE INDEX IF NOT EXISTS sessions_expiry ON sessions(expiresAt);",
+        "CREATE INDEX IF NOT EXISTS rooms_archive ON rooms(archived); CREATE INDEX IF NOT EXISTS voices_age ON voices(createdAt); CREATE INDEX IF NOT EXISTS sessions_expiry ON sessions(expiresAt); CREATE INDEX IF NOT EXISTS chat_media_room ON chat_media(room,id);",
       );
       const pageSize = (
         this.db.prepare("PRAGMA page_size").get() as { page_size: number }
