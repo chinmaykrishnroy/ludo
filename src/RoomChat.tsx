@@ -3,7 +3,9 @@ import {
   ArrowBendUpLeft,
   ChatCircle,
   Copy,
-  Gif,
+  Paperclip,
+  Camera,
+  ImageSquare,
   PaperPlaneRight,
   Pause,
   Play,
@@ -23,6 +25,7 @@ import type { Color } from "../shared/game";
 import { PALETTE } from "./Board";
 import type { VoiceController } from "./useRoomVoice";
 import type { ChatController } from "./useRoomChat";
+import { preparePhoto } from "./preparePhoto";
 
 export function RoomTools({
   voice,
@@ -124,10 +127,18 @@ export default function RoomChat({
     } | null>(null),
     [highlight, setHighlight] = useState<string | null>(null);
   const [suggestion, setSuggestion] = useState(0);
+  const [attachmentsOpen, setAttachmentsOpen] = useState(false),
+    [preparing, setPreparing] = useState(false);
+  const mobileCapture =
+    navigator.maxTouchPoints > 0 ||
+    window.matchMedia("(pointer:coarse)").matches;
   const dialog = useRef<HTMLDialogElement>(null),
     input = useRef<HTMLTextAreaElement>(null),
     feed = useRef<HTMLDivElement>(null),
     pick = useRef<HTMLInputElement>(null),
+    camera = useRef<HTMLInputElement>(null),
+    attachmentVersion = useRef(0),
+    alive = useRef(true),
     nodes = useRef(new Map<string, HTMLElement>()),
     lastTyping = useRef(0),
     typingTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined),
@@ -184,12 +195,34 @@ export default function RoomChat({
     }
   }, [chat.open]);
   useEffect(() => {
+    const inputs = [pick.current, camera.current];
+    for (const node of inputs)
+      node?.addEventListener("cancel", chat.resumeFromPicker);
+    const visible = () => {
+      if (!document.hidden) chat.resumeFromPicker();
+    };
+    window.addEventListener("focus", chat.resumeFromPicker);
+    document.addEventListener("visibilitychange", visible);
+    return () => {
+      for (const node of inputs)
+        node?.removeEventListener("cancel", chat.resumeFromPicker);
+      window.removeEventListener("focus", chat.resumeFromPicker);
+      document.removeEventListener("visibilitychange", visible);
+    };
+  }, [chat.resumeFromPicker]);
+  useEffect(() => {
+    alive.current = true;
     setText("");
     setMentions([]);
     setReply(null);
     setFile(null);
     setQuery(null);
+    setPreparing(false);
+    setAttachmentsOpen(false);
+    attachmentVersion.current++;
     return () => {
+      alive.current = false;
+      attachmentVersion.current++;
       clearTimeout(typingTimer.current);
       clearTimeout(highlightTimer.current);
     };
@@ -242,16 +275,39 @@ export default function RoomChat({
       );
     });
   }
-  function attach(file: File) {
+  async function attach(file: File) {
     chat.activity();
-    if (file.type !== "image/gif" || file.size > CHAT_MAX_GIF_BYTES) {
-      notify("Choose a GIF file up to 1 MB.");
-      return;
+    const version = ++attachmentVersion.current,
+      code = room.code;
+    setPreparing(true);
+    setAttachmentsOpen(false);
+    const keepOpen = setInterval(() => {
+      if (alive.current && currentRoom.current === code) chat.activity();
+    }, 2000);
+    try {
+      if (file.type === "image/gif" && file.size > CHAT_MAX_GIF_BYTES)
+        throw new Error("Choose a GIF file up to 1 MB.");
+      const prepared =
+        file.type === "image/gif" ? file : await preparePhoto(file);
+      if (
+        alive.current &&
+        version === attachmentVersion.current &&
+        currentRoom.current === code
+      )
+        setFile(prepared);
+    } catch (error) {
+      if (alive.current && version === attachmentVersion.current)
+        notify((error as Error).message);
+    } finally {
+      clearInterval(keepOpen);
+      if (alive.current && version === attachmentVersion.current) {
+        setPreparing(false);
+        chat.activity();
+      }
     }
-    setFile(file);
   }
   async function submit() {
-    if (sending || !connected || (!text.trim() && !file)) return;
+    if (sending || preparing || !connected || (!text.trim() && !file)) return;
     const code = room.code,
       draft = text,
       attachment = file;
@@ -260,7 +316,7 @@ export default function RoomChat({
     typing(false);
     try {
       const gif = attachment ? await attachment.arrayBuffer() : undefined;
-      if (currentRoom.current !== code) return;
+      if (!alive.current || currentRoom.current !== code) return;
       const result = await send("chat:send", {
         text: draft,
         ...(reply ? { replyTo: reply } : {}),
@@ -269,9 +325,9 @@ export default function RoomChat({
           start,
           end,
         })),
-        ...(gif ? { gif } : {}),
+        ...(gif ? (file?.type === "image/gif" ? { gif } : { photo: gif }) : {}),
       });
-      if (currentRoom.current !== code) return;
+      if (!alive.current || currentRoom.current !== code) return;
       if (!result.ok) {
         notify(result.error ?? "Your message could not be sent.");
         return;
@@ -283,9 +339,10 @@ export default function RoomChat({
       setQuery(null);
       chat.activity();
     } catch {
-      notify("Your GIF could not be read. Try choosing it again.");
+      if (alive.current)
+        notify("Your attachment could not be read. Try choosing it again.");
     } finally {
-      setSending(false);
+      if (alive.current) setSending(false);
     }
   }
   function quote(id: string) {
@@ -377,6 +434,7 @@ export default function RoomChat({
           {entries.map(({ kind, message }) => {
             const own = message.senderId === me,
               m = kind === "chat" ? (message as Chat) : null,
+              media = m?.gif ?? m?.photo,
               source = m?.replyTo
                 ? room.chat.find((v) => v.id === m.replyTo)
                 : null;
@@ -419,13 +477,15 @@ export default function RoomChat({
                 ) : (
                   <>
                     <div
-                      className={`chat-bubble ${m && emojiOnly(m.text) && !m.gif && !m.replyTo ? "emoji-only" : ""}`}
+                      className={`chat-bubble ${m && emojiOnly(m.text) && !media && !m.replyTo ? "emoji-only" : ""}`}
                       onPointerDown={(e) => {
                         if (e.button !== 0) return;
                         const target = e.target as HTMLElement;
                         copying.current = target.closest(".chat-text");
-                        if (!copying.current && !target.closest("button"))
+                        if (!copying.current && !target.closest("button")) {
+                          e.preventDefault();
                           e.currentTarget.setPointerCapture(e.pointerId);
+                        }
                         gesture.current = {
                           id: message.id,
                           x: e.clientX,
@@ -449,6 +509,7 @@ export default function RoomChat({
                       onPointerCancel={() => {
                         gesture.current = null;
                       }}
+                      onDragStart={(e) => e.preventDefault()}
                     >
                       {m?.replyTo && (
                         <button
@@ -461,18 +522,18 @@ export default function RoomChat({
                           </strong>
                           <span>
                             {source
-                              ? source.text || "GIF"
+                              ? source.text || (source.photo ? "Photo" : "GIF")
                               : "This message is no longer available."}
                           </span>
                         </button>
                       )}
-                      {m?.gif && (
+                      {media && (
                         <img
                           className="chat-gif"
-                          src={`/api/chat-media/${m.gif.id}`}
-                          width={m.gif.width}
-                          height={m.gif.height}
-                          alt={`GIF shared by ${m.name}`}
+                          src={`/api/chat-media/${media.id}`}
+                          width={media.width}
+                          height={media.height}
+                          alt={`${m?.photo ? "Photo" : "GIF"} shared by ${message.name}`}
                           loading="lazy"
                           onLoad={() => {
                             if (
@@ -547,7 +608,11 @@ export default function RoomChat({
                 </strong>
                 <span>
                   {original?.text ||
-                    (original?.gif ? "GIF" : "Original message unavailable")}
+                    (original?.photo
+                      ? "Photo"
+                      : original?.gif
+                        ? "GIF"
+                        : "Original message unavailable")}
                 </span>
               </div>
               <button
@@ -564,10 +629,13 @@ export default function RoomChat({
           )}
           {preview && (
             <div className="chat-attachment">
-              <img src={preview} alt="GIF ready to send" />
+              <img
+                src={preview}
+                alt={`${file?.type === "image/gif" ? "GIF" : "Photo"} ready to send`}
+              />
               <button
                 type="button"
-                aria-label="Remove GIF"
+                aria-label="Remove attachment"
                 onClick={() => {
                   setFile(null);
                   chat.activity();
@@ -616,26 +684,71 @@ export default function RoomChat({
             <input
               type="file"
               ref={pick}
-              accept="image/gif"
-              aria-label="Choose GIF file"
+              accept="image/*"
+              aria-label="Choose photo or GIF"
               hidden
-              disabled={sending}
+              disabled={sending || preparing}
               onChange={(e) => {
-                if (e.target.files?.[0]) attach(e.target.files[0]);
+                chat.resumeFromPicker();
+                if (e.target.files?.[0]) void attach(e.target.files[0]);
                 e.target.value = "";
               }}
             />
+            <input
+              type="file"
+              ref={camera}
+              accept="image/*"
+              capture="environment"
+              aria-label="Take photo with camera"
+              hidden
+              disabled={sending || preparing}
+              onChange={(e) => {
+                chat.resumeFromPicker();
+                if (e.target.files?.[0]) void attach(e.target.files[0]);
+                e.target.value = "";
+              }}
+            />
+            {attachmentsOpen && (
+              <div className="chat-attachment-menu">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAttachmentsOpen(false);
+                    chat.pauseForPicker();
+                    pick.current?.click();
+                  }}
+                >
+                  <ImageSquare />
+                  Photo or GIF
+                </button>
+                {mobileCapture && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAttachmentsOpen(false);
+                      chat.pauseForPicker();
+                      camera.current?.click();
+                    }}
+                  >
+                    <Camera />
+                    Take photo
+                  </button>
+                )}
+                <small>Photos up to 1080px · GIFs up to 1 MB</small>
+              </div>
+            )}
             <button
               className="chat-gif-button"
               type="button"
-              aria-label="Attach GIF"
-              disabled={sending}
+              aria-label="Add attachment"
+              aria-expanded={attachmentsOpen}
+              disabled={sending || preparing}
               onClick={() => {
                 chat.activity();
-                pick.current?.click();
+                setAttachmentsOpen(!attachmentsOpen);
               }}
             >
-              <Gif size={28} />
+              <Paperclip size={28} />
             </button>
             <textarea
               ref={input}
@@ -693,12 +806,16 @@ export default function RoomChat({
                 }
               }}
               onPaste={(e) => {
-                const gif = [...e.clipboardData.files].find(
-                  (f) => f.type === "image/gif",
-                );
-                if (gif) {
+                const image =
+                  [...e.clipboardData.files].find((f) =>
+                    f.type.startsWith("image/"),
+                  ) ??
+                  [...e.clipboardData.items]
+                    .map((item) => item.getAsFile())
+                    .find((f) => f?.type.startsWith("image/"));
+                if (image) {
                   e.preventDefault();
-                  attach(gif);
+                  void attach(image);
                 }
               }}
             />
@@ -706,13 +823,17 @@ export default function RoomChat({
               type="submit"
               className="chat-send"
               aria-label="Send message"
-              disabled={sending || !connected || (!text.trim() && !file)}
+              disabled={
+                sending || preparing || !connected || (!text.trim() && !file)
+              }
             >
               <PaperPlaneRight weight="bold" />
             </button>
           </div>
           <small className="chat-footnote">
-            {text.length}/{CHAT_MAX_TEXT} · Messages stay with this room
+            {preparing
+              ? "Preparing photo…"
+              : `${text.length}/${CHAT_MAX_TEXT} · Messages stay with this room`}
           </small>
         </form>
         {chat.open && notice}

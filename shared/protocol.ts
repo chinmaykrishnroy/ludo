@@ -25,6 +25,7 @@ export type Chat = {
   replyTo?: string;
   mentions?: Mention[];
   gif?: { id: string; width: number; height: number };
+  photo?: { id: string; width: number; height: number; mime: "image/jpeg" };
   at: number;
 };
 export type Room = {

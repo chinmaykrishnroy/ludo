@@ -113,7 +113,7 @@ test("chat has unread counts, typing, coloured mentions, emoji, GIFs and navigab
       "Hello 0",
     );
     await dialog
-      .getByLabel("Choose GIF file", { exact: true })
+      .getByLabel("Choose photo or GIF", { exact: true })
       .setInputFiles({ name: "test.gif", mimeType: "image/gif", buffer: gif });
     await expect(dialog.getByAltText("GIF ready to send")).toBeVisible();
     await dialog
@@ -126,6 +126,54 @@ test("chat has unread counts, typing, coloured mentions, emoji, GIFs and navigab
         (img: HTMLImageElement) => img.complete && img.naturalWidth === 1,
       ),
     ).toBe(true);
+    const photoSource = await page.evaluate(() => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 2400;
+      canvas.height = 1600;
+      const context = canvas.getContext("2d")!;
+      for (let x = 0; x < 2400; x += 10)
+        for (let y = 0; y < 1600; y += 10) {
+          context.fillStyle = `rgb(${(x * 19 + y) % 255},${(y * 7 + x) % 255},${(x * 13 + y * 3) % 255})`;
+          context.fillRect(x, y, 10, 10);
+        }
+      return canvas.toDataURL("image/png").split(",")[1];
+    });
+    await dialog
+      .getByLabel("Choose photo or GIF", { exact: true })
+      .setInputFiles({
+        name: "large-photo.png",
+        mimeType: "image/png",
+        buffer: Buffer.from(photoSource, "base64"),
+      });
+    await expect(dialog.getByAltText("Photo ready to send")).toBeVisible();
+    await dialog
+      .getByRole("button", { name: "Send message", exact: true })
+      .click();
+    const photo = dialog.getByAltText("Photo shared by Alice");
+    await expect(photo).toBeVisible();
+    await expect
+      .poll(() =>
+        photo.evaluate((img: HTMLImageElement) => ({
+          width: img.naturalWidth,
+          height: img.naturalHeight,
+        })),
+      )
+      .toEqual({ width: 1080, height: 720 });
+    const uploaded = await page.request.get((await photo.getAttribute("src"))!);
+    expect(uploaded.headers()["content-type"]).toContain("image/jpeg");
+    expect((await uploaded.body()).length).toBeLessThanOrEqual(1024 * 1024);
+    await dialog
+      .getByRole("button", { name: "Add attachment", exact: true })
+      .click();
+    await expect(
+      dialog.getByRole("button", { name: "Photo or GIF", exact: true }),
+    ).toBeVisible();
+    await expect(
+      dialog.getByLabel("Take photo with camera", { exact: true }),
+    ).toHaveAttribute("capture", "environment");
+    await dialog
+      .getByRole("button", { name: "Add attachment", exact: true })
+      .click();
     const scroll = await dialog.locator(".chat-feed").evaluate((el) => ({
       end: el.scrollTop + el.clientHeight,
       height: el.scrollHeight,

@@ -2712,3 +2712,43 @@ button:disabled {
   width: 18px;
   height: 18px;
 }
+.chat-bubble {
+  user-select: none;
+  -webkit-user-select: none;
+}
+.chat-bubble .chat-text {
+  user-select: text;
+  -webkit-user-select: text;
+}
+.chat-attachment-menu {
+  position: absolute;
+  bottom: 100%;
+  left: 12px;
+  background: var(--paper);
+  color: var(--ink);
+  border: 2px solid var(--line);
+  box-shadow: 3px 3px 0 var(--line);
+  min-width: 240px;
+  padding: 6px;
+  z-index: 2;
+}
+.chat-attachment-menu button {
+  display: flex;
+  justify-content: flex-start;
+  width: 100%;
+  padding: 12px;
+  background: transparent;
+  color: inherit;
+  font-size: 16px;
+  font-weight: 800;
+}
+.chat-attachment-menu button:hover,
+.chat-attachment-menu button:focus-visible {
+  background: var(--yellow);
+  color: #191919;
+}
+.chat-attachment-menu small {
+  display: block;
+  padding: 8px;
+  font-size: 12px;
+}

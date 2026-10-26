@@ -84,14 +84,18 @@
           until their configured expiration.
         </li>
         <li>
-          Room chat keeps the most recent 50 text or GIF messages with the room,
-          including reply references and selected player mentions. GIF uploads
-          are limited to 1 MiB each and 64 MiB across the server. Replaced
-          messages lose their GIF files, and deleting a room deletes its chat
-          and media. Typing indicators are transient and are not stored.
-          Refreshing or losing connectivity preserves the room for reconnection;
-          explicitly leaving releases your seat. Voice retention is separate
-          from text chat and does not depend on delivery or listening receipts.
+          Room chat keeps the most recent 50 text, GIF or photo messages with
+          the room, including reply references and selected player mentions. GIF
+          uploads and photo uploads are limited to 1 MiB each and 64 MiB across
+          the server. Photos are resized to at most 1080 pixels on the longest
+          edge and re-encoded on your device; original photo metadata is not
+          copied. Camera access starts only when you choose to take a photo.
+          Replaced messages lose their GIF files, and deleting a room deletes
+          its chat and media. Typing indicators are transient and are not
+          stored. Refreshing or losing connectivity preserves the room for
+          reconnection; explicitly leaving releases your seat. Voice retention
+          is separate from text chat and does not depend on delivery or
+          listening receipts.
         </li>
       </ul>
       <h2>Controls</h2>

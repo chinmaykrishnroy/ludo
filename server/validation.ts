@@ -37,6 +37,14 @@ export const roomSchema = z
           color: z.enum(COLORS),
           text: z.string().max(180),
           replyTo: z.string().max(100).optional(),
+          photo: z
+            .object({
+              id: z.string().uuid(),
+              width: z.number().int().min(1).max(1080),
+              height: z.number().int().min(1).max(1080),
+              mime: z.literal("image/jpeg"),
+            })
+            .optional(),
           mentions: z
             .array(
               z.object({

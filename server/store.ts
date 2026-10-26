@@ -51,7 +51,7 @@ export class Store {
       this.db
         .exec(`CREATE TABLE IF NOT EXISTS rooms(code TEXT PRIMARY KEY,body TEXT NOT NULL,archived INTEGER NOT NULL DEFAULT 0);
     CREATE TABLE IF NOT EXISTS voices(id TEXT PRIMARY KEY,room TEXT NOT NULL REFERENCES rooms(code) ON DELETE CASCADE,mime TEXT NOT NULL,data BLOB NOT NULL,createdAt INTEGER NOT NULL DEFAULT 0);
-    CREATE TABLE IF NOT EXISTS chat_media(id TEXT PRIMARY KEY,room TEXT NOT NULL REFERENCES rooms(code) ON DELETE CASCADE,data BLOB NOT NULL);
+    CREATE TABLE IF NOT EXISTS chat_media(id TEXT PRIMARY KEY,room TEXT NOT NULL REFERENCES rooms(code) ON DELETE CASCADE,data BLOB NOT NULL,mime TEXT NOT NULL DEFAULT 'image/gif');
     CREATE TABLE IF NOT EXISTS room_members(player TEXT PRIMARY KEY,room TEXT NOT NULL REFERENCES rooms(code) ON DELETE CASCADE);
     CREATE TABLE IF NOT EXISTS sessions(id TEXT PRIMARY KEY,createdAt INTEGER NOT NULL,expiresAt INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS quarantine(code TEXT PRIMARY KEY,reason TEXT NOT NULL,at INTEGER NOT NULL);
@@ -60,6 +60,16 @@ export class Store {
     CREATE TABLE IF NOT EXISTS reports(id TEXT PRIMARY KEY,reporter TEXT NOT NULL,room TEXT NOT NULL,subject TEXT NOT NULL,reason TEXT NOT NULL,at INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS blocks(player TEXT NOT NULL,subject TEXT NOT NULL,PRIMARY KEY(player,subject));
     CREATE TABLE IF NOT EXISTS stats(key TEXT PRIMARY KEY,value INTEGER NOT NULL);`);
+      if (
+        !(
+          this.db.prepare("PRAGMA table_info(chat_media)").all() as {
+            name: string;
+          }[]
+        ).some((c) => c.name === "mime")
+      )
+        this.db.exec(
+          "ALTER TABLE chat_media ADD COLUMN mime TEXT NOT NULL DEFAULT 'image/gif'",
+        );
       if (
         !(
           this.db.prepare("PRAGMA table_info(rooms)").all() as {
@@ -204,7 +214,11 @@ export class Store {
     }
     return result;
   }
-  save(room: Room, voice?: VoiceWrite, gif?: { id: string; data: Buffer }) {
+  save(
+    room: Room,
+    voice?: VoiceWrite,
+    gif?: { id: string; data: Buffer; mime?: string },
+  ) {
     const valid = roomSchema.parse(room);
     this.transaction(() => {
       const previous = this.db
@@ -213,7 +227,10 @@ export class Store {
       const old = previous ? this.decode(previous.body) : undefined;
       this.writeRoom(valid);
       const images = new Set(
-        valid.chat.flatMap((m) => (m.gif ? [m.gif.id] : [])),
+        valid.chat.flatMap((m) => [
+          ...(m.gif ? [m.gif.id] : []),
+          ...(m.photo ? [m.photo.id] : []),
+        ]),
       );
       for (const row of this.db
         .prepare("SELECT id FROM chat_media WHERE room=?")
@@ -230,12 +247,12 @@ export class Store {
         ).size;
         if (bytes + gif.data.length > 64 * 1024 * 1024)
           throw new PublicError(
-            "GIF storage is full. Send a text message instead.",
+            "Attachment storage is full. Send a text message instead.",
             "CHAT_CAPACITY",
           );
         this.db
-          .prepare("INSERT INTO chat_media VALUES(?,?,?)")
-          .run(gif.id, valid.code, gif.data);
+          .prepare("INSERT INTO chat_media(id,room,data,mime) VALUES(?,?,?,?)")
+          .run(gif.id, valid.code, gif.data, gif.mime ?? "image/gif");
       }
       const keep = valid.voices.map((v) => v.id);
       for (const row of this.db
@@ -319,8 +336,8 @@ export class Store {
   }
   getChatMedia(id: string) {
     return this.db
-      .prepare("SELECT room,data FROM chat_media WHERE id=?")
-      .get(id) as { room: string; data: Uint8Array } | undefined;
+      .prepare("SELECT room,data,mime FROM chat_media WHERE id=?")
+      .get(id) as { room: string; data: Uint8Array; mime: string } | undefined;
   }
   session(id: string, now = Date.now()) {
     return this.db

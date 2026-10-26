@@ -23,6 +23,7 @@ import {
 import { seat, newGame, roll, move, legalMoves } from "../shared/game.js";
 import { VOICE_MAX_BYTES, VOICE_MAX_SECONDS } from "../shared/voice.js";
 import { CHAT_MAX_GIF_BYTES, CHAT_IDLE_SECONDS } from "../shared/chat.js";
+import { jpegDimensions } from "../shared/photo.js";
 import type { Room, Reply } from "../shared/protocol.js";
 import { DEFAULT_BOT_DIFFICULTY, validDifficulty } from "../shared/bot.js";
 import { AiScheduler } from "./ai/scheduler.js";
@@ -281,7 +282,7 @@ export function createApplication(options: ApplicationOptions = {}) {
       activity?: boolean;
       delay?: number;
       voice?: VoiceWrite;
-      gif?: { id: string; data: Buffer };
+      gif?: { id: string; data: Buffer; mime?: string };
       archive?: boolean;
     } = {},
   ) {
@@ -650,7 +651,9 @@ export function createApplication(options: ApplicationOptions = {}) {
     limited(`chat-download:${id}`, 600);
     const blob = store.getChatMedia(String(req.params.id)),
       room = blob && activeRoom(id),
-      message = room?.chat.find((m) => m.gif?.id === req.params.id);
+      message = room?.chat.find(
+        (m) => m.gif?.id === req.params.id || m.photo?.id === req.params.id,
+      );
     if (
       !blob ||
       !room ||
@@ -665,7 +668,7 @@ export function createApplication(options: ApplicationOptions = {}) {
     }
     res
       .set({
-        "Content-Type": "image/gif",
+        "Content-Type": blob.mime,
         "Cache-Control": "private, no-store",
         "X-Content-Type-Options": "nosniff",
       })
@@ -1022,6 +1025,7 @@ export function createApplication(options: ApplicationOptions = {}) {
             text: z.string().max(180),
             replyTo: z.string().uuid().optional(),
             gif: z.instanceof(Buffer).optional(),
+            photo: z.instanceof(Buffer).optional(),
             mentions: z
               .array(
                 z.object({
@@ -1036,8 +1040,10 @@ export function createApplication(options: ApplicationOptions = {}) {
           .parse(data),
         r = requireRoom(),
         p = r.seats.find((s) => s?.id === id)!;
-      if (!input.text.trim() && !input.gif)
-        throw new PublicError("Write a message or choose a GIF.");
+      if (!input.text.trim() && !input.gif && !input.photo)
+        throw new PublicError("Write a message or choose an attachment.");
+      if (input.gif && input.photo)
+        throw new PublicError("Send one attachment at a time.");
       if (
         input.replyTo &&
         !view(r, id).chat.some((m) => m.id === input.replyTo)
@@ -1046,6 +1052,20 @@ export function createApplication(options: ApplicationOptions = {}) {
           "That message is no longer available to reply to.",
         );
       let gif: { id: string; width: number; height: number } | undefined;
+      let photo:
+        | { id: string; width: number; height: number; mime: "image/jpeg" }
+        | undefined;
+      if (input.photo) {
+        try {
+          photo = {
+            id: randomUUID(),
+            ...jpegDimensions(input.photo),
+            mime: "image/jpeg",
+          };
+        } catch (error) {
+          throw new PublicError((error as Error).message);
+        }
+      }
       if (input.gif) {
         const b = input.gif;
         if (
@@ -1058,14 +1078,22 @@ export function createApplication(options: ApplicationOptions = {}) {
           height = b.readUInt16LE(8);
         if (!width || !height || width > 2048 || height > 2048)
           throw new PublicError("GIF dimensions must be at most 2048 × 2048.");
+        gif = { id: randomUUID(), width, height };
+      }
+      const mediaBytes = input.gif ?? input.photo;
+      if (mediaBytes) {
         limited(
           `gif-bytes:user:${id}`,
           4 * CHAT_MAX_GIF_BYTES,
           60000,
-          b.length,
+          mediaBytes.length,
         );
-        limited(`gif-bytes:ip:${ip}`, 16 * CHAT_MAX_GIF_BYTES, 60000, b.length);
-        gif = { id: randomUUID(), width, height };
+        limited(
+          `gif-bytes:ip:${ip}`,
+          16 * CHAT_MAX_GIF_BYTES,
+          60000,
+          mediaBytes.length,
+        );
       }
       let previousEnd = 0;
       const mentions = (input.mentions ?? []).map((m) => {
@@ -1090,11 +1118,19 @@ export function createApplication(options: ApplicationOptions = {}) {
         text: input.text,
         ...(input.replyTo ? { replyTo: input.replyTo } : {}),
         ...(gif ? { gif } : {}),
+        ...(photo ? { photo } : {}),
         ...(mentions.length ? { mentions } : {}),
         at: Date.now(),
       });
       r.chat = r.chat.slice(-50);
-      commit(r, { gif: gif && { id: gif.id, data: input.gif! } });
+      const attachment = gif ?? photo;
+      commit(r, {
+        gif: attachment && {
+          id: attachment.id,
+          data: mediaBytes!,
+          mime: photo ? "image/jpeg" : "image/gif",
+        },
+      });
     });
     handle("voice:send", (data) => {
       const input = z

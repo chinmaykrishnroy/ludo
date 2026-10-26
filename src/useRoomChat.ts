@@ -12,15 +12,18 @@ export function useRoomChat(
     [typing, setTyping] = useState<(Typing & { at: number })[]>([]);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined),
     opened = useRef(false),
+    picking = useRef(false),
     seen = useRef(new Set<string>()),
     idle = useRef(idleSeconds);
   idle.current = idleSeconds;
   const close = useCallback(() => {
+    picking.current = false;
     opened.current = false;
     setOpen(false);
     clearTimeout(timer.current);
   }, []);
   const activity = useCallback(() => {
+    if (picking.current) return;
     clearTimeout(timer.current);
     if (opened.current) timer.current = setTimeout(close, idle.current * 1000);
   }, [close]);
@@ -28,6 +31,15 @@ export function useRoomChat(
     opened.current = true;
     setOpen(true);
     setUnread(0);
+    activity();
+  }, [activity]);
+  const pauseForPicker = useCallback(() => {
+    picking.current = true;
+    clearTimeout(timer.current);
+    if (opened.current) timer.current = setTimeout(close, 120000);
+  }, [close]);
+  const resumeFromPicker = useCallback(() => {
+    picking.current = false;
     activity();
   }, [activity]);
   useEffect(() => {
@@ -68,6 +80,15 @@ export function useRoomChat(
     );
     return () => clearInterval(interval);
   }, [typing.length]);
-  return { open, unread, typing, show, close, activity };
+  return {
+    open,
+    unread,
+    typing,
+    show,
+    close,
+    activity,
+    pauseForPicker,
+    resumeFromPicker,
+  };
 }
 export type ChatController = ReturnType<typeof useRoomChat>;
