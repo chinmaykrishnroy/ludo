@@ -1,6 +1,32 @@
 import { test, expect } from "@playwright/test";
 import { newGame, seat } from "../shared/game";
 const key = "ludo-local-game-v1";
+test.afterEach(async ({ page }, info) => {
+  if (info.status === info.expectedStatus) return;
+  console.log(
+    "MEDIA_DIAGNOSTICS",
+    await page.evaluate(() =>
+      JSON.stringify({
+        recorder: typeof MediaRecorder,
+        mimes:
+          typeof MediaRecorder === "undefined"
+            ? []
+            : [
+                "audio/webm;codecs=opus",
+                "audio/mp4",
+                "audio/ogg;codecs=opus",
+              ].map((mime) => [mime, MediaRecorder.isTypeSupported(mime)]),
+        calls: Reflect.get(window, "testMicCalls"),
+        audio: Reflect.get(window, "testAudioContextState"),
+        button: document
+          .querySelector(".record-button")
+          ?.getBoundingClientRect()
+          .toJSON(),
+        body: document.body.innerText.slice(-1000),
+      }),
+    ),
+  );
+});
 
 for (const failure of ["getter", "writes"] as const) {
   test(`storage ${failure} failures leave offline play usable`, async ({
@@ -163,11 +189,18 @@ test("voice preference survives menu replacement and refresh; microphone is requ
     name: "Hold to record a voice message",
   });
   await mic.click();
+  const supported = await page.evaluate(
+    () => typeof MediaRecorder !== "undefined",
+  );
   await expect(
-    page.getByText("Microphone access denied for test"),
+    page.getByText(
+      supported
+        ? "Microphone access denied for test"
+        : "Voice recording needs a supported browser on HTTPS or localhost.",
+    ),
   ).toBeVisible();
   expect(await page.evaluate(() => Reflect.get(window, "testMicCalls"))).toBe(
-    1,
+    supported ? 1 : 0,
   );
 });
 test("missing hashed assets return 404 instead of the application HTML", async ({
@@ -178,11 +211,16 @@ test("missing hashed assets return 404 instead of the application HTML", async (
   expect(await response.text()).not.toContain('<div id="root">');
 });
 
-test("real codec audio sends on release, replays, and Escape cancels the next recording", async ({
+test("voice capture sends and cancels, or explains an unavailable browser encoder", async ({
   page,
 }) => {
   await page.addInitScript(() => {
     let audioContext: AudioContext | undefined;
+    let calls = 0;
+    Object.defineProperty(window, "testMicCalls", { get: () => calls });
+    Object.defineProperty(window, "testAudioContextState", {
+      get: () => audioContext?.state,
+    });
     const prime = () => {
       audioContext ??= new AudioContext();
       void audioContext.resume();
@@ -199,6 +237,7 @@ test("real codec audio sends on release, replays, and Escape cancels the next re
     Object.defineProperty(navigator, "mediaDevices", {
       value: {
         getUserMedia: async () => {
+          calls++;
           const context = audioContext ?? new AudioContext();
           const destination = context.createMediaStreamDestination(),
             oscillator = context.createOscillator();
@@ -228,6 +267,26 @@ test("real codec audio sends on release, replays, and Escape cancels the next re
   const mic = page.getByRole("button", {
     name: "Hold to record a voice message",
   });
+  if (!(await page.evaluate(() => typeof MediaRecorder !== "undefined"))) {
+    await mic.click();
+    await expect(
+      page.getByText(
+        "Voice recording needs a supported browser on HTTPS or localhost.",
+      ),
+    ).toBeVisible();
+    expect(await page.evaluate(() => Reflect.get(window, "testMicCalls"))).toBe(
+      0,
+    );
+    test
+      .info()
+      .annotations.push({
+        type: "capability",
+        description:
+          "This browser build has no MediaRecorder; unsupported behavior verified. Real iOS/Safari recording requires a device check.",
+      });
+    return;
+  }
+  await mic.scrollIntoViewIfNeeded();
   const box = await mic.boundingBox();
   expect(box).not.toBeNull();
   await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
@@ -243,6 +302,7 @@ test("real codec audio sends on release, replays, and Escape cancels the next re
   await expect(
     page.getByRole("button", { name: /^Pause voice message from/ }),
   ).toBeVisible();
+  await mic.scrollIntoViewIfNeeded();
   const nextBox = await mic.boundingBox();
   expect(nextBox).not.toBeNull();
   await page.mouse.move(

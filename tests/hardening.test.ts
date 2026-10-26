@@ -174,6 +174,7 @@ test("late rolls and moves are rejected at the handler boundary before the timer
     assert.equal(r.game!.revision, 1);
     assert.equal(r.game!.phase, "move");
     r.game!.dice = 1;
+    r.game!.sixes = 0;
     r.game!.deadline = Date.now() - 1;
     r.seats = structuredClone(r.game!.seats);
     h.service.store.save(r);
