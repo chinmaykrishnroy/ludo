@@ -27,6 +27,11 @@ import { DEFAULT_BOT_DIFFICULTY, validDifficulty } from "../shared/bot.js";
 import { AiScheduler } from "./ai/scheduler.js";
 import { difficultyPolicy } from "../shared/ai/policy.js";
 import { publicRoomPage, PUBLIC_ROOM_PAGE_SIZE } from "./public-rooms.js";
+import {
+  boundedParser,
+  guardTransport,
+  MAX_TRANSPORT_BYTES,
+} from "./transport.js";
 const label = z
   .string()
   .trim()
@@ -60,6 +65,7 @@ export type ApplicationOptions = {
   tickMs?: number;
   maintenanceMs?: number;
   minimumFreeBytes?: number;
+  binaryTimeoutMs?: number;
 };
 export function createApplication(options: ApplicationOptions = {}) {
   const aiBudget = {
@@ -194,7 +200,8 @@ export function createApplication(options: ApplicationOptions = {}) {
   const engineIps = new Map<string, Set<string>>();
   const io = new Server(http, {
     serveClient: false,
-    maxHttpBufferSize: VOICE_MAX_BYTES + 65536,
+    parser: boundedParser,
+    maxHttpBufferSize: MAX_TRANSPORT_BYTES,
     allowRequest: (req, done) => {
       try {
         if (
@@ -217,6 +224,17 @@ export function createApplication(options: ApplicationOptions = {}) {
     },
   });
   io.engine.on("connection", (connection) => {
+    const identity = connection as typeof connection & { ludoGuest?: string };
+    guardTransport(
+      connection,
+      budgets,
+      proxy.address(connection.request),
+      () => identity.ludoGuest,
+      () => {
+        monitor.rejected++;
+      },
+      options.binaryTimeoutMs,
+    );
     const ip = proxy.address(connection.request),
       set = engineIps.get(ip) ?? new Set<string>();
     set.add(connection.id);
@@ -397,6 +415,8 @@ export function createApplication(options: ApplicationOptions = {}) {
       (
         socket.conn as typeof socket.conn & { ludoAuthenticated?: boolean }
       ).ludoAuthenticated = true;
+      (socket.conn as typeof socket.conn & { ludoGuest?: string }).ludoGuest =
+        id;
       socket.data.ip = ip;
       const guests = guestSockets.get(id) ?? new Set<string>(),
         ips = ipSockets.get(ip) ?? new Set<string>();

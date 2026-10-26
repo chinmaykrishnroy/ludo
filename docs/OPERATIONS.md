@@ -65,7 +65,13 @@ SIGTERM drains the service, stops game/backup timers, persists presence and clos
 
 For a failed manual update, use the immutable image recorded in `shared/previous-image`, the same environment and data mount, and the same security flags in `ops/deploy-pi.sh`. Validate readiness and a private room after rollback. A binary rollback cannot undo an incompatible database migration; restore a pre-update backup into a new file when needed. Review schema compatibility before updates.
 
-CI validates Linux/Windows tests, production builds, dependency audit and a container restart. Staging approval includes a private game on the actual tunnel and physical-device checks in `DELIVERY.md`. There is currently no release/publish pipeline.
+CI validates Linux/Windows tests, production builds, dependency audit and a container restart. Version tags run the multi-architecture container release pipeline described in `RELEASING.md`. Staging approval includes a private game on the actual tunnel and physical-device checks in `DELIVERY.md`.
+
+## Transport input limits in the follow-up source
+
+The post-v0.1.2 source limits Socket.IO events to one binary attachment, 16 KiB of UTF-8 text metadata and 1 MiB of decoded binary data. Incomplete binary uploads expire after 30 seconds; this timer starts when an upload header arrives, after recording has finished. The separate 60-second recording limit is unchanged. The Engine.IO envelope permits base64 expansion for polling while decoded limits remain enforced.
+
+Ingress budgets apply before Socket.IO reconstruction: each guest shares 600 message packets and 6 MiB per minute across tabs/reconnects; each trusted client IP shares 3,000 packets and 24 MiB per minute. Existing application voice/action quotas also apply. Rejected transport input disconnects that connection and increments the rejected counter. These limits are admission safeguards, not a claim of supported production concurrency. This section does not describe the immutable v0.1.2 release.
 
 ## Bot configuration
 

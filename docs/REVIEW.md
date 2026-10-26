@@ -60,3 +60,9 @@ The actionable backlog is in [TODO.md](TODO.md).
 `npm run check` passed: **68 tests, zero failures**, followed by TypeScript checks, the production client/server build and generated offline cache (33 assets). The added benchmark script reproduced all 256 position choices and completed all 48 smoke games. `git diff --check` passed. The integration suite needed local-server access and a workspace-local temporary directory; the initial restricted-sandbox run could not exercise those tests.
 
 This patch has not been committed, published as a container or deployed to the Pi. No new container, public-host load or physical-device acceptance is claimed. The independently completed security scan applies to the pinned baseline; this review does not imply its reported vulnerability has been fixed.
+
+## Follow-up status
+
+The preceding sections record the review at completion. Subsequently, **v0.1.2** published the bot patch and review documents and was deployed by verified image digest. Public HTTPS readiness, WebSocket clock sync and same-guest reconnect passed after deployment; existing game data and configuration were retained.
+
+The first backlog item now has a separate source fix in `server/transport.ts`: bounded reconstruction, shared ingress budgets and absolute attachment expiry. Seven additional regressions pass, making **75 tests**, and the production build succeeds. An independent review found no concrete bypass or regression; wire controls cover native/base64 WebSocket and polling with maximum-size voice. This follow-up is not part of the immutable v0.1.2 image, and the completed baseline security report remains unchanged. The remaining backlog and original readiness rating have not been reassessed.
