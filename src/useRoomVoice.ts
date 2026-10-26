@@ -59,7 +59,10 @@ export function useRoomVoice({
   }
   useEffect(() => {
     const cancelOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && held.current) stop(true);
+      if (event.key === "Escape" && held.current) {
+        event.preventDefault();
+        stop(true);
+      }
     };
     const cancelWhenHidden = () => {
       if (document.hidden && held.current) stop(true);

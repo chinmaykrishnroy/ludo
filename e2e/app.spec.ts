@@ -100,6 +100,8 @@ test("legacy tokens and deadline survive refresh and an offline shell restart", 
   await page.evaluate(async () => {
     await navigator.serviceWorker.ready;
   });
+  // Open the next document under the now-active worker before going offline.
+  await page.reload();
   await page.waitForFunction(() => !!navigator.serviceWorker.controller);
   await context.setOffline(true);
   await page.reload();
@@ -160,9 +162,7 @@ test("voice preference survives menu replacement and refresh; microphone is requ
   const mic = page.getByRole("button", {
     name: "Hold to record a voice message",
   });
-  await mic.focus();
-  await page.keyboard.down("Enter");
-  await page.keyboard.up("Enter");
+  await mic.click();
   await expect(
     page.getByText("Microphone access denied for test"),
   ).toBeVisible();
@@ -182,6 +182,13 @@ test("real codec audio sends on release, replays, and Escape cancels the next re
   page,
 }) => {
   await page.addInitScript(() => {
+    let audioContext: AudioContext | undefined;
+    const prime = () => {
+      audioContext ??= new AudioContext();
+      void audioContext.resume();
+    };
+    window.addEventListener("pointerdown", prime, { capture: true });
+    window.addEventListener("keydown", prime, { capture: true });
     const query = navigator.permissions?.query.bind(navigator.permissions);
     if (navigator.permissions)
       navigator.permissions.query = async (descriptor) =>
@@ -192,8 +199,7 @@ test("real codec audio sends on release, replays, and Escape cancels the next re
     Object.defineProperty(navigator, "mediaDevices", {
       value: {
         getUserMedia: async () => {
-          const context = new AudioContext();
-          await context.resume();
+          const context = audioContext ?? new AudioContext();
           const destination = context.createMediaStreamDestination(),
             oscillator = context.createOscillator();
           oscillator.frequency.value = 220;
@@ -222,11 +228,13 @@ test("real codec audio sends on release, replays, and Escape cancels the next re
   const mic = page.getByRole("button", {
     name: "Hold to record a voice message",
   });
-  await mic.focus();
-  await page.keyboard.down("Space");
+  const box = await mic.boundingBox();
+  expect(box).not.toBeNull();
+  await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+  await page.mouse.down();
   await expect(page.locator(".record-button")).toHaveClass(/is-recording/);
   await page.waitForTimeout(600);
-  await page.keyboard.up("Space");
+  await page.mouse.up();
   await expect(
     page.getByText("Voice message sent to the table."),
   ).toBeVisible();
@@ -235,12 +243,17 @@ test("real codec audio sends on release, replays, and Escape cancels the next re
   await expect(
     page.getByRole("button", { name: /^Pause voice message from/ }),
   ).toBeVisible();
-  await mic.focus();
-  await page.keyboard.down("Space");
+  const nextBox = await mic.boundingBox();
+  expect(nextBox).not.toBeNull();
+  await page.mouse.move(
+    nextBox!.x + nextBox!.width / 2,
+    nextBox!.y + nextBox!.height / 2,
+  );
+  await page.mouse.down();
   await expect(page.locator(".record-button")).toHaveClass(/is-recording/);
   await page.waitForTimeout(300);
   await page.keyboard.press("Escape");
-  await page.keyboard.up("Space");
+  await page.mouse.up();
   await expect(page.locator(".record-button")).not.toHaveClass(/is-recording/);
   await expect(page.locator(".voice-message")).toHaveCount(1);
 });

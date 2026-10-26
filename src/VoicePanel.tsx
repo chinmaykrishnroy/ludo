@@ -120,7 +120,10 @@ export default function VoicePanel({
             e.preventDefault();
             void begin();
           }
-          if (e.key === "Escape") stop(true);
+          if (e.key === "Escape" && recording) {
+            e.preventDefault();
+            stop(true);
+          }
         }}
         onKeyUp={(e) => {
           if (e.key === " " || e.key === "Enter") {

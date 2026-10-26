@@ -19,6 +19,7 @@ ENV NODE_ENV=production HOST=0.0.0.0 PORT=3000 DB_PATH=/data/ludo.sqlite BACKUP_
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm npm ci --omit=dev --ignore-scripts && mkdir /data && chown node:node /data
+COPY LICENSE ./LICENSE
 COPY --from=builder --chown=node:node /app/build ./build
 COPY --from=builder --chown=node:node /app/dist ./dist
 COPY --from=builder --chown=node:node /app/scripts/restore.mjs /app/scripts/backup.mjs /app/scripts/moderate.mjs ./scripts/

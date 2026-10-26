@@ -75,7 +75,8 @@
         <li>
           Voice messages are shared with room members. Each recording is limited
           to 60 seconds and 1 MiB. Only the most recent 20 messages are retained
-          per room, and recordings expire after 24 hours.
+          per room. The default live-recording retention is 24 hours; a
+          self-hosting operator can configure a different period.
         </li>
         <li>
           Reports are accessible only to the moderator and expire after 30 days.
@@ -92,11 +93,14 @@
       </p>
       <h2>Operational copies</h2>
       <p>
-        Verified database backups are kept for up to seven days, with at least
-        two recovery copies. Browser offline caches contain the app itself;
-        sessions, API responses, and voice recordings are never placed in the
-        offline app cache. The hosting and tunnel providers may maintain their
-        own security logs.
+        The two newest verified database backups are retained even when older
+        than seven days. Additional recovery copies are removed after seven days
+        or when the managed set exceeds 28 copies. Older backups can still
+        contain recordings removed from the live database. Separately copied
+        backups follow the hosting operator's retention policy. Browser offline
+        caches contain the app itself; sessions, API responses, and voice
+        recordings are never placed in the offline app cache. The hosting and
+        tunnel providers may maintain their own security logs.
       </p>
       <h2>Activity counters</h2>
       <p>

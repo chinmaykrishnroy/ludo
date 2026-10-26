@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "tsx server/index.ts",
-    "build": "tsc --noEmit && vite build && tsc -p tsconfig.server.json && node scripts/build-service-worker.mjs",
+    "build": "tsc --noEmit && vite build && tsc -p tsconfig.server.json && node scripts/build-notices.mjs && node scripts/build-service-worker.mjs",
     "start": "node build/server/index.js --production",
     "test": "tsx --test tests/*.test.ts",
     "check": "npm run test && npm run build",

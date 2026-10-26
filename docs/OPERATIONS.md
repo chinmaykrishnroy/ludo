@@ -1,6 +1,39 @@
 # Operations
 
-## Managed host example
+## Registry-only Docker host
+
+The template at `ops/compose.registry.yaml` needs no source checkout or build
+tools on the host. Copy it into a dedicated runtime directory as `compose.yaml`,
+keep a private `.env` beside it, and create the persistent `data/` directory.
+Give that directory to the image's unprivileged `node` user (UID 1000 in the
+published images). Keep `.env` mode 0600 and `data/` private. Never commit either.
+
+Set `LUDO_IMAGE` to the version and verified digest from a published release,
+and configure the remaining settings from `.env.example`, including the exact
+origin, trusted proxy hops and a freshly generated admin token. Example image
+syntax: `ghcr.io/chinmaykrishnroy/ludo:vX.Y.Z@sha256:<verified-digest>`.
+
+```sh
+docker compose pull
+docker compose up -d --no-build
+docker compose ps
+curl --fail http://127.0.0.1:3011/readyz
+```
+
+For an update, record the previous image reference and take a verified backup
+with `docker compose exec ludo node scripts/backup.mjs`. Change only the image
+reference in `.env`, pull before stopping the old process, then run `up -d
+--no-build` and verify readiness and a private reconnect. Preserve the data mount,
+origin and guest cookie. If readiness fails, restore the previous image reference
+and repeat `up`; check schema compatibility before a binary rollback. A schema
+rollback may require restoring a verified backup into a new database filename.
+Do not use `down -v` or delete the data directory during an update.
+
+A registry-only installation needs its Compose file, environment, data and
+rollback references. Source release directories and `current` symlinks belong to
+the optional source-build helper below and are not required for registry pulls.
+
+## Optional source-build helper
 
 The optional `ops/deploy-pi.sh` helper manages a single Docker host under `~/ludo`:
 
