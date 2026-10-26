@@ -1,0 +1,49 @@
+{
+  "date": "2026-10-26",
+  "baseline": "29a835a0b8fa60f954f973b1e01c7b256aadd7ad",
+  "style": {
+    "positions": 256,
+    "previousCaptures": 151,
+    "balancedCaptures": 215,
+    "retainedNonCaptureChoices": 41,
+    "changedChoices": 73
+  },
+  "decisionTiming": {
+    "previous": {
+      "meanMs": 14.011,
+      "p95Ms": 22.358,
+      "maxMs": 41.228
+    },
+    "balanced": {
+      "meanMs": 14.063,
+      "p95Ms": 22.811,
+      "maxMs": 38.247
+    }
+  },
+  "games": {
+    "total": 48,
+    "balancedWins": 16,
+    "previousWins": 32,
+    "finished": 48,
+    "byPlayers": {
+      "2": {
+        "games": 16,
+        "balancedWins": 7
+      },
+      "3": {
+        "games": 16,
+        "balancedWins": 5
+      },
+      "4": {
+        "games": 16,
+        "balancedWins": 4
+      }
+    }
+  },
+  "limitations": [
+    "Seeded legal positions selected for multiple moves and an available capture; not a population-wide capture rate.",
+    "Position comparison uses 96 iterations/depth 24 with elapsed cutoff disabled for reproducibility.",
+    "Full-game smoke uses 24 iterations/depth 12 for both policies and rotates one balanced challenger against previous-policy rivals.",
+    "48 games cannot prove stronger play or strict win-rate ranking. No physical-device or production-load claim."
+  ]
+}

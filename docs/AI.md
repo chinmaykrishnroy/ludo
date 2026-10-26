@@ -47,6 +47,29 @@ Human timeouts always use the first legal move. Temporary disconnection does not
 
 ## Validation and measurements
 
+### Capture balance update — 26 October 2026
+
+Tactical move scores now include a bounded preference for completing captures instead of preserving only a future safe-square ambush. It values opponent progress lost and a newly earned bonus roll, discounts exposure of an invested attacking runner, and does not count a six's extra roll twice. The preference gradually applies from level 3; level 0 and human timeouts remain first-legal. Terminal wins remain above positional scores. It is a style preference, not a calibrated win probability or unconditional attack rule.
+
+The [capture-balance comparison](benchmarks/ai-capture-balance-2026-10-26.json) used 256 seeded legal positions selected for multiple choices and an available capture. The previous policy captured in 151; the revised policy captured in 215 and still declined captures in 41. Local decision p95 was 22.358 ms before and 22.811 ms after at 96 iterations/depth 24 with elapsed cutoffs disabled. These timings are descriptive, not a promised performance improvement. All 48 rotating 2/3/4-player smoke games finished at 24 iterations/depth 12. One revised-policy challenger faced the previous policy's remaining seats; its 16 wins versus the combined rivals' 32 is not a head-to-head strength comparison.
+
+New regressions cover the reported safe-capture-versus-future-ambush case, an advanced runner for which defence is preferable, and bonus-roll accounting. A larger normal-budget tournament is required before claiming stronger play.
+
+Reproduce the comparison from the repository root after installing dependencies. Extract the pinned baseline inside the workspace so its TypeScript imports can resolve the current installation of `tsx`:
+
+```sh
+mkdir -p output/ai-capture-baseline
+git archive --output=output/ai-capture-baseline.tar 29a835a0b8fa60f954f973b1e01c7b256aadd7ad shared
+tar -xf output/ai-capture-baseline.tar -C output/ai-capture-baseline
+node --import tsx scripts/ai-capture-benchmark.mjs output/ai-capture-baseline/shared/ai/index.ts
+```
+
+The script rewrites the comparison JSON; choice counts replay with fixed seeds while local timings vary.
+
+### Earlier policy measurements
+
+The results below describe the policy shipped before this capture-balance change. They are historical evidence, not tournament validation of the revised policy.
+
 Deterministic tests cover strategic captures, stopping the final rival runner, safe squares, staged ambushes, home-lane exclusion, exact finishes, fair dice sampling, immutable simulation, fixed-seed replay, worker cancellation, stale result rejection, timeout fallback, host permissions and difficulty recovery.
 
 The [6,000-game report](benchmarks/ai-tournament-2026-10-26.json) compares levels 0, 3, 5, 7, 9 and 10 against the previous greedy implementation. It rotates colours and player counts, uses legal midgame warmups for half the seed groups, and separates dice and search RNG. Each level plays 1,000 games; uncertainty is reported with Wilson 95% intervals. Fixed iteration limits disable the elapsed cutoff for reproducibility in this benchmark. Runtime workers retain the elapsed cutoff.

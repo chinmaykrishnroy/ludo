@@ -25,7 +25,7 @@ A self-hosted Ludo game for friends: bold, solid colours, round tokens, animated
 Version tags publish multi-architecture images to **GitHub Container Registry**:
 
 ```sh
-docker pull ghcr.io/chinmaykrishnroy/ludo:v0.1.1
+docker pull ghcr.io/chinmaykrishnroy/ludo:v0.1.2
 docker pull ghcr.io/chinmaykrishnroy/ludo:latest
 ```
 
@@ -51,7 +51,7 @@ Open `http://localhost:3000`. Development: `npm run dev`. In PowerShell use `npm
 cp .env.example .env
 # Set ALLOWED_ORIGINS to the exact HTTPS origin.
 # Set ADMIN_TOKEN to a securely generated secret of at least 32 characters.
-# Add LUDO_IMAGE=ghcr.io/chinmaykrishnroy/ludo:v0.1.1 to .env.
+# Add LUDO_IMAGE=ghcr.io/chinmaykrishnroy/ludo:v0.1.2 to .env.
 docker compose pull
 docker compose up -d --no-build
 ```

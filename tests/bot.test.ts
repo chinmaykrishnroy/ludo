@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { newGame, seat, roll, move, legalMoves } from "../shared/game.js";
 import { botMove } from "../shared/bot.js";
 import { chooseBotMove, createRng, analyzeBoard } from "../shared/ai/index.js";
+import { analyzeMoves } from "../shared/ai/tactics.js";
 const board = () =>
   newGame([
     seat("a", "A", 0, true),
@@ -39,6 +40,56 @@ test("expert weighs safe squares and exact finishes", () => {
   assert.equal(botMove(roll(g, 1), 10), 0);
   g.seats[0]!.tokens = [50, -1, -1, -1];
   assert.equal(botMove(roll(g, 6), 10), 0);
+});
+
+test("expert cashes in a safe capture and bonus roll instead of preserving a future ambush", () => {
+  const g = board();
+  // Reached during a seeded legal game: green can capture blue on
+  // square45, or move another runner onto a protected square for a future hit.
+  g.seats[0]!.tokens = [24, 33, 12, 51];
+  g.seats[1]!.tokens = [-1, -1, 28, 22];
+  g.seats[2]!.tokens = [-1, 40, -1, 34];
+  g.seats[3]!.tokens = [41, -1, 6, 52];
+  g.turn = 1;
+  const pending = roll(g, 4);
+  const decision = chooseBotMove(pending, {
+    difficulty: 10,
+    rng: createRng(42),
+    clock: () => 0,
+  });
+  assert.equal(decision.token, 2);
+  assert.equal(move(pending, decision.token).lastMove!.captured, 1);
+  assert.equal(move(pending, decision.token).turn, pending.turn);
+});
+
+test("balanced expert can still protect an advanced runner instead of taking a cheap capture", () => {
+  const g = board();
+  g.seats[0]!.tokens = [17, 38, 56, 56];
+  g.seats[1]!.tokens = [5, -1, -1, -1];
+  g.seats[2]!.tokens = [8, 9, 10, 11];
+  const pending = roll(g, 1);
+  assert.equal(move(pending, 0).lastMove!.captured, 1);
+  const decision = chooseBotMove(pending, {
+    difficulty: 10,
+    rng: createRng(42),
+    clock: () => 0,
+  });
+  assert.equal(decision.token, 1);
+  assert(decision.reasons.includes("SAFE_POSITION"));
+});
+
+test("a capture values a newly earned bonus roll without counting a six twice", () => {
+  const one = board(),
+    six = board();
+  one.seats[0]!.tokens = [5, -1, -1, -1];
+  six.seats[0]!.tokens = [0, -1, -1, -1];
+  one.seats[1]!.tokens = [45, -1, -1, -1];
+  six.seats[1]!.tokens = [45, -1, -1, -1];
+  const fromOne = analyzeMoves(roll(one, 1), 10).find((m) => m.token === 0)!,
+    fromSix = analyzeMoves(roll(six, 6), 10).find((m) => m.token === 0)!;
+  assert.deepEqual(fromOne.next.seats, fromSix.next.seats);
+  assert.equal(fromOne.next.turn, fromSix.next.turn);
+  assert(fromOne.utility > fromSix.utility);
 });
 test("all levels return legal deterministic moves without modifying the board or inspecting future dice", () => {
   const g = board();
