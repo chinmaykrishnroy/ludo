@@ -457,7 +457,7 @@ export function createApplication(options: ApplicationOptions = {}) {
               : ["'unsafe-inline'"]),
           ],
           styleSrc: ["'self'", "'unsafe-inline'"],
-          imgSrc: ["'self'", "data:"],
+          imgSrc: ["'self'", "data:", "blob:"],
           mediaSrc: ["'self'", "blob:"],
           connectSrc: [
             "'self'",

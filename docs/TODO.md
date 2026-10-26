@@ -4,7 +4,7 @@ Reviewed 26 October 2026 against `29a835a0b8fa60f954f973b1e01c7b256aadd7ad`, wit
 
 The checked fixes are included in **v0.1.5**, deployed to the Pi and verified through the public HTTPS route. Rolls allow 15 seconds and moves allow 30 seconds; voice capture remains limited to 60 seconds / 1 MiB. Unchecked items below remain open.
 
-The **v0.1.6** update adds room chat, GIF uploads, replies, mentions, typing,
+The **v0.1.6** update adds room chat, GIF/photo uploads, mobile camera selection, replies, mentions, typing,
 speaker mute, visible autoplay recovery and more conversational voice rate limits.
 The owner confirmed v0.1.5 recording/upload from the public site; iPhone playback
 and the new touch/keyboard flows still need physical-device confirmation. Voice

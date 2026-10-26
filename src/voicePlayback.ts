@@ -8,6 +8,7 @@ export class VoicePlayback {
   private blocked = false;
   private muted = false;
   private generation = 0;
+  private unlockUrl: string | undefined;
   private timer: ReturnType<typeof setTimeout> | undefined;
   constructor(
     private change: (playing: string | null, blocked: boolean) => void,
@@ -26,6 +27,10 @@ export class VoicePlayback {
       this.audio.pause();
     }
     this.current = null;
+    if (this.unlockUrl) {
+      URL.revokeObjectURL(this.unlockUrl);
+      this.unlockUrl = undefined;
+    }
   }
   clear() {
     this.pause();
@@ -76,9 +81,16 @@ export class VoicePlayback {
     }
     if (this.current) return;
     // A short silent WAV primes this same element during the user's gesture.
+    this.pause();
     const a = this.element();
-    a.src =
-      "data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQIAAAAAAA==";
+    const bytes = Uint8Array.from(
+      atob("UklGRiYAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQIAAAAAAA=="),
+      (c) => c.charCodeAt(0),
+    );
+    this.unlockUrl = URL.createObjectURL(
+      new Blob([bytes], { type: "audio/wav" }),
+    );
+    a.src = this.unlockUrl;
     void a.play().catch(() => {});
   }
   private next() {

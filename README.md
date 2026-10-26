@@ -20,6 +20,8 @@
 
 A self-hosted Ludo game for friends: bold, solid colours, round tokens, animated dice and moves, public/private tables, optional bots and recorded room voice. Install it as a PWA for offline computer games or manual pass-and-play.
 
+Room chat supports replies, player mentions, typing indicators, keyboard emoji and pasted or uploaded GIFs/photos. The attachment menu uses your device's file picker and mobile camera; it has no GIF-search provider. Photos are compressed on the device to at most a 1080-pixel longest edge. Speaker mute includes a quiet “player spoke” notice with tap-to-listen.
+
 ## Container releases
 
 Version tags publish multi-architecture images to **GitHub Container Registry**:

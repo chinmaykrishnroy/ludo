@@ -116,6 +116,13 @@ test("chat has unread counts, typing, coloured mentions, emoji, GIFs and navigab
       .getByLabel("Choose photo or GIF", { exact: true })
       .setInputFiles({ name: "test.gif", mimeType: "image/gif", buffer: gif });
     await expect(dialog.getByAltText("GIF ready to send")).toBeVisible();
+    await expect
+      .poll(() =>
+        dialog
+          .getByAltText("GIF ready to send")
+          .evaluate((img: HTMLImageElement) => img.naturalWidth),
+      )
+      .toBe(1);
     await dialog
       .getByRole("button", { name: "Send message", exact: true })
       .click();
