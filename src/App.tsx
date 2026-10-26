@@ -44,6 +44,8 @@ import VoicePanel from "./VoicePanel";
 import { useRoomVoice } from "./useRoomVoice";
 import {
   COLORS,
+  ROLL_MS,
+  MOVE_MS,
   seat,
   newGame,
   roll,
@@ -541,9 +543,10 @@ function Rules({ onClose }: { onClose: () => void }) {
       <div className="rule-note">
         <ShieldCheck />
         <p>
-          Each human has 15 seconds to roll, then 30 seconds to choose a token.
-          If time runs out, the game rolls automatically or moves the first
-          legal token. Your seat stays saved until you explicitly quit.
+          Each human has {ROLL_MS / 1000} seconds to roll, then {MOVE_MS / 1000}{" "}
+          seconds to choose a token. If time runs out, the game rolls
+          automatically or moves the first legal token. Your seat stays saved
+          until you explicitly quit.
         </p>
       </div>
     </Dialog>

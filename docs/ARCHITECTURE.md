@@ -23,7 +23,7 @@ Online dice use cryptographic randomness. Bots search hypothetical future rolls 
 
 ## Deadlines and reconnects
 
-Each roll and token-selection phase has its own absolute server deadline. Handlers reject actions after that deadline even if a background tick is late. Missing a turn triggers a roll or the first legal token move; temporary disconnection does not grant expert bot decisions.
+Each roll has a 15-second deadline and each token-selection phase a 30-second deadline, assigned as absolute server timestamps by the shared rules. Handlers reject actions after that deadline even if a background tick is late. Missing a turn triggers a roll or the first legal token move; temporary disconnection does not grant expert bot decisions.
 
 Server-issued HttpOnly guest cookies recover the same seat across tabs, refresh and reopening, subject to session and room retention. Saved snapshots retain tokens, phase, revision and deadline. Explicit Quit releases the seat; browser refresh does not. Offline progress uses browser storage and is cleared by explicit Quit or storage removal.
 

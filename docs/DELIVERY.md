@@ -3,7 +3,7 @@
 ## Increments implemented
 
 1. Shared classic rules, optional computers, animated dice/token movement and a centered responsive board with solid circular tokens.
-2. Private/public room support, host seat configuration, authoritative revisions and 60-second roll/move deadlines, persistent reconnects and explicit quit confirmation.
+2. Private/public room support, host seat configuration, authoritative revisions and 15-second roll / 30-second move deadlines, persistent reconnects and explicit quit confirmation.
 3. Hold/release voice, first-use permission, cancellation, 60-second/1-MiB limits and membership-checked downloads.
 4. Offline PWA computer games and manual pass-and-play; System/Light/Dark settings; neo-brutalist homepage with durable online statistics.
 5. Correctness/security hardening, storage lifecycle, moderation, monitoring, Docker supervision, verified backup/recovery and validation CI.

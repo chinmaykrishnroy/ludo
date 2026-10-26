@@ -45,6 +45,23 @@ test("a non-six cannot leave the yard and skips the turn", () => {
   assert.equal(g.phase, "roll");
   assert.deepEqual(legalMoves(g), []);
 });
+
+test("phase deadlines are 15 seconds for rolls and 30 seconds for moves", () => {
+  const initial = newGame(full().seats, 1000);
+  assert.equal(initial.deadline, 16000);
+  const pending = roll(initial, 6, 2000);
+  assert.equal(pending.phase, "move");
+  assert.equal(pending.deadline, 32000);
+  const bonus = move(pending, 0, 3000);
+  assert.equal(bonus.turn, initial.turn);
+  assert.equal(bonus.deadline, 18000);
+  const skipped = roll(initial, 1, 4000);
+  assert.equal(skipped.phase, "roll");
+  assert.equal(skipped.deadline, 19000);
+  const next = move(roll(bonus, 1, 5000), 0, 6000);
+  assert.equal(next.turn, 1);
+  assert.equal(next.deadline, 21000);
+});
 test("three consecutive sixes forfeit the third roll and retain earlier moves", () => {
   let g = full();
   g = move(roll(g, 6), 0);

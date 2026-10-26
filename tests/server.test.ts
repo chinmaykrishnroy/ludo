@@ -342,7 +342,10 @@ test("human deadlines auto-roll after 15 seconds, then use the first legal token
     });
     await a.socket.timeout(2000).emitWithAck("room:start", {});
     let room = service.rooms.get(created.room!.code)!;
-    assert(room.game!.deadline - Date.now() > 14000);
+    assert(
+      room.game!.deadline - Date.now() > 14000 &&
+        room.game!.deadline - Date.now() <= 15000,
+    );
     await delay(950);
     room.game!.seats[0]!.tokens[0] = 0;
     room.game!.deadline = Date.now() - 1;
@@ -352,11 +355,13 @@ test("human deadlines auto-roll after 15 seconds, then use the first legal token
     assert.equal(room.game!.phase, "move");
     assert.equal(room.game!.revision, 1);
     assert(
-      room.game!.deadline - Date.now() > 29000,
+      room.game!.deadline - Date.now() > 29000 &&
+        room.game!.deadline - Date.now() <= 30000,
       "moving gets its own fresh 30-second deadline",
     );
     await delay(1150);
     room.game!.dice = 1;
+    room.game!.sixes = 0;
     room.game!.seats[0]!.tokens = [5, 40, -1, -1];
     room.game!.deadline = Date.now() - 1;
     room.seats = structuredClone(room.game!.seats);
