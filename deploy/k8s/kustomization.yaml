@@ -8,4 +8,4 @@ resources:
   - service.yaml
 images:
   - name: ghcr.io/chinmaykrishnroy/ludo
-    newTag: v0.1.4
+    newTag: v0.1.5
