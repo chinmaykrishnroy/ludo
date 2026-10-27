@@ -54,15 +54,15 @@ immediately for severe pressure. Existing room joins, reconnects, rolls, moves,
 chat and media keep their normal authorization and abuse limits.
 
 Defaults pause at p95 delay >=100 ms, max delay >=500 ms, utilization >=80%,
-memory pressure >=85%, persistence p95 >=40 ms, or bot queue age >=2 seconds.
-Severe memory >=93%, persistence >=200 ms or queue age >=5 seconds also pause
+memory pressure >=85%, persistence p95 >=40 ms, or bot queue age >=750 ms.
+Severe memory >=93%, persistence >=200 ms or queue age >=1250 ms also pause
 immediately. Memory pressure is the larger of RSS/limit and
 `1 - availableBytes / min(limitBytes, 512 MiB)`; the latter reserves a bounded
 amount of actual headroom without treating all other host usage as app usage.
 
 Reopening requires five healthy samples and at least ten seconds closed, with
 lower recovery thresholds (delay p95 <=50 ms/max <150 ms, utilization <=60%,
-memory <=75%, persistence <=20 ms, bot age <=500 ms). Old persistence observations
+memory <=75%, persistence <=20 ms, bot age <=250 ms). Old persistence observations
 expire so a historic spike cannot hold admission closed indefinitely. Protected
 health exposes causes, pressure samples and pause/recovery/refusal counters.
 `GET /api/admission` exposes only availability and a retry hint; the UI checks

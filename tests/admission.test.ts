@@ -35,7 +35,7 @@ for (const [reason, change] of [
   ["event-loop-delay", { lagMaxMs: 600 }],
   ["memory", { memoryRatio: 0.94 }],
   ["persistence", { persistP95Ms: 210 }],
-  ["ai-queue", { aiQueueAgeMs: 6000 }],
+  ["ai-queue", { aiQueueAgeMs: 1300 }],
 ] as const) {
   test(
     "load admission immediately protects existing games from " + reason,

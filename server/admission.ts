@@ -27,12 +27,13 @@ export class AdmissionController {
     if (sample.utilization >= 0.8) reasons.push("event-loop-utilization");
     if (sample.memoryRatio >= 0.85) reasons.push("memory");
     if (sample.persistP95Ms >= 40) reasons.push("persistence");
-    if (sample.aiQueueAgeMs >= 2000) reasons.push("ai-queue");
+    // Act before the scheduler's 1.5-second fallback deadline.
+    if (sample.aiQueueAgeMs >= 750) reasons.push("ai-queue");
     const severe =
       sample.lagMaxMs >= 500 ||
       sample.memoryRatio >= 0.93 ||
       sample.persistP95Ms >= 200 ||
-      sample.aiQueueAgeMs >= 5000;
+      sample.aiQueueAgeMs >= 1250;
     this.high = reasons.length ? this.high + 1 : 0;
     const healthy =
       sample.lagP95Ms <= 50 &&
@@ -40,7 +41,7 @@ export class AdmissionController {
       sample.utilization <= 0.6 &&
       sample.memoryRatio <= 0.75 &&
       sample.persistP95Ms <= 20 &&
-      sample.aiQueueAgeMs <= 500;
+      sample.aiQueueAgeMs <= 250;
     this.healthy = healthy ? this.healthy + 1 : 0;
     if (!this.paused && (severe || this.high >= 2)) {
       this.paused = true;

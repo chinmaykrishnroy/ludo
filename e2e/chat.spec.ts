@@ -129,11 +129,13 @@ test("chat has unread counts, typing, coloured mentions, emoji, GIFs and navigab
       .click();
     const image = dialog.getByAltText("GIF shared by Alice");
     await expect(image).toBeVisible();
-    expect(
-      await image.evaluate(
-        (img: HTMLImageElement) => img.complete && img.naturalWidth === 1,
-      ),
-    ).toBe(true);
+    await expect
+      .poll(() =>
+        image.evaluate(
+          (img: HTMLImageElement) => img.complete && img.naturalWidth === 1,
+        ),
+      )
+      .toBe(true);
     const photoSource = await page.evaluate(() => {
       const canvas = document.createElement("canvas");
       canvas.width = 2400;
