@@ -1,10 +1,18 @@
+import { useEffect, useState } from "react";
 export default function Dice({
   value,
   rolling = false,
 }: {
-  value: number;
+  value: number | null;
   rolling?: boolean;
 }) {
+  const [frame, setFrame] = useState(0);
+  useEffect(() => {
+    if (!rolling) return;
+    const timer = setInterval(() => setFrame((f) => (f + 1) % 6), 75);
+    return () => clearInterval(timer);
+  }, [rolling]);
+  const shown = rolling ? frame + 1 : value;
   const points: Record<number, number[]> = {
     1: [4],
     2: [0, 8],
@@ -17,11 +25,25 @@ export default function Dice({
     <span
       className={`dice ${rolling ? "rolling" : ""}`}
       role="img"
-      aria-label={rolling ? "Dice rolling" : `Dice showing ${value}`}
+      aria-label={
+        rolling
+          ? "Dice rolling"
+          : value
+            ? `Dice showing ${value}`
+            : "Dice ready"
+      }
     >
+      {!rolling && value === null && (
+        <span className="dice-ready" aria-hidden="true" />
+      )}
       <span className="dice-pips">
         {Array.from({ length: 9 }, (_, i) => (
-          <i key={i} className={points[value].includes(i) ? "visible" : ""} />
+          <i
+            key={i}
+            className={
+              (shown ? points[shown] : []).includes(i) ? "visible" : ""
+            }
+          />
         ))}
       </span>
     </span>

@@ -2,6 +2,7 @@ import { DotsThree, ArrowLeft } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { Board, PALETTE } from "./Board";
 import Dice from "./Dice";
+import { useDicePresentation } from "./useDicePresentation";
 import type { VoiceController } from "./useRoomVoice";
 import { RoomTools } from "./RoomChat";
 import type { ChatController } from "./useRoomChat";
@@ -14,7 +15,7 @@ export default function PlayScreen({
   me,
   room,
   busy,
-  rolling,
+  pending,
   connected,
   onRoll,
   onMove,
@@ -30,7 +31,7 @@ export default function PlayScreen({
   me: string;
   room: Room | null;
   busy: boolean;
-  rolling: boolean;
+  pending: boolean;
   connected: boolean;
   onRoll: () => void;
   onMove: (n: number) => void;
@@ -42,6 +43,11 @@ export default function PlayScreen({
   clockOffset: number;
   chat: ChatController;
 }) {
+  const presentation = useDicePresentation(
+    game,
+    room?.code ?? "local",
+    pending,
+  );
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 250);
@@ -49,11 +55,13 @@ export default function PlayScreen({
   }, []);
   const seconds = Math.max(
     0,
-    Math.ceil((game.deadline - (now + clockOffset)) / 1000),
+    Math.ceil((presentation.board.deadline - (now + clockOffset)) / 1000),
   );
   const inputBusy =
-    busy || (!!room && now + clockOffset < (room.actionReadyAt ?? 0));
-  const current = game.seats[game.turn]!,
+    busy ||
+    presentation.active ||
+    (!!room && now + clockOffset < (room.actionReadyAt ?? 0));
+  const current = presentation.actor,
     mine = current.id === me && !current.bot,
     sharedDevice = !room && game.seats.filter((s) => s && !s.bot).length > 1,
     finished = game.phase === "finished";
@@ -74,7 +82,7 @@ export default function PlayScreen({
           }
         >
           <Board
-            game={game}
+            game={presentation.board}
             me={me}
             onMove={onMove}
             busy={inputBusy || (!connected && !!room)}
@@ -104,7 +112,10 @@ export default function PlayScreen({
               game.phase !== "roll" ||
               (!!room && !connected)
             }
-            onClick={onRoll}
+            onClick={() => {
+              presentation.begin();
+              onRoll();
+            }}
             aria-label="Roll dice"
           >
             <span className="dice-turn">
@@ -120,24 +131,26 @@ export default function PlayScreen({
             <span className="dice-clock" aria-label="Time remaining">
               {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, "0")}
             </span>
-            <Dice value={game.dice ?? 1} rolling={rolling} />
+            <Dice value={presentation.value} rolling={presentation.rolling} />
             <span className="dice-action">
-              {rolling
+              {presentation.rolling
                 ? "ROLLING"
-                : game.phase === "move" && mine
-                  ? soleLegalMove(game) !== undefined
-                    ? "AUTO MOVE"
-                    : "PICK TOKEN"
-                  : mine
-                    ? "ROLL DICE"
-                    : "WAITING"}
+                : presentation.result?.phase === "roll"
+                  ? "TURN OVER"
+                  : game.phase === "move" && mine
+                    ? soleLegalMove(game) !== undefined
+                      ? "AUTO MOVE"
+                      : "PICK TOKEN"
+                    : mine
+                      ? "ROLL DICE"
+                      : "WAITING"}
             </span>
           </button>
           {showVoice && (
             <VoicePanel compact room={room} voice={voice} onOnline={onOnline} />
           )}
           <span className="sr-only" role="status" aria-live="polite">
-            {game.notice}
+            {presentation.active ? `${current.name} is rolling.` : game.notice}
           </span>
         </div>
       </main>

@@ -26,6 +26,7 @@ import { PALETTE } from "./Board";
 import type { VoiceController } from "./useRoomVoice";
 import type { ChatController } from "./useRoomChat";
 import { preparePhoto } from "./preparePhoto";
+import { containDialogFocus, openDialog } from "./dialogFocus";
 
 export function RoomTools({
   voice,
@@ -39,7 +40,7 @@ export function RoomTools({
   return (
     <div className="room-tools">
       <button
-        className="play-tool"
+        className="square-button"
         aria-label={voice.muted ? "Unmute speakers" : "Mute speakers"}
         aria-pressed={voice.muted}
         title={voice.muted ? "Unmute speakers" : "Mute speakers"}
@@ -53,7 +54,7 @@ export function RoomTools({
       </button>
       {online && (
         <button
-          className="play-tool chat-launch"
+          className="square-button chat-launch"
           aria-label={`Open room chat${chat.unread ? `, ${chat.unread} unread messages` : ""}`}
           title="Room chat"
           onClick={chat.show}
@@ -186,13 +187,13 @@ export default function RoomChat({
       }, 2500);
   }
   useEffect(() => {
-    if (chat.open) {
-      dialog.current?.showModal();
-      input.current?.focus({ preventScroll: true });
-    } else {
-      dialog.current?.close();
+    if (!chat.open) {
       typing(false);
+      return;
     }
+    const close = openDialog(dialog.current!);
+    input.current?.focus({ preventScroll: true });
+    return close;
   }, [chat.open]);
   useEffect(() => {
     const inputs = [pick.current, camera.current];
@@ -381,6 +382,9 @@ export default function RoomChat({
     <dialog
       ref={dialog}
       className="dialog room-chat"
+      onKeyDown={(e) => {
+        if (!e.defaultPrevented) containDialogFocus(e, e.currentTarget);
+      }}
       aria-labelledby="room-chat-title"
       onCancel={(e) => {
         e.preventDefault();

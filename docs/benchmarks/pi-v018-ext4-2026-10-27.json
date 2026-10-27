@@ -1,0 +1,162 @@
+{
+  "scope": "Disposable Pi instance; real sockets, bots, valid recorded WebM fixture transport/downloads and deliberate reconnects. This is not a physical audibility test.",
+  "at": "2026-10-27T06:34:21.386Z",
+  "seconds": 180.9,
+  "rooms": 8,
+  "humanSockets": 16,
+  "computerSeats": 16,
+  "actions": 298,
+  "voiceUploads": 40,
+  "downloadedAudioBytes": 164400,
+  "reconnects": 8,
+  "ackP95Ms": 216.48,
+  "ackMaxMs": 2016.02,
+  "maxRssMiB": 133,
+  "maxEventLoopP95Ms": 50.14,
+  "maxEventLoopDelayMs": 1469.05,
+  "slowActions": [
+    {
+      "event": "game:roll",
+      "ms": 1462.37
+    },
+    {
+      "event": "game:roll",
+      "ms": 2016.02
+    },
+    {
+      "event": "game:roll",
+      "ms": 532.83
+    },
+    {
+      "event": "game:roll",
+      "ms": 948.8
+    },
+    {
+      "event": "game:roll",
+      "ms": 1025.13
+    },
+    {
+      "event": "game:roll",
+      "ms": 1078.02
+    }
+  ],
+  "serverErrors": 0,
+  "aiWorker": {
+    "completed": 168,
+    "cancelled": 0,
+    "fallbacks": 0,
+    "timeouts": 0,
+    "failures": 0,
+    "pending": 0,
+    "oldestPendingMs": 0
+  },
+  "operations": {
+    "backupCopy": {
+      "count": 4,
+      "recentSamples": 4,
+      "lastMs": 27.9,
+      "p95Ms": 25.93,
+      "maxMs": 27.9,
+      "maxAt": 1793082858555
+    },
+    "dbBegin": {
+      "count": 1000,
+      "recentSamples": 128,
+      "lastMs": 0.02,
+      "p95Ms": 0.02,
+      "maxMs": 0.21,
+      "maxAt": 1793082750765
+    },
+    "dbBody": {
+      "count": 1000,
+      "recentSamples": 128,
+      "lastMs": 0.55,
+      "p95Ms": 0.69,
+      "maxMs": 29.57,
+      "maxAt": 1793082858758
+    },
+    "dbCommit": {
+      "count": 1000,
+      "recentSamples": 128,
+      "lastMs": 7.86,
+      "p95Ms": 11.86,
+      "maxMs": 1458.5,
+      "maxAt": 1793082693040
+    },
+    "maintenance": {
+      "count": 4,
+      "recentSamples": 4,
+      "lastMs": 1.72,
+      "p95Ms": 1.72,
+      "maxMs": 3.01,
+      "maxAt": 1793082798762
+    },
+    "backupVerify": {
+      "count": 4,
+      "recentSamples": 4,
+      "lastMs": 314.7,
+      "p95Ms": 314.7,
+      "maxMs": 336.76,
+      "maxAt": 1793082798886
+    },
+    "backupHash": {
+      "count": 4,
+      "recentSamples": 4,
+      "lastMs": 1.58,
+      "p95Ms": 1.58,
+      "maxMs": 2.61,
+      "maxAt": 1793082678782
+    },
+    "retention": {
+      "count": 4,
+      "recentSamples": 4,
+      "lastMs": 5.01,
+      "p95Ms": 2.18,
+      "maxMs": 5.01,
+      "maxAt": 1793082858881
+    },
+    "backup": {
+      "count": 4,
+      "recentSamples": 4,
+      "lastMs": 354.91,
+      "p95Ms": 354.91,
+      "maxMs": 373.62,
+      "maxAt": 1793082798900
+    },
+    "views": {
+      "count": 980,
+      "recentSamples": 128,
+      "lastMs": 0.2,
+      "p95Ms": 0.18,
+      "maxMs": 65.28,
+      "maxAt": 1793082750858
+    },
+    "persist": {
+      "count": 980,
+      "recentSamples": 128,
+      "lastMs": 8.6,
+      "p95Ms": 12.58,
+      "maxMs": 1459.57,
+      "maxAt": 1793082693041
+    },
+    "commit": {
+      "count": 980,
+      "recentSamples": 128,
+      "lastMs": 9.6,
+      "p95Ms": 13.58,
+      "maxMs": 1460.69,
+      "maxAt": 1793082693041
+    }
+  },
+  "latencyTargets": {
+    "ackP95Ms": 250,
+    "ackMaxMs": 1000
+  },
+  "latencyTargetsMet": false,
+  "storage": "ext4 on mmcblk0p2",
+  "limits": {
+    "cpus": 0.75,
+    "memoryMiB": 384
+  },
+  "candidate": "compiled v0.1.8 backend mounted into v0.1.7 runtime image; isolated database"
+}

@@ -19,10 +19,11 @@ async function roomWithPeer(page: Page) {
     .last()
     .click();
   const code = await page.locator(".invite-strip strong").innerText();
-  const api = await request.newContext({ baseURL: "http://127.0.0.1:3027" });
+  const origin = new URL(page.url()).origin;
+  const api = await request.newContext({ baseURL: origin });
   const session = await api.get("/api/session"),
     cookie = session.headers()["set-cookie"].split(";")[0];
-  const socket = io("http://127.0.0.1:3027", {
+  const socket = io(origin, {
     autoConnect: false,
     transports: ["websocket"],
     extraHeaders: { Cookie: cookie },

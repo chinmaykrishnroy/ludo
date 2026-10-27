@@ -28,6 +28,7 @@ import {
   legalMoves,
   soleLegalMove,
   forcedMoveAt,
+  depart,
 } from "../shared/game.js";
 import { VOICE_MAX_BYTES, VOICE_MAX_SECONDS } from "../shared/voice.js";
 import { CHAT_MAX_GIF_BYTES, CHAT_IDLE_SECONDS } from "../shared/chat.js";
@@ -90,6 +91,8 @@ export function createApplication(options: ApplicationOptions = {}) {
     store = new Store(options.dbPath ?? "data/ludo.sqlite", options),
     monitor = new Monitor(),
     budgets = new Budget();
+  store.observeTransaction = (stage, elapsed) =>
+    monitor.observe(stage, elapsed);
   const connections = new Set<NetSocket>();
   http.on("connection", (connection) => {
     connections.add(connection);
@@ -1245,13 +1248,9 @@ export function createApplication(options: ApplicationOptions = {}) {
       const r = requireRoom(),
         index = r.seats.findIndex((s) => s?.id === id);
       if (r.game && r.game.phase !== "finished") {
-        const p = r.game.seats[index]!;
-        p.id = `bot:${randomUUID()}`;
-        p.bot = true;
-        p.botDifficulty = r.botDifficulty ?? defaultBotDifficulty;
-        p.connected = true;
-        p.name = `${p.name.slice(0, 24)} (Bot)`;
-        r.seats = structuredClone(r.game.seats);
+        r.seats[index] = null;
+        r.game = depart(r.game, id);
+        if (r.game) r.seats = structuredClone(r.game.seats);
       } else {
         r.seats[index] = null;
         r.game = null;

@@ -33,6 +33,7 @@ import {
 } from "@phosphor-icons/react";
 import { PALETTE } from "./Board";
 import PlayScreen from "./PlayScreen";
+import { containDialogFocus, openDialog } from "./dialogFocus";
 import { useAppearance, type Appearance } from "./useAppearance";
 import Home, { type ClubStats } from "./Home";
 import { useInstall } from "./useInstall";
@@ -44,11 +45,7 @@ import VoicePanel from "./VoicePanel";
 import { useRoomVoice } from "./useRoomVoice";
 import RoomChat, { RoomTools } from "./RoomChat";
 import { useRoomChat } from "./useRoomChat";
-import {
-  captureHaptic,
-  playGameSound,
-  type FeedbackKind,
-} from "./gameFeedback";
+import { useGameFeedback } from "./useGameFeedback";
 import type { Typing, Voice } from "../shared/protocol";
 import {
   COLORS,
@@ -121,13 +118,12 @@ function Dialog({
   closeRef.current = onClose;
   const titleId = useId();
   useEffect(() => {
-    const d = ref.current!;
-    d.showModal();
-    return () => d.close();
+    return openDialog(ref.current!);
   }, []);
   return (
     <dialog
       ref={ref}
+      onKeyDown={(e) => containDialogFocus(e, e.currentTarget)}
       aria-labelledby={titleId}
       className={`dialog ${wide ? "wide" : ""}`}
       onCancel={(e) => {
@@ -612,9 +608,7 @@ export default function App() {
       | null
     >(new URLSearchParams(location.search).has("room") ? "rooms" : null),
     [toast, setToast] = useState(""),
-    [busy, setBusy] = useState(false),
     [commandBusy, setCommandBusy] = useState(false),
-    [rolling, setRolling] = useState(false),
     [sound, setSound] = useState(
       () => browserStorage.getItem("ludo-sound") !== "off",
     ),
@@ -633,12 +627,7 @@ export default function App() {
     toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null),
     mutedVoiceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
       undefined,
-    ),
-    animationTimers = useRef<ReturnType<typeof setTimeout>[]>([]),
-    lastRevision = useRef(""),
-    audioContext = useRef<AudioContext | null>(null),
-    soundRef = useRef(sound);
-  soundRef.current = sound;
+    );
   activeRoomCode.current = room?.code;
   const notify = useCallback((text: string) => {
     setToast(text);
@@ -881,6 +870,15 @@ export default function App() {
     lobby = !!room && !room.game,
     myTurn = !!current && current.id === playerId && !current.bot && !lobby,
     finished = game.phase === "finished";
+  const feedback = useGameFeedback(
+      game,
+      room?.code ?? "local",
+      !lobby && !setup && (!!room || practiceOpen),
+      sound,
+      voice.muted,
+      haptics,
+    ),
+    busy = feedback.busy;
   useEffect(() => {
     if (practiceOpen) savePractice(browserStorage, local);
   }, [local, practiceOpen]);
@@ -904,62 +902,9 @@ export default function App() {
     );
     return () => clearInterval(timer);
   }, [room, practiceOpen, setup, modal, local.phase]);
-  function chime(kind: FeedbackKind) {
-    if (!soundRef.current || voice.muted || document.hidden) return;
-    try {
-      playGameSound((audioContext.current ??= new AudioContext()), kind);
-    } catch {
-      /* Audio is optional and never blocks gameplay. */
-    }
-  }
-  useEffect(() => {
-    if (lobby || setup) {
-      animationTimers.current.forEach(clearTimeout);
-      setBusy(false);
-      setRolling(false);
-      return;
-    }
-    const key = `${room?.code ?? "local"}:${game.revision}`;
-    if (lastRevision.current === key) return;
-    const previousKey = lastRevision.current;
-    lastRevision.current = key;
-    animationTimers.current.forEach(clearTimeout);
-    // A reconnect snapshot is a baseline, not a newly observed capture/roll.
-    if (!previousKey || !previousKey.startsWith(`${room?.code ?? "local"}:`)) {
-      setBusy(false);
-      setRolling(false);
-      return;
-    }
-    if (game.revision === 0) {
-      setBusy(false);
-      setRolling(false);
-      return;
-    }
-    setBusy(true);
-    if (!game.lastMove) {
-      setRolling(true);
-      chime("roll");
-    } else {
-      chime(
-        game.lastMove.captured > 0
-          ? "capture"
-          : game.lastMove.to === 56
-            ? "finish"
-            : "move",
-      );
-      if (game.lastMove.captured > 0)
-        captureHaptic(haptics, !document.hidden, navigator);
-    }
-    animationTimers.current = [
-      setTimeout(() => setRolling(false), 650),
-      setTimeout(() => setBusy(false), 1100),
-    ];
-  }, [game.revision, room?.code, lobby, setup, practiceOpen]);
   useEffect(
     () => () => {
-      animationTimers.current.forEach(clearTimeout);
       if (toastTimer.current) clearTimeout(toastTimer.current);
-      void audioContext.current?.close();
     },
     [],
   );
@@ -1033,6 +978,9 @@ export default function App() {
       (room && Date.now() + clockOffset < (room.actionReadyAt ?? 0))
     )
       return;
+    if (event === "game:roll") {
+      feedback.beginRoll();
+    }
     if (room) {
       const actionKey = `${room.code}:${game.revision}`;
       if (issuedAction.current === actionKey) return;
@@ -1100,9 +1048,7 @@ export default function App() {
     if (r.ok) {
       setRoom(null);
       setModal(null);
-      setBusy(false);
-      setRolling(false);
-      lastRevision.current = "";
+      feedback.reset();
     } else notify(r.error ?? "Could not leave.");
   }
 
@@ -1210,9 +1156,7 @@ export default function App() {
               : practice(name, botCount, botDifficulty, offlineBotLevels),
           );
           setPracticeOpen(true);
-          setBusy(false);
-          setRolling(false);
-          lastRevision.current = "";
+          feedback.reset();
           setSetup(false);
           setModal(null);
         }}
@@ -1224,7 +1168,7 @@ export default function App() {
     </>
   );
   const notices = (
-    <>
+    <div className="notification-stack">
       {mutedVoice && voice.muted && (
         <div className="muted-voice-toast" role="status">
           <span>
@@ -1258,7 +1202,7 @@ export default function App() {
           </button>
         </div>
       )}
-    </>
+    </div>
   );
   return (
     <div className="app-shell">
@@ -1283,7 +1227,7 @@ export default function App() {
           me={playerId}
           room={room}
           busy={busy || commandBusy}
-          rolling={rolling}
+          pending={commandBusy}
           showVoice={modal !== "menu" && !chat.open}
           onBack={() => setModal("leave")}
           connected={connected}
@@ -1302,14 +1246,16 @@ export default function App() {
               <DiceFive weight="fill" />
               LUDO CLUB
             </a>
-            {room && <RoomTools voice={voice} chat={chat} />}
-            <button
-              className="square-button"
-              aria-label="Settings"
-              onClick={() => setModal("settings")}
-            >
-              <GearSix weight="bold" />
-            </button>
+            <div className="header-actions">
+              {room && <RoomTools voice={voice} chat={chat} />}
+              <button
+                className="square-button"
+                aria-label="Settings"
+                onClick={() => setModal("settings")}
+              >
+                <GearSix weight="bold" />
+              </button>
+            </div>
           </header>
           {room ? (
             <section className="lobby-card">
@@ -1707,9 +1653,7 @@ export default function App() {
                       setModal(null))
                   : (setLocal(practice(name, botCount)),
                     setModal(null),
-                    setBusy(false),
-                    setRolling(false),
-                    (lastRevision.current = ""))
+                    feedback.reset())
               }
             >
               CONFIRM <ArrowRight />

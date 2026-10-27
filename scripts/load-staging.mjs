@@ -1,8 +1,13 @@
 import { io } from "socket.io-client";
-import { legalMoves } from "../build/shared/game.js";
+import { readFile } from "node:fs/promises";
+import { legalMoves, soleLegalMove } from "../build/shared/game.js";
 import { performance } from "node:perf_hooks";
 
 // Run only against a disposable staging instance: this creates real games/stats.
+if (process.env.LOAD_CONFIRM_DISPOSABLE !== "1")
+  throw new Error(
+    "Set LOAD_CONFIRM_DISPOSABLE=1 only for an isolated disposable instance",
+  );
 const url = process.env.LOAD_URL ?? "http://127.0.0.1:3000";
 const duration = Number(process.env.LOAD_SECONDS ?? 300);
 const count = Number(process.env.LOAD_ROOMS ?? 8);
@@ -120,8 +125,11 @@ try {
     await call(a, "room:start");
     tables.push(table);
   }
-  const audio = Buffer.alloc(128 * 1024);
-  audio.set([0x1a, 0x45, 0xdf, 0xa3]);
+  const actualAudio = !!process.env.LOAD_AUDIO_FILE;
+  const audio = actualAudio
+    ? await readFile(process.env.LOAD_AUDIO_FILE)
+    : Buffer.alloc(128 * 1024);
+  if (!actualAudio) audio.set([0x1a, 0x45, 0xdf, 0xa3]);
   const start = performance.now();
   let nextVoice = start + 35000,
     nextReconnect = start + 20000,
@@ -131,7 +139,13 @@ try {
     await Promise.all(
       tables.map(async (table) => {
         const g = table.room.game;
-        if (!g || g.phase === "finished") return;
+        if (
+          !g ||
+          g.phase === "finished" ||
+          soleLegalMove(g) !== undefined ||
+          Date.now() < (table.room.actionReadyAt ?? 0) + 30
+        )
+          return;
         const i = table.ids.indexOf(g.seats[g.turn]?.id);
         if (i < 0 || !table.guests[i].socket.connected) return;
         const reply = await call(
@@ -154,7 +168,7 @@ try {
         await call(sender, "voice:send", {
           audio,
           mime: "audio/webm",
-          duration: 30,
+          duration: actualAudio ? 0.8 : 30,
         });
         voices++;
         const id = table.room.voices.at(-1).id;
@@ -196,8 +210,7 @@ try {
   console.log(
     JSON.stringify(
       {
-        scope:
-          "Disposable Pi instance; real sockets, bots, audio transport/downloads and deliberate reconnects. Audio payload is synthetic, not an audibility test.",
+        scope: `Disposable isolated instance; real sockets, bots, ${actualAudio ? "valid recorded WebM fixture" : "synthetic audio payload"} transport/downloads and deliberate reconnects. This is not a physical audibility test.`,
         at: new Date().toISOString(),
         seconds: Number(((performance.now() - start) / 1000).toFixed(1)),
         rooms: count,
@@ -217,6 +230,11 @@ try {
         slowActions,
         serverErrors: h.errors - initialErrors,
         aiWorker: h.ai,
+        operations: h.timings,
+        latencyTargets: { ackP95Ms: 250, ackMaxMs: 1000 },
+        latencyTargetsMet:
+          latencies[Math.floor(latencies.length * 0.95)] <= 250 &&
+          latencies.at(-1) <= 1000,
       },
       null,
       2,

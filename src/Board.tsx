@@ -38,6 +38,7 @@ function Token({
   step,
   onMove,
   enabled,
+  disconnected,
 }: {
   game: Game;
   color: Color;
@@ -45,6 +46,7 @@ function Token({
   step: number;
   onMove: (n: number) => void;
   enabled: boolean;
+  disconnected: boolean;
 }) {
   const reduced = useReducedMotion();
   const [path, setPath] = useState<[number, number][]>([
@@ -80,8 +82,8 @@ function Token({
     offset = stack.length > 1 ? (order - (stack.length - 1) / 2) * 0.85 : 0;
   return (
     <motion.button
-      className={`token ${color} ${enabled ? "selectable" : ""} ${step === 56 ? "finished-token" : ""}`}
-      aria-label={`${color} token ${index + 1}${step < 0 ? ", in yard" : step === 56 ? ", finished" : `, space ${step}`}${enabled ? ", move available" : ""}`}
+      className={`token ${color} ${enabled ? "selectable" : ""} ${step === 56 ? "finished-token" : ""} ${disconnected ? "disconnected-token" : ""}`}
+      aria-label={`${color} token ${index + 1}${step < 0 ? ", in yard" : step === 56 ? ", finished" : `, space ${step}`}${enabled ? ", move available" : ""}${disconnected ? ", player offline" : ""}`}
       disabled={!enabled}
       onClick={() => onMove(index)}
       initial={false}
@@ -199,38 +201,40 @@ export const Board = memo(function Board({
         <path d="M192 288 L240 240 L288 288Z" fill={PALETTE.blue} />
         <circle cx="240" cy="240" r="12" fill="#fffdf8" />
         <circle cx="240" cy="240" r="4" fill="#253e37" />
-      </svg>
-      {[...SAFE]
-        .filter((i) => !STARTS.includes(i))
-        .map((i) => {
-          const [r, c] = PATH[i];
+        {[...SAFE]
+          .filter((i) => !STARTS.includes(i))
+          .map((i) => {
+            const [r, c] = PATH[i];
+            return (
+              <Star
+                key={i}
+                weight="regular"
+                aria-hidden="true"
+                className="safe-star"
+                x={c * 32 + 7}
+                y={r * 32 + 7}
+                width={18}
+                height={18}
+              />
+            );
+          })}
+        {[ArrowRight, ArrowDown, ArrowLeft, ArrowUp].map((Icon, i) => {
+          const [r, c] = PATH[STARTS[i]];
           return (
-            <Star
+            <Icon
               key={i}
-              weight="regular"
-              className="safe-star"
-              style={{
-                left: `${((c + 0.5) / 15) * 100}%`,
-                top: `${((r + 0.5) / 15) * 100}%`,
-              }}
+              weight="bold"
+              aria-hidden="true"
+              className="start-arrow"
+              x={c * 32 + 8}
+              y={r * 32 + 8}
+              width={16}
+              height={16}
+              color={i === 2 ? "#594719" : "white"}
             />
           );
         })}
-      {[ArrowRight, ArrowDown, ArrowLeft, ArrowUp].map((Icon, i) => {
-        const [r, c] = PATH[STARTS[i]];
-        return (
-          <Icon
-            key={i}
-            weight="bold"
-            className="start-arrow"
-            style={{
-              left: `${((c + 0.5) / 15) * 100}%`,
-              top: `${((r + 0.5) / 15) * 100}%`,
-              color: i === 2 ? "#594719" : "white",
-            }}
-          />
-        );
-      })}
+      </svg>
       {game.seats.map(
         (s) =>
           s &&
@@ -242,6 +246,7 @@ export const Board = memo(function Board({
               index={i}
               step={step}
               onMove={onMove}
+              disconnected={!s.connected && !s.id.startsWith("bot:")}
               enabled={
                 !busy && s.id === me && current.id === me && moves.includes(i)
               }

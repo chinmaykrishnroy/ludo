@@ -106,6 +106,7 @@ test("legacy tokens and deadline survive refresh and an offline shell restart", 
   game.phase = "move";
   game.dice = 2;
   game.revision = 4;
+  game.deadline = Date.now() + 120000;
   await page.goto("/");
   await page.evaluate(
     ({ key, game }) => localStorage.setItem(key, JSON.stringify(game)),

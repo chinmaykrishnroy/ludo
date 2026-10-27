@@ -12,7 +12,7 @@ import {
 } from "../server/backups.js";
 import { readdir, writeFile, link, mkdir, utimes } from "node:fs/promises";
 import { verifyBackupAsync } from "../server/backup-verifier.js";
-import { seat, newGame } from "../shared/game.js";
+import { seat, newGame, roll } from "../shared/game.js";
 import type { Room } from "../shared/protocol.js";
 const fixture = (): Room => {
   const seats = [
@@ -304,5 +304,40 @@ test("corrupt saved rooms are quarantined without discarding their source data",
   } finally {
     s.close();
     rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("unchanged membership avoids index writes and diagnostics cannot invalidate a committed save", () => {
+  const store = new Store(":memory:");
+  try {
+    store.db.exec(
+      "CREATE TABLE member_changes(n INTEGER); CREATE TRIGGER count_member_insert AFTER INSERT ON room_members BEGIN INSERT INTO member_changes VALUES(1); END; CREATE TRIGGER count_member_delete AFTER DELETE ON room_members BEGIN INSERT INTO member_changes VALUES(1); END;",
+    );
+    let room = fixture();
+    store.save(room);
+    for (let i = 0; i < 10; i++) {
+      room = structuredClone(room);
+      room.game = roll(room.game!, 1);
+      room.seats = structuredClone(room.game.seats);
+      store.save(room);
+    }
+    assert.equal(
+      (
+        store.db.prepare("SELECT COUNT(*) AS n FROM member_changes").get() as {
+          n: number;
+        }
+      ).n,
+      1,
+    );
+    assert.equal(store.stats().diceRolls, 10);
+    store.observeTransaction = () => {
+      throw new Error("Diagnostic failure");
+    };
+    room = structuredClone(room);
+    room.name = "Committed even if observer fails";
+    store.save(room);
+    assert.equal(store.findByPlayer("owner")!.name, room.name);
+  } finally {
+    store.close();
   }
 });

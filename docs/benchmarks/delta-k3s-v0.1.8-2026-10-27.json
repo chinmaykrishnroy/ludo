@@ -1,0 +1,140 @@
+{
+  "scope": "Isolated Delta k3s verification pod; real sockets, bots, valid recorded WebM fixture transport/downloads and deliberate reconnects. This is not a physical audibility test.",
+  "at": "2026-10-27T06:56:10.288Z",
+  "seconds": 180.6,
+  "rooms": 8,
+  "humanSockets": 16,
+  "computerSeats": 16,
+  "actions": 274,
+  "voiceUploads": 40,
+  "downloadedAudioBytes": 164400,
+  "reconnects": 8,
+  "ackP95Ms": 16.72,
+  "ackMaxMs": 55.51,
+  "maxRssMiB": 132.9,
+  "maxEventLoopP95Ms": 21.12,
+  "maxEventLoopDelayMs": 70.65,
+  "slowActions": [],
+  "serverErrors": 0,
+  "aiWorker": {
+    "completed": 213,
+    "cancelled": 0,
+    "fallbacks": 0,
+    "timeouts": 0,
+    "failures": 0,
+    "pending": 0,
+    "oldestPendingMs": 0
+  },
+  "operations": {
+    "backupCopy": {
+      "count": 6,
+      "recentSamples": 6,
+      "lastMs": 10.46,
+      "p95Ms": 10.46,
+      "maxMs": 10.69,
+      "maxAt": 1793084101331
+    },
+    "backupVerify": {
+      "count": 6,
+      "recentSamples": 6,
+      "lastMs": 133.78,
+      "p95Ms": 114.22,
+      "maxMs": 133.78,
+      "maxAt": 1793084161465
+    },
+    "backupHash": {
+      "count": 6,
+      "recentSamples": 6,
+      "lastMs": 0.7,
+      "p95Ms": 0.7,
+      "maxMs": 1.64,
+      "maxAt": 1793083861442
+    },
+    "retention": {
+      "count": 6,
+      "recentSamples": 6,
+      "lastMs": 0.82,
+      "p95Ms": 0.76,
+      "maxMs": 0.82,
+      "maxAt": 1793084161471
+    },
+    "backup": {
+      "count": 6,
+      "recentSamples": 6,
+      "lastMs": 150.12,
+      "p95Ms": 130.27,
+      "maxMs": 150.12,
+      "maxAt": 1793084161471
+    },
+    "dbBegin": {
+      "count": 1019,
+      "recentSamples": 128,
+      "lastMs": 0.01,
+      "p95Ms": 0.01,
+      "maxMs": 0.03,
+      "maxAt": 1793083981653
+    },
+    "dbBody": {
+      "count": 1019,
+      "recentSamples": 128,
+      "lastMs": 0.22,
+      "p95Ms": 0.27,
+      "maxMs": 46.14,
+      "maxAt": 1793084037923
+    },
+    "dbCommit": {
+      "count": 1019,
+      "recentSamples": 128,
+      "lastMs": 2.84,
+      "p95Ms": 3.06,
+      "maxMs": 53.98,
+      "maxAt": 1793084095925
+    },
+    "maintenance": {
+      "count": 6,
+      "recentSamples": 6,
+      "lastMs": 1,
+      "p95Ms": 1,
+      "maxMs": 1.02,
+      "maxAt": 1793084041780
+    },
+    "views": {
+      "count": 997,
+      "recentSamples": 128,
+      "lastMs": 0.05,
+      "p95Ms": 0.1,
+      "maxMs": 0.15,
+      "maxAt": 1793084012160
+    },
+    "persist": {
+      "count": 997,
+      "recentSamples": 128,
+      "lastMs": 3.12,
+      "p95Ms": 3.46,
+      "maxMs": 54.26,
+      "maxAt": 1793084095925
+    },
+    "commit": {
+      "count": 997,
+      "recentSamples": 128,
+      "lastMs": 3.54,
+      "p95Ms": 3.95,
+      "maxMs": 54.74,
+      "maxAt": 1793084095925
+    }
+  },
+  "latencyTargets": {
+    "ackP95Ms": 250,
+    "ackMaxMs": 1000
+  },
+  "latencyTargetsMet": true,
+  "placement": {
+    "node": "delta",
+    "storageClass": "local-path",
+    "volume": "separate verification PVC",
+    "cpuLimit": "750m",
+    "memoryLimit": "384Mi",
+    "network": "denied ingress/egress; loopback-only workload"
+  },
+  "candidate": "compiled candidate backend mounted into verified v0.1.7 runtime image; final release image remains independently gated"
+}

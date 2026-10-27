@@ -1,6 +1,6 @@
 {
   "name": "ludo-club",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "private": true,
   "type": "module",
   "engines": {
@@ -32,6 +32,7 @@
     "zod": "^4.1.12"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
     "@playwright/test": "1.64.1",
     "@types/express": "^5.0.3",
     "@types/node": "^24.10.0",

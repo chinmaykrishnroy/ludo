@@ -226,6 +226,15 @@ export function soleLegalMove(g: Game): number | undefined {
 export function forcedMoveAt(g: Game) {
   return g.deadline - MOVE_MS + FORCED_MOVE_MS;
 }
+export function isDiceRoll(before: Game, after: Game) {
+  return (
+    before.phase === "roll" &&
+    after.revision === before.revision + 1 &&
+    after.dice !== null &&
+    !after.lastMove &&
+    before.seats.every((s, i) => s?.id === after.seats[i]?.id)
+  );
+}
 function next(g: Game, bonus: boolean, now: number) {
   if (!bonus) {
     do {
@@ -302,6 +311,27 @@ export function move(g: Game, token: number, now = Date.now()): Game {
     n.winner = p.id;
     n.notice = `${p.name} wins the table!`;
   } else next(n, n.dice === 6 || captured > 0 || to === 56, now);
+  return n;
+}
+// Explicit departure differs from a disconnected guest who can recover a seat.
+export function depart(
+  g: Game,
+  playerId: string,
+  now = Date.now(),
+): Game | null {
+  const index = g.seats.findIndex((s) => s?.id === playerId);
+  if (index < 0) return g;
+  const n = cloneGame(g),
+    name = n.seats[index]!.name;
+  n.seats[index] = null;
+  if (n.phase === "finished" || n.seats.filter(Boolean).length < 2) return null;
+  n.revision++;
+  n.lastMove = null;
+  if (n.turn === index) {
+    next(n, false, now);
+    n.dice = null;
+  }
+  n.notice = `${name} left the game.`;
   return n;
 }
 export { botMove } from "./bot.js";

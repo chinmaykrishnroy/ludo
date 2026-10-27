@@ -1,6 +1,6 @@
 # Container releases and GitOps
 
-Pushing a tag such as `v0.1.7` builds and publishes `ghcr.io/chinmaykrishnroy/ludo` for Linux AMD64 and ARM64. Images can run on Docker hosts, Kubernetes and other compatible container platforms.
+Pushing a tag such as `v0.1.8` builds and publishes `ghcr.io/chinmaykrishnroy/ludo` for Linux AMD64 and ARM64. Images can run on Docker hosts, Kubernetes and other compatible container platforms.
 
 ## Release procedure
 
@@ -9,18 +9,18 @@ Pushing a tag such as `v0.1.7` builds and publishes `ghcr.io/chinmaykrishnroy/lu
 3. Create an annotated version tag and push it:
 
 ```sh
-git tag -a v0.1.7 -m "Ludo Club v0.1.7"
-git push origin v0.1.7
+git tag -a v0.1.8 -m "Ludo Club v0.1.8"
+git push origin v0.1.8
 ```
 
 The tag must match the package and lockfile versions and point at a commit on origin/main. The pipeline reruns Linux/Windows tests, builds, dependency audit and the existing container checks. It then builds **each architecture separately**, runs HTTP/PWA, multiplayer, persisted restart/reconnect and AI worker smoke checks against that actual image, and pushes architecture candidates.
 
 Only after both candidates pass does it assemble the version manifest. It checks that the manifest contains exactly the tested architecture digests, verifies anonymous registry access, publishes the immutable plain version alias and creates a GitHub release with the digest and image metadata. Publication jobs share one queue (up to 100 pending); architecture builds can still run concurrently. After publication, numeric stable-version ordering promotes only the newest published release to GHCR `latest` and GitHub Latest. An older build finishing later keeps its versioned image/release without downgrading either alias. Drafts and prereleases are excluded. These guarantees apply to this workflow; manually pushing mutable aliases or rerunning an obsolete workflow can bypass them.
 
-For v0.1.7 the pull references are:
+For v0.1.8 the pull references are:
 
 ```sh
-docker pull ghcr.io/chinmaykrishnroy/ludo:v0.1.7
+docker pull ghcr.io/chinmaykrishnroy/ludo:v0.1.8
 docker pull ghcr.io/chinmaykrishnroy/ludo:0.1.7
 docker pull ghcr.io/chinmaykrishnroy/ludo:latest
 ```

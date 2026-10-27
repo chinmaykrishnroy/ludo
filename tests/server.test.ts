@@ -197,7 +197,7 @@ test("real multiplayer: private/public rooms, authority, optional bots, chat, au
       pub.room!.code,
     );
     assert.equal((await call(b.s, "room:leave")).ok, true);
-    assert.equal(service.rooms.get(code)!.game!.seats[1]!.bot, true);
+    assert.equal(service.rooms.get(code)!.game!.seats[1], null);
   } finally {
     clients.forEach((s) => s.disconnect());
     await service.close();

@@ -576,7 +576,8 @@ test("a temporarily disconnected human uses the simple fallback even at expert r
 });
 
 test("unknown shaped cookies and expired issued sessions cannot authenticate", async () => {
-  const h = await harness();
+  // Isolate handler expiry from proactive maintenance disconnecting first.
+  const h = await harness({ tickMs: 60000 });
   const clients: Socket[] = [];
   try {
     for (const cookie of ["ludo_session=" + "a".repeat(64)]) {
@@ -867,6 +868,38 @@ test("failed writes leave canonical memory and persisted state unchanged", async
     assert.equal(JSON.stringify(h.service.store.findByPlayer(r.me!)), before);
   } finally {
     h.service.store.save = save;
+    await h.close();
+  }
+});
+
+test("explicit quit removes the seat and all its tokens instead of replacing it with a bot", async () => {
+  const h = await harness();
+  try {
+    const a = await h.client(),
+      b = await h.client();
+    const created = await h.call(a.socket, "room:create", {
+      name: "Departure",
+      playerName: "Alice",
+      public: false,
+      bots: 1,
+    });
+    await h.call(b.socket, "room:join", {
+      code: created.room!.code,
+      playerName: "Bob",
+    });
+    await h.call(a.socket, "room:start");
+    const original = h.service.rooms.get(created.room!.code)!;
+    original.game!.seats[0]!.tokens = [5, 12, 26, 56];
+    original.seats = structuredClone(original.game!.seats);
+    assert((await h.call(a.socket, "room:leave")).ok);
+    const remaining = h.service.rooms.get(original.code)!;
+    assert.equal(h.service.store.stats().diceRolls, 0);
+    assert.equal(remaining.seats[0], null);
+    assert.equal(remaining.game!.seats[0], null);
+    assert.notEqual(remaining.game!.turn, 0);
+    assert.equal(h.service.store.findByPlayer(created.me!), undefined);
+    assert.equal(h.service.store.load()[0].game!.seats[0], null);
+  } finally {
     await h.close();
   }
 });

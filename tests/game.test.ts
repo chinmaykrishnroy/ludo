@@ -12,6 +12,7 @@ import {
   position,
   soleLegalMove,
   forcedMoveAt,
+  depart,
 } from "../shared/game.js";
 const full = () =>
   newGame(
@@ -188,4 +189,20 @@ test("100 seeded full games terminate with exactly one valid winner", () => {
       1,
     );
   }
+});
+
+test("turn departure preserves other tokens and their deadline, skips empty seats, and stops below two players", () => {
+  const g = full();
+  g.seats[1]!.tokens = [3, 8, -1, -1];
+  const deadline = g.deadline;
+  const other = depart(g, "p1", 100)!;
+  assert.equal(other.turn, 0);
+  assert.equal(other.deadline, deadline);
+  assert.equal(other.seats[1], null);
+  assert.deepEqual(g.seats[1]!.tokens, [3, 8, -1, -1]);
+  const current = depart(other, "p0", 200)!;
+  assert.equal(current.turn, 2);
+  assert.equal(current.deadline, 200 + 15000);
+  assert.equal(current.dice, null);
+  assert.equal(depart(current, "p2", 300), null);
 });

@@ -22,7 +22,10 @@ export class Monitor {
       | "maintenance"
       | "backupCopy"
       | "backupVerify"
-      | "backupHash",
+      | "backupHash"
+      | "dbBegin"
+      | "dbBody"
+      | "dbCommit",
     elapsedMs: number,
   ) {
     if (!Number.isFinite(elapsedMs) || elapsedMs < 0) return;

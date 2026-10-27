@@ -5,12 +5,17 @@ import { randomUUID } from "node:crypto";
 import type { Room } from "../shared/protocol.js";
 import { roomSchema } from "./validation.js";
 import { SESSION_MS, PublicError } from "./security.js";
+import { isDiceRoll } from "../shared/game.js";
 export type VoiceWrite = { id: string; mime: string; data: Buffer; at: number };
 export class Store {
   db: DatabaseSync;
   readonly path: string;
   private owner = randomUUID();
   private closed = false;
+  observeTransaction?: (
+    stage: "dbBegin" | "dbBody" | "dbCommit",
+    elapsedMs: number,
+  ) => void;
   readonly voiceRetentionMs: number;
   readonly maxVoiceBytes: number;
   constructor(
@@ -91,7 +96,7 @@ export class Store {
           "ALTER TABLE voices ADD COLUMN createdAt INTEGER NOT NULL DEFAULT 0",
         );
       this.db.exec(
-        "CREATE INDEX IF NOT EXISTS rooms_archive ON rooms(archived); CREATE INDEX IF NOT EXISTS voices_age ON voices(createdAt); CREATE INDEX IF NOT EXISTS sessions_expiry ON sessions(expiresAt); CREATE INDEX IF NOT EXISTS chat_media_room ON chat_media(room,id);",
+        "CREATE INDEX IF NOT EXISTS rooms_archive ON rooms(archived); CREATE INDEX IF NOT EXISTS voices_age ON voices(createdAt); CREATE INDEX IF NOT EXISTS sessions_expiry ON sessions(expiresAt); CREATE INDEX IF NOT EXISTS chat_media_room ON chat_media(room,id); CREATE INDEX IF NOT EXISTS room_members_room ON room_members(room,player);",
       );
       const pageSize = (
         this.db.prepare("PRAGMA page_size").get() as { page_size: number }
@@ -147,16 +152,32 @@ export class Store {
   private decode(body: string): Room {
     return roomSchema.parse(JSON.parse(body));
   }
-  private transaction<T>(fn: () => T): T {
-    this.db.exec("BEGIN IMMEDIATE");
+  private recordTransaction(
+    stage: "dbBegin" | "dbBody" | "dbCommit",
+    elapsed: number,
+  ) {
     try {
+      this.observeTransaction?.(stage, elapsed);
+    } catch {
+      /* Diagnostics cannot change transaction success. */
+    }
+  }
+  private transaction<T>(fn: () => T): T {
+    let started = performance.now();
+    this.db.exec("BEGIN IMMEDIATE");
+    this.recordTransaction("dbBegin", performance.now() - started);
+    try {
+      started = performance.now();
       const lease = this.db
         .prepare("SELECT owner,expiresAt FROM server_lock WHERE id=1")
         .get() as { owner: string; expiresAt: number } | undefined;
       if (!lease || lease.owner !== this.owner || lease.expiresAt <= Date.now())
         throw new Error("Game server database lease lost");
       const result = fn();
+      this.recordTransaction("dbBody", performance.now() - started);
+      started = performance.now();
       this.db.exec("COMMIT");
+      this.recordTransaction("dbCommit", performance.now() - started);
       return result;
     } catch (error) {
       try {
@@ -186,9 +207,23 @@ export class Store {
         "INSERT INTO rooms(code,body,archived) VALUES(?,?,?) ON CONFLICT(code) DO UPDATE SET body=excluded.body,archived=excluded.archived",
       )
       .run(room.code, JSON.stringify(room), room.archived ? 1 : 0);
-    this.db.prepare("DELETE FROM room_members WHERE room=?").run(room.code);
+    const members = new Set(
+      (
+        this.db
+          .prepare("SELECT player FROM room_members WHERE room=?")
+          .all(room.code) as { player: string }[]
+      ).map((r) => r.player),
+    );
+    const wanted = new Set(
+      room.seats.flatMap((s) => (s && !s.id.startsWith("bot:") ? [s.id] : [])),
+    );
+    for (const id of members)
+      if (!wanted.has(id))
+        this.db
+          .prepare("DELETE FROM room_members WHERE room=? AND player=?")
+          .run(room.code, id);
     for (const s of room.seats)
-      if (s && !s.id.startsWith("bot:"))
+      if (s && wanted.has(s.id) && !members.has(s.id))
         this.db
           .prepare(
             "INSERT INTO room_members(player,room) VALUES(?,?) ON CONFLICT(player) DO UPDATE SET room=excluded.room",
@@ -290,12 +325,7 @@ export class Store {
         count("games_started");
       if (valid.game?.phase === "finished" && old?.game?.phase !== "finished")
         count("games_finished");
-      if (
-        valid.game &&
-        old?.game &&
-        valid.game.revision > old.game.revision &&
-        !valid.game.lastMove
-      )
+      if (valid.game && old?.game && isDiceRoll(old.game, valid.game))
         count("dice_rolls");
     });
   }
