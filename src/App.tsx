@@ -1671,7 +1671,7 @@ export default function App() {
           <p className="dialog-intro">
             {modal === "leave"
               ? room
-                ? "Release your seat and leave this game? A computer will take over. Refreshing or closing the app keeps your seat saved."
+                ? "Leave this game and remove your tokens? Refreshing or closing the app keeps your seat saved."
                 : "End this offline game and clear its saved progress?"
               : "This ends your current practice game."}
           </p>

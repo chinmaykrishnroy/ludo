@@ -250,6 +250,11 @@ test("disconnect cues stop on reconnect, respect reduced motion, and confirmed q
     await other.goto("/");
     await expect(page.locator(".disconnected-token")).toHaveCount(0);
     await other.getByRole("button", { name: "BACK", exact: true }).click();
+    await expect(
+      other.getByText("Leave this game and remove your tokens?", {
+        exact: false,
+      }),
+    ).toBeVisible();
     await other.getByRole("button", { name: /^CONFIRM/ }).click();
     await expect(page.locator(".token.yellow")).toHaveCount(0);
   } finally {
