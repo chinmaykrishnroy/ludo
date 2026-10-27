@@ -69,3 +69,13 @@ retention remains unchanged pending a separate decision about listening receipts
       accessible dismissible notice, including inside dialogs. The GitHub issue
       draft excludes private state and raw exceptions. Browser regression injects a
       real render failure and verifies reconnect to the retained room after reload.
+
+## v0.1.9 delivery evidence
+
+The release passed 121 Linux/Windows tests and 72 browser checks, both architecture
+image gates, native ARM64 staging and the post-deployment HTTPS probes. See
+[DELIVERY.md](DELIVERY.md) and [the final image benchmark](benchmarks/delta-release-v0.1.9-2026-10-27.json).
+The short mixed load and guarded burst are complete; longer sustained ramps,
+reconnect storms, bot-heavy capacity/strength comparisons, moderation drills and
+new physical-device acceptance remain unchecked above. Off-host backup/alert
+work stays deferred.

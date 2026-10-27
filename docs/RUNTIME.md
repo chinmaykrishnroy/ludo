@@ -108,3 +108,18 @@ problem even when an otherwise healthy network adds a round trip.
 failure boundary and the guarded burst/recovery result. Admission samples recent
 pressure rather than deriving a capacity claim from static room counts. Expected
 busy replies do not mark the live server unhealthy or trigger GitHub reporting.
+
+## Released v0.1.9 image on native ARM64
+
+The final, digest-pinned **v0.1.9** image was tested on Delta's ARM64 node with
+1500m CPU / 768 MiB limits and a fresh local-path PVC. No compiled backend was
+mounted over the image. In **180.7 seconds**, eight rooms with 16 human sockets
+and 16 bots completed 319 player actions, 40 valid WebM uploads/downloads, eight
+reconnects and verified background backups. Acknowledgement p95 was **17.08 ms**,
+maximum **33.21 ms**. There were zero server errors, pod restarts, bot fallbacks,
+timeouts or failures; 169 bot decisions completed. Both bounded-run latency
+targets passed. [Actual release image evidence](benchmarks/delta-release-v0.1.9-2026-10-27.json).
+
+This is a short in-cluster fixture workload, not an Internet/mobile latency or
+physical audibility guarantee. The earlier unguarded capacity failure and guarded
+burst/recovery experiment remain separately documented in [CAPACITY.md](CAPACITY.md).

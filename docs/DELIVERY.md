@@ -53,3 +53,38 @@ The expert-bot mixed Pi workload completed 163 AI decisions with no worker failu
 The local regression suite passes all 65 tests, the production build passes, and the production dependency audit reports no vulnerabilities. A separate browser fixture with 50 public waiting rooms verified eight-room pages, distinct second-page contents, a bounded inner scroll area and visible paging controls at desktop and 390-pixel phone widths. Dark-mode room cards display black dice icons on sky blue and black text/icons on yellow hover. The Kubernetes example renders with `kubectl kustomize deploy/k8s`; it has not been applied to a cluster. Per-architecture container checks and publication are enforced by the tag workflow; consult its actual run before treating the image as released.
 
 The first tag attempt's real-image restart gate found two issues: Docker reassigns an automatically allocated host port after restart, and an unresponsive WebSocket peer could delay shutdown beyond the process deadline, leaving the database lease. The image test now discovers the port again. Server shutdown allows a two-second close handshake before destroying remaining connections, then saves presence and releases the lease. A regression failed before the fix and passes afterward, reopening the database immediately with tokens and absolute deadline intact. The original full image test also passes against the patched Linux/ARM64 image on the reference host. The failed v0.1.0 tag published no release image; the corrected first release is v0.1.1.
+
+## v0.1.9 release and deployment verification — 27 October 2026
+
+- Release source: `b7ed287f1dc28a4ddb6fb36efa53876fccea1f95`.
+- Published multi-architecture digest:
+  `sha256:e635f9ddce708aedf4cc42a276b367700edce55a2cdadf88afc86f80852dba16`.
+- The [release workflow](https://github.com/chinmaykrishnroy/ludo/actions/runs/40502732429)
+  passed 121 tests on Linux and Windows, 24 browser checks in each of Chromium,
+  Firefox and WebKit, container startup/restart and separate AMD64/ARM64 image
+  multiplayer/recovery/worker smoke tests. Anonymous version, numeric-version
+  and latest pulls matched the published digest. The GitHub release contains
+  `image-metadata.json`.
+- The actual native ARM64 image passed the three-minute mixed workload in
+  [RUNTIME.md](RUNTIME.md), with no backend override mount. Its disposable test
+  namespace/PVC was separate from production.
+- A verified production backup preceded the GitOps version update. The configured
+  cluster rolled one authoritative replica with `Recreate`; Argo reached
+  `Synced/Healthy`, the container reported 0.1.9, and protected health showed no
+  application/storage errors. Public main JavaScript and favicon bytes matched
+  the container's hashes.
+- The real HTTPS route passed a private three-human probe: typing, coloured
+  mentions, replies, GIF/photo access control, seven short voice notes, range
+  playback, the 15-second roll deadline, sole-move automation, stale revision
+  resync and genuine wrong-turn rejection. Disconnect/reconnect preserved tokens
+  and the existing deadline; explicit quit removed that player's tokens while
+  preserving both remaining players. Fixture rooms and media were removed.
+- A fresh phone-width Edge context verified the header's 46-pixel controls and
+  equal gaps, no horizontal overflow, board display, the new favicon, and the
+  sanitized error-report link. This does not replace physical iPhone/Android
+  acceptance of the new stars, breathing cue, sounds or installed-PWA update.
+
+The v0.1.8 tag stopped at validation and published no release or image assets.
+Its tag was not rewritten. v0.1.9 includes the GIF decoding assertion correction;
+media still must load and have the expected dimensions before the test passes.
+Off-host backups/alerts remain explicitly deferred by the owner.

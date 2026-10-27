@@ -1,0 +1,143 @@
+{
+  "scope": "Disposable isolated instance; real sockets, bots, valid recorded WebM fixture transport/downloads and deliberate reconnects. This is not a physical audibility test.",
+  "at": "2026-10-27T12:33:57.258Z",
+  "seconds": 180.7,
+  "rooms": 8,
+  "humanSockets": 16,
+  "computerSeats": 16,
+  "actions": 319,
+  "voiceUploads": 40,
+  "downloadedAudioBytes": 164400,
+  "reconnects": 8,
+  "ackP95Ms": 17.08,
+  "ackMaxMs": 33.21,
+  "maxRssMiB": 188.1,
+  "maxEventLoopP95Ms": 21.12,
+  "maxEventLoopDelayMs": 42.73,
+  "slowActions": [],
+  "serverErrors": 0,
+  "aiWorker": {
+    "completed": 169,
+    "cancelled": 0,
+    "fallbacks": 0,
+    "timeouts": 0,
+    "failures": 0,
+    "pending": 0,
+    "oldestPendingMs": 0
+  },
+  "operations": {
+    "backupCopy": {
+      "count": 5,
+      "recentSamples": 5,
+      "lastMs": 10.48,
+      "p95Ms": 10.45,
+      "maxMs": 10.48,
+      "maxAt": 1793104436434
+    },
+    "backupVerify": {
+      "count": 5,
+      "recentSamples": 5,
+      "lastMs": 86,
+      "p95Ms": 87.18,
+      "maxMs": 88.1,
+      "maxAt": 1793104256520
+    },
+    "backupHash": {
+      "count": 5,
+      "recentSamples": 5,
+      "lastMs": 0.68,
+      "p95Ms": 1.68,
+      "maxMs": 9.85,
+      "maxAt": 1793104256530
+    },
+    "retention": {
+      "count": 5,
+      "recentSamples": 5,
+      "lastMs": 0.67,
+      "p95Ms": 0.74,
+      "maxMs": 14.19,
+      "maxAt": 1793104256550
+    },
+    "backup": {
+      "count": 5,
+      "recentSamples": 5,
+      "lastMs": 102.11,
+      "p95Ms": 103.11,
+      "maxMs": 128.54,
+      "maxAt": 1793104256550
+    },
+    "dbBegin": {
+      "count": 1035,
+      "recentSamples": 128,
+      "lastMs": 0.01,
+      "p95Ms": 0.01,
+      "maxMs": 0.03,
+      "maxAt": 1793104320061
+    },
+    "dbBody": {
+      "count": 1035,
+      "recentSamples": 128,
+      "lastMs": 0.22,
+      "p95Ms": 0.25,
+      "maxMs": 0.75,
+      "maxAt": 1793104256654
+    },
+    "dbCommit": {
+      "count": 1035,
+      "recentSamples": 128,
+      "lastMs": 2.81,
+      "p95Ms": 2.99,
+      "maxMs": 6.93,
+      "maxAt": 1793104306223
+    },
+    "maintenance": {
+      "count": 5,
+      "recentSamples": 5,
+      "lastMs": 0.71,
+      "p95Ms": 0.76,
+      "maxMs": 0.8,
+      "maxAt": 1793104256654
+    },
+    "views": {
+      "count": 1014,
+      "recentSamples": 128,
+      "lastMs": 0.07,
+      "p95Ms": 0.1,
+      "maxMs": 0.13,
+      "maxAt": 1793104331165
+    },
+    "persist": {
+      "count": 1014,
+      "recentSamples": 128,
+      "lastMs": 3.09,
+      "p95Ms": 3.31,
+      "maxMs": 7.22,
+      "maxAt": 1793104306223
+    },
+    "commit": {
+      "count": 1014,
+      "recentSamples": 128,
+      "lastMs": 3.55,
+      "p95Ms": 3.81,
+      "maxMs": 7.68,
+      "maxAt": 1793104306223
+    }
+  },
+  "latencyTargets": {
+    "ackP95Ms": 250,
+    "ackMaxMs": 1000
+  },
+  "latencyTargetsMet": true,
+  "release": {
+    "backendMountOverride": false,
+    "platform": "linux/arm64",
+    "version": "0.1.9",
+    "storage": "fresh disposable local-path PVC",
+    "sourceCommit": "b7ed287f1dc28a4ddb6fb36efa53876fccea1f95",
+    "imageDigest": "sha256:e635f9ddce708aedf4cc42a276b367700edce55a2cdadf88afc86f80852dba16",
+    "node": "delta",
+    "cpuLimit": "1500m",
+    "memoryMiB": 768,
+    "podRestarts": 0
+  }
+}
