@@ -68,6 +68,10 @@ jobs:
       - if: always()
         run: docker logs ludo-ci; docker rm -f ludo-ci
   browser:
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -89,12 +93,12 @@ jobs:
           if [ -f /etc/apt/apt-mirrors-security.txt ]; then
             printf '%s\n' 'https://security.ubuntu.com/ubuntu' | sudo tee /etc/apt/apt-mirrors-security.txt >/dev/null
           fi
-      - run: npx playwright install --with-deps chromium firefox webkit
-      - run: npm run test:browser
+      - run: npx playwright install --with-deps ${{ matrix.browser }}
+      - run: npm run test:browser -- --project=${{ matrix.browser }}
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         if: failure()
         with:
-          name: browser-failures-${{ github.sha }}
+          name: browser-failures-${{ github.sha }}-${{ matrix.browser }}
           path: |
             playwright-report/
             test-results/
