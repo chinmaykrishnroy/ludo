@@ -1,5 +1,9 @@
 import { test, expect } from "@playwright/test";
 
+// These tests intercept API/socket responses. An active worker can bypass page
+// routing in WebKit; PWA lifecycle/offline behavior has its own enabled suite.
+test.use({ serviceWorkers: "block" });
+
 test("load notice pauses new-room and match controls and reopens after recovery", async ({
   page,
 }) => {

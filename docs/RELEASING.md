@@ -21,7 +21,7 @@ For v0.1.8 the pull references are:
 
 ```sh
 docker pull ghcr.io/chinmaykrishnroy/ludo:v0.1.8
-docker pull ghcr.io/chinmaykrishnroy/ludo:0.1.7
+docker pull ghcr.io/chinmaykrishnroy/ludo:0.1.8
 docker pull ghcr.io/chinmaykrishnroy/ludo:latest
 ```
 
@@ -47,4 +47,4 @@ To roll back, restore the previous version/digest in the deployment configuratio
 
 ## Current release limits
 
-See `docs/DELIVERY.md` and `docs/AI.md`. Shared-Pi testing still shows occasional long room-action pauses. Publishing an image does not claim that those storage/host latency issues are resolved or that maximum capacity has been established.
+See [DELIVERY.md](DELIVERY.md), [RUNTIME.md](RUNTIME.md), [CAPACITY.md](CAPACITY.md) and [AI.md](AI.md) for measured behavior and pending acceptance. Historical standalone-host storage stalls are distinguished from current cluster measurements. Passing image gates does not certify every host, a universal maximum capacity or physical-device behavior.
