@@ -136,5 +136,5 @@
     "memoryLimit": "384Mi",
     "network": "denied ingress/egress; loopback-only workload"
   },
-  "candidate": "compiled candidate backend mounted into verified v0.1.7 runtime image; final release image remains independently gated"
+  "candidate": "compiled candidate backend mounted into verified v0.1.6 runtime image; final release image remains independently gated"
 }

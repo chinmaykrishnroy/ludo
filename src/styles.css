@@ -2881,3 +2881,91 @@ button:disabled {
   max-width: none;
   transform: none;
 }
+.admission-notice {
+  margin-top: 18px;
+  padding: 12px 14px;
+  border: 2px solid var(--line);
+  background: var(--yellow);
+  color: #191919;
+  font-size: 16px;
+  line-height: 1.45;
+}
+.app-error-screen {
+  min-height: 100dvh;
+  max-width: 720px;
+  margin: auto;
+  padding: 48px 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 24px;
+}
+.app-error-screen h1 {
+  font-size: clamp(32px, 6vw, 48px);
+  line-height: 1.1;
+}
+.app-error-screen p {
+  font-size: 18px;
+  line-height: 1.6;
+}
+.app-error-screen > div {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.app-error-screen a.secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.app-error-screen small {
+  font-size: 14px;
+  line-height: 1.5;
+}
+.app-error-notice {
+  position: fixed;
+  top: max(16px, env(safe-area-inset-top));
+  right: 16px;
+  z-index: 150;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: min(520px, calc(100vw - 32px));
+  background: var(--paper);
+  color: var(--ink);
+  border: 3px solid #191919;
+  box-shadow: 5px 5px #191919;
+  padding: 18px;
+}
+.app-error-notice > svg {
+  flex: none;
+  width: 24px;
+  height: 24px;
+}
+.app-error-notice strong {
+  font-size: 18px;
+}
+.app-error-notice p {
+  font-size: 16px;
+  line-height: 1.4;
+  margin: 8px 0;
+}
+.app-error-notice a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 800;
+  text-decoration: underline;
+}
+.app-error-notice a svg {
+  width: 20px;
+  height: 20px;
+}
+dialog .app-error-notice {
+  position: absolute;
+  inset: 12px;
+  bottom: auto;
+  width: auto;
+}

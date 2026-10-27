@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { once } from "node:events";
 import { io, type Socket } from "socket.io-client";
-import { createApplication } from "../server/app.js";
+import { createTestApplication as createApplication } from "./application.js";
 import type { Reply } from "../shared/protocol.js";
 const pause = (ms = 30) => new Promise((r) => setTimeout(r, ms));
 test("public rooms list/join correctly, hide private/started games, preserve per-bot difficulty and enforce blocks/host authority", async () => {

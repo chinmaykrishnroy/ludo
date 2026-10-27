@@ -9,7 +9,7 @@ import {
   MAX_PACKET_TEXT_BYTES,
 } from "../server/transport.js";
 import { Budget } from "../server/security.js";
-import { createApplication } from "../server/app.js";
+import { createTestApplication as createApplication } from "./application.js";
 import { VOICE_MAX_BYTES } from "../shared/voice.js";
 import type { Reply } from "../shared/protocol.js";
 
@@ -272,3 +272,17 @@ for (const { transport, forceBase64 } of [
     }
   });
 }
+
+test("rate diagnostics distinguish quota and capacity while retaining expiry behaviour", () => {
+  const b = new Budget(1);
+  assert(b.take("a", 1, 1000, 1, 100));
+  assert.equal(b.take("a", 1, 1000, 1, 101), false);
+  assert.equal(b.take("b", 1, 1000, 1, 101), false);
+  assert.deepEqual(b.snapshot(), {
+    keys: 1,
+    maxKeys: 1,
+    quotaRejected: 1,
+    capacityRejected: 1,
+  });
+  assert(b.take("b", 1, 1000, 1, 1101));
+});

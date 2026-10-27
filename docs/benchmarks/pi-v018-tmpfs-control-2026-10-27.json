@@ -133,5 +133,5 @@
     "cpus": 0.75,
     "memoryMiB": 384
   },
-  "candidate": "compiled v0.1.8 backend mounted into v0.1.7 runtime image; isolated database"
+  "candidate": "compiled v0.1.8 backend mounted into v0.1.6 runtime image; isolated database"
 }

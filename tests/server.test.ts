@@ -2,9 +2,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { once } from "node:events";
 import { io, type Socket } from "socket.io-client";
-import { createApplication } from "../server/app.js";
+import { createTestApplication as createApplication } from "./application.js";
 import type { Reply, Room } from "../shared/protocol.js";
 import { Store } from "../server/store.js";
+import { AdmissionController } from "../server/admission.js";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -374,6 +375,107 @@ test("human deadlines auto-roll after 15 seconds, then use the first legal token
       "timeout must choose the first legal token rather than the stronger advanced token",
     );
     assert.deepEqual(room.game!.seats[0]!.tokens, [6, 40, -1, -1]);
+  } finally {
+    clients.forEach((s) => s.disconnect());
+    await service.close();
+  }
+});
+
+test("pressure admission refuses new rooms and starts before persistence while existing games and reconnects continue", async () => {
+  const admission = new AdmissionController();
+  const service = createApplication({
+    dbPath: ":memory:",
+    admission,
+    tickMs: 60000,
+  });
+  const url = await listening(service),
+    clients: Socket[] = [];
+  const connect = async (cookie?: string) => {
+    const guest = await openClient(url, cookie);
+    clients.push(guest.socket);
+    return guest;
+  };
+  const call = (s: Socket, event: string, data = {}) =>
+    s.timeout(2000).emitWithAck(event, data) as Promise<Reply>;
+  const observe = (memoryRatio: number, now = performance.now()) =>
+    admission.observe(
+      {
+        lagP95Ms: 20,
+        lagMaxMs: 25,
+        utilization: 0.2,
+        memoryRatio,
+        persistP95Ms: 3,
+        aiQueueAgeMs: 0,
+      },
+      now,
+    );
+  try {
+    const a = await connect(),
+      b = await connect(),
+      c = await connect();
+    const first = await call(a.socket, "room:create", {
+      name: "Existing",
+      playerName: "Alice",
+      public: false,
+      bots: 0,
+    });
+    assert(first.ok);
+    await call(b.socket, "room:join", {
+      code: first.room!.code,
+      playerName: "Bob",
+    });
+    assert((await call(a.socket, "room:start")).ok);
+    const waiting = await call(c.socket, "room:create", {
+      name: "Waiting",
+      playerName: "Carol",
+      public: false,
+      bots: 1,
+    });
+    assert(waiting.ok);
+    const newcomer = await connect();
+    let writes = 0;
+    const save = service.store.save.bind(service.store);
+    service.store.save = (...args: Parameters<Store["save"]>) => {
+      writes++;
+      return save(...args);
+    };
+    observe(0.94);
+    const status = await (await fetch(url + "/api/admission")).json();
+    assert.equal(status.newRoomsAvailable, false);
+    assert.equal(status.retryAfterSeconds, 5);
+    const refused = await call(newcomer.socket, "room:create", {
+      name: "Refused",
+      playerName: "Dan",
+      public: false,
+      bots: 0,
+    });
+    assert.equal(refused.code, "SERVER_BUSY");
+    assert.equal((await call(c.socket, "room:start")).code, "SERVER_BUSY");
+    assert.equal(writes, 0);
+    assert.equal(service.rooms.size, 2);
+    assert.equal(service.rooms.get(waiting.room!.code)!.game, null);
+    const game = service.rooms.get(first.room!.code)!.game!;
+    await delay(950);
+    assert((await call(a.socket, "game:roll", { revision: game.revision })).ok);
+    assert(writes > 0);
+    assert(
+      (
+        await call(b.socket, "chat:send", {
+          text: "Existing chat remains available",
+        })
+      ).ok,
+    );
+    a.socket.disconnect();
+    const reconnected = await connect(a.cookie);
+    assert.equal(reconnected.me, a.me);
+    assert.equal(service.playerRooms.get(reconnected.me), first.room!.code);
+    const now = performance.now() + 11000;
+    for (let i = 0; i < 5; i++) observe(0.2, now + i * 1000);
+    assert.equal(
+      (await (await fetch(url + "/api/admission")).json()).newRoomsAvailable,
+      true,
+    );
+    assert((await call(c.socket, "room:start")).ok);
   } finally {
     clients.forEach((s) => s.disconnect());
     await service.close();

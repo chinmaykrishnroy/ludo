@@ -117,3 +117,14 @@ See [delivery and remaining acceptance gates](docs/DELIVERY.md). Physical Androi
 ## License
 
 [MIT](LICENSE), copyright 2026 Chinmay Krishn Roy.
+
+## Performance and error recovery
+
+The server pauses new-room creation and new game starts when measured event-loop,
+memory, database or bot-queue pressure is high, then reopens after sustained
+recovery. Existing games and reconnects continue under their usual limits. See
+[capacity measurements and their limits](docs/CAPACITY.md).
+
+Unexpected UI failures offer reload and an explicit GitHub **Report issue** link.
+The draft includes sanitized app/browser diagnostics; private room state and raw
+exceptions are excluded. Reporting is optional and never submits automatically.

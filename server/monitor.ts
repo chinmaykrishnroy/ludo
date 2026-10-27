@@ -8,7 +8,7 @@ export class Monitor {
       count: number;
       maxMs: number;
       maxAt: number;
-      recent: number[];
+      recent: { ms: number; at: number }[];
       loggedAt: number;
     }
   >();
@@ -37,7 +37,7 @@ export class Monitor {
       loggedAt: 0,
     };
     timing.count++;
-    timing.recent.push(elapsedMs);
+    timing.recent.push({ ms: elapsedMs, at: performance.now() });
     if (timing.recent.length > 128) timing.recent.shift();
     if (elapsedMs >= timing.maxMs) {
       timing.maxMs = elapsedMs;
@@ -63,6 +63,13 @@ export class Monitor {
     } finally {
       this.observe(operation, performance.now() - started);
     }
+  }
+  recentP95(operation: string, windowMs = 5000, now = performance.now()) {
+    const values = (this.timings.get(operation)?.recent ?? [])
+      .filter((s) => now - s.at <= windowMs)
+      .map((s) => s.ms)
+      .sort((a, b) => a - b);
+    return values.length ? values[Math.floor((values.length - 1) * 0.95)] : 0;
   }
   backup = {
     retentionWarnings: 0,
@@ -114,13 +121,13 @@ export class Monitor {
       backup: this.backup,
       timings: Object.fromEntries(
         [...this.timings].map(([name, timing]) => {
-          const sorted = [...timing.recent].sort((a, b) => a - b);
+          const sorted = timing.recent.map((s) => s.ms).sort((a, b) => a - b);
           return [
             name,
             {
               count: timing.count,
               recentSamples: sorted.length,
-              lastMs: Number(timing.recent.at(-1)!.toFixed(2)),
+              lastMs: Number(timing.recent.at(-1)!.ms.toFixed(2)),
               p95Ms: Number(
                 sorted[Math.floor((sorted.length - 1) * 0.95)].toFixed(2),
               ),

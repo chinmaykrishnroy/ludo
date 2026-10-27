@@ -5,7 +5,7 @@ import { connect } from "node:net";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createApplication } from "../server/app.js";
+import { createTestApplication as createApplication } from "./application.js";
 import { Store } from "../server/store.js";
 import { seat, newGame, roll } from "../shared/game.js";
 

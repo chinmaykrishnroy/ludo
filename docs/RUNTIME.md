@@ -97,8 +97,14 @@ used. [Delta evidence](benchmarks/delta-k3s-v0.1.8-2026-10-27.json).
 
 This verifies a bounded mixed workload on the actual deployment class, not a
 maximum concurrency promise, full network-outage test or physical audibility
-test. The candidate backend was mounted into the previous verified runtime;
+test. The candidate backend was mounted into an earlier verified v0.1.6 runtime;
 release image architecture gates and post-release deployment checks remain
-independent requirements. Longer soak testing and overload/admission testing
-remain open. Immediate dice presentation addresses the visible input/turn-handoff
+independent requirements. The later overload/admission experiment is documented below; longer soak testing remains open. Immediate dice presentation addresses the visible input/turn-handoff
 problem even when an otherwise healthy network adds a round trip.
+
+## Overload protection
+
+[Capacity experiments and admission policy](CAPACITY.md) record the isolated
+failure boundary and the guarded burst/recovery result. Admission samples recent
+pressure rather than deriving a capacity claim from static room counts. Expected
+busy replies do not mark the live server unhealthy or trigger GitHub reporting.

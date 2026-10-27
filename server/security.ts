@@ -45,6 +45,16 @@ export function adminAuthorized(
 }
 export class Budget {
   private buckets = new Map<string, { used: number; until: number }>();
+  private capacityRejected = 0;
+  private quotaRejected = 0;
+  snapshot() {
+    return {
+      keys: this.buckets.size,
+      maxKeys: this.maxKeys,
+      capacityRejected: this.capacityRejected,
+      quotaRejected: this.quotaRejected,
+    };
+  }
   constructor(private maxKeys = 20000) {}
   take(
     key: string,
@@ -55,15 +65,22 @@ export class Budget {
   ) {
     const old = this.buckets.get(key);
     if (old && old.until > now) {
-      if (old.used + cost > limit) return false;
+      if (old.used + cost > limit) {
+        this.quotaRejected++;
+        return false;
+      }
       old.used += cost;
       return true;
     }
     if (this.buckets.size >= this.maxKeys) {
       this.sweep(now);
-      if (this.buckets.size >= this.maxKeys) return false;
+      if (this.buckets.size >= this.maxKeys) {
+        this.capacityRejected++;
+        return false;
+      }
     }
     this.buckets.set(key, { used: cost, until: now + windowMs });
+    if (cost > limit) this.quotaRejected++;
     return cost <= limit;
   }
   sweep(now = Date.now()) {

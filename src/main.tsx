@@ -6,6 +6,7 @@ import "@fontsource/dm-sans/600.css";
 import "@fontsource/dm-sans/700.css";
 import "@fontsource/dm-sans/800.css";
 import App from "./App";
+import AppErrorBoundary from "./AppErrorBoundary";
 import "./styles.css";
 if (import.meta.env.PROD && "serviceWorker" in navigator) {
   const register = () => {
@@ -22,6 +23,8 @@ if (import.meta.env.PROD && "serviceWorker" in navigator) {
 }
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <App />
+    <AppErrorBoundary>
+      <App />
+    </AppErrorBoundary>
   </React.StrictMode>,
 );

@@ -1,0 +1,832 @@
+{
+  "event": "summary",
+  "at": "2026-10-27T07:44:29.832Z",
+  "scope": "Resource-limited isolated Delta k3s server; distinct simulated proxy IPs; human games, text chat, valid WebM uploads/downloads and background backups",
+  "serverLimits": {
+    "cpu": "1500m",
+    "memoryMiB": 768,
+    "maxRooms": 5000,
+    "maxConnections": 10000,
+    "sqliteMiB": 256,
+    "voiceMiB": 64
+  },
+  "workload": {
+    "humansPerRoom": 2,
+    "bots": 0,
+    "gameIntentIntervalMs": 1200,
+    "chatIntervalMs": 5000,
+    "voiceIntervalMs": 30000,
+    "voiceBytes": 4110,
+    "phaseSeconds": 35
+  },
+  "stages": [
+    {
+      "targetRooms": 8,
+      "rooms": 8,
+      "connectedUsers": 16,
+      "setupSeconds": 0.21,
+      "seconds": 35.05,
+      "replies": 240,
+      "repliesPerSecond": 6.85,
+      "chatDeliveries": 104,
+      "byEvent": {
+        "voice:send": {
+          "count": 9,
+          "p50Ms": 5.15,
+          "p95Ms": 13.53,
+          "p99Ms": 13.53,
+          "maxMs": 13.53
+        },
+        "voice:download": {
+          "count": 9,
+          "p50Ms": 1.81,
+          "p95Ms": 9.4,
+          "p99Ms": 9.4,
+          "maxMs": 9.4
+        },
+        "chat:send": {
+          "count": 52,
+          "p50Ms": 5.26,
+          "p95Ms": 13.56,
+          "p99Ms": 23.23,
+          "maxMs": 23.23
+        },
+        "game:roll": {
+          "count": 139,
+          "p50Ms": 4.72,
+          "p95Ms": 17.39,
+          "p99Ms": 24.45,
+          "maxMs": 25.44
+        },
+        "game:move": {
+          "count": 31,
+          "p50Ms": 4.99,
+          "p95Ms": 20.53,
+          "p99Ms": 21.04,
+          "maxMs": 21.04
+        }
+      },
+      "p95Ms": 17.17,
+      "maxMs": 25.44,
+      "latencyTargetsMet": true,
+      "acceptedByEvent": {
+        "voice:send": 9,
+        "chat:send": 52,
+        "game:roll": 139,
+        "game:move": 31,
+        "room:create": 92,
+        "room:join": 92,
+        "room:start": 92
+      },
+      "failureCount": 0,
+      "replyCodes": {},
+      "failures": [],
+      "peakServerRssMiB": 114.9,
+      "eventLoopMaxMs": 38.83,
+      "serverErrors": 0,
+      "operations": {
+        "backupCopy": {
+          "count": 1,
+          "recentSamples": 1,
+          "lastMs": 9.85,
+          "p95Ms": 9.85,
+          "maxMs": 9.85,
+          "maxAt": 1793086910237
+        },
+        "backupVerify": {
+          "count": 1,
+          "recentSamples": 1,
+          "lastMs": 82.87,
+          "p95Ms": 82.87,
+          "maxMs": 82.87,
+          "maxAt": 1793086910320
+        },
+        "backupHash": {
+          "count": 1,
+          "recentSamples": 1,
+          "lastMs": 1.64,
+          "p95Ms": 1.64,
+          "maxMs": 1.64,
+          "maxAt": 1793086910322
+        },
+        "retention": {
+          "count": 1,
+          "recentSamples": 1,
+          "lastMs": 0.8,
+          "p95Ms": 0.8,
+          "maxMs": 0.8,
+          "maxAt": 1793086910327
+        },
+        "backup": {
+          "count": 1,
+          "recentSamples": 1,
+          "lastMs": 101.35,
+          "p95Ms": 101.35,
+          "maxMs": 101.35,
+          "maxAt": 1793086910328
+        },
+        "dbBegin": {
+          "count": 326,
+          "recentSamples": 128,
+          "lastMs": 0.01,
+          "p95Ms": 0.01,
+          "maxMs": 0.04,
+          "maxAt": 1793086921847
+        },
+        "dbBody": {
+          "count": 326,
+          "recentSamples": 128,
+          "lastMs": 0.23,
+          "p95Ms": 0.25,
+          "maxMs": 0.32,
+          "maxAt": 1793086913094
+        },
+        "dbCommit": {
+          "count": 326,
+          "recentSamples": 128,
+          "lastMs": 2.91,
+          "p95Ms": 3.27,
+          "maxMs": 7.22,
+          "maxAt": 1793086947062
+        },
+        "maintenance": {
+          "count": 1,
+          "recentSamples": 1,
+          "lastMs": 0.28,
+          "p95Ms": 0.28,
+          "maxMs": 0.28,
+          "maxAt": 1793086910374
+        },
+        "views": {
+          "count": 309,
+          "recentSamples": 128,
+          "lastMs": 0.07,
+          "p95Ms": 0.09,
+          "maxMs": 0.14,
+          "maxAt": 1793086913610
+        },
+        "persist": {
+          "count": 309,
+          "recentSamples": 128,
+          "lastMs": 3.21,
+          "p95Ms": 3.55,
+          "maxMs": 7.48,
+          "maxAt": 1793086947062
+        },
+        "commit": {
+          "count": 309,
+          "recentSamples": 128,
+          "lastMs": 3.71,
+          "p95Ms": 4.13,
+          "maxMs": 8.03,
+          "maxAt": 1793086947063
+        }
+      },
+      "rateBudgets": {
+        "keys": 248,
+        "maxKeys": 20000,
+        "capacityRejected": 0,
+        "quotaRejected": 0
+      },
+      "serverConnections": 16,
+      "serverRooms": 8,
+      "driver": {
+        "fileDescriptors": 36,
+        "rssMiB": 88.4,
+        "loopP95Ms": 20.77,
+        "loopMaxMs": 21.5,
+        "cpuSeconds": 0.22
+      },
+      "stopReason": null
+    },
+    {
+      "targetRooms": 100,
+      "rooms": 100,
+      "connectedUsers": 200,
+      "setupSeconds": 1.93,
+      "seconds": 35.03,
+      "replies": 3007,
+      "repliesPerSecond": 85.84,
+      "chatDeliveries": 1324,
+      "byEvent": {
+        "game:roll": {
+          "count": 1828,
+          "p50Ms": 20.25,
+          "p95Ms": 50.29,
+          "p99Ms": 63.06,
+          "maxMs": 91.33
+        },
+        "chat:send": {
+          "count": 662,
+          "p50Ms": 19.41,
+          "p95Ms": 45.76,
+          "p99Ms": 55.91,
+          "maxMs": 62.83
+        },
+        "voice:send": {
+          "count": 112,
+          "p50Ms": 23.12,
+          "p95Ms": 54.79,
+          "p99Ms": 63.72,
+          "maxMs": 67.51
+        },
+        "voice:download": {
+          "count": 112,
+          "p50Ms": 12.03,
+          "p95Ms": 42.58,
+          "p99Ms": 60.36,
+          "maxMs": 77.84
+        },
+        "game:move": {
+          "count": 293,
+          "p50Ms": 19.51,
+          "p95Ms": 46.92,
+          "p99Ms": 62.67,
+          "maxMs": 70.55
+        }
+      },
+      "p95Ms": 49.03,
+      "maxMs": 91.33,
+      "latencyTargetsMet": true,
+      "acceptedByEvent": {
+        "game:roll": 1828,
+        "chat:send": 662,
+        "voice:send": 112,
+        "game:move": 293,
+        "room:create": 100,
+        "room:join": 100,
+        "room:start": 100
+      },
+      "failureCount": 0,
+      "replyCodes": {},
+      "failures": [],
+      "peakServerRssMiB": 156.1,
+      "eventLoopMaxMs": 99.35,
+      "serverErrors": 0,
+      "operations": {
+        "backupCopy": {
+          "count": 2,
+          "recentSamples": 2,
+          "lastMs": 12.3,
+          "p95Ms": 9.85,
+          "maxMs": 12.3,
+          "maxAt": 1793086970250
+        },
+        "backupVerify": {
+          "count": 2,
+          "recentSamples": 2,
+          "lastMs": 106.36,
+          "p95Ms": 82.87,
+          "maxMs": 106.36,
+          "maxAt": 1793086970356
+        },
+        "backupHash": {
+          "count": 2,
+          "recentSamples": 2,
+          "lastMs": 26.6,
+          "p95Ms": 1.64,
+          "maxMs": 26.6,
+          "maxAt": 1793086970383
+        },
+        "retention": {
+          "count": 2,
+          "recentSamples": 2,
+          "lastMs": 0.79,
+          "p95Ms": 0.79,
+          "maxMs": 0.8,
+          "maxAt": 1793086910327
+        },
+        "backup": {
+          "count": 2,
+          "recentSamples": 2,
+          "lastMs": 151.29,
+          "p95Ms": 101.35,
+          "maxMs": 151.29,
+          "maxAt": 1793086970389
+        },
+        "dbBegin": {
+          "count": 4357,
+          "recentSamples": 128,
+          "lastMs": 0.01,
+          "p95Ms": 0.01,
+          "maxMs": 0.09,
+          "maxAt": 1793086973075
+        },
+        "dbBody": {
+          "count": 4357,
+          "recentSamples": 128,
+          "lastMs": 0.16,
+          "p95Ms": 0.2,
+          "maxMs": 3.2,
+          "maxAt": 1793086970517
+        },
+        "dbCommit": {
+          "count": 4357,
+          "recentSamples": 128,
+          "lastMs": 2.8,
+          "p95Ms": 2.93,
+          "maxMs": 7.22,
+          "maxAt": 1793086947062
+        },
+        "maintenance": {
+          "count": 2,
+          "recentSamples": 2,
+          "lastMs": 3.39,
+          "p95Ms": 0.28,
+          "maxMs": 3.39,
+          "maxAt": 1793086970517
+        },
+        "views": {
+          "count": 4155,
+          "recentSamples": 128,
+          "lastMs": 0.04,
+          "p95Ms": 0.07,
+          "maxMs": 0.14,
+          "maxAt": 1793086913610
+        },
+        "persist": {
+          "count": 4155,
+          "recentSamples": 128,
+          "lastMs": 3.01,
+          "p95Ms": 3.18,
+          "maxMs": 7.48,
+          "maxAt": 1793086947062
+        },
+        "commit": {
+          "count": 4155,
+          "recentSamples": 128,
+          "lastMs": 3.39,
+          "p95Ms": 3.57,
+          "maxMs": 8.03,
+          "maxAt": 1793086947063
+        }
+      },
+      "rateBudgets": {
+        "keys": 3100,
+        "maxKeys": 20000,
+        "capacityRejected": 0,
+        "quotaRejected": 0
+      },
+      "serverConnections": 200,
+      "serverRooms": 100,
+      "driver": {
+        "fileDescriptors": 221,
+        "rssMiB": 122.1,
+        "loopP95Ms": 20.86,
+        "loopMaxMs": 21.53,
+        "cpuSeconds": 0.87
+      },
+      "stopReason": null
+    },
+    {
+      "targetRooms": 200,
+      "rooms": 200,
+      "connectedUsers": 400,
+      "setupSeconds": 2.16,
+      "seconds": 35.12,
+      "replies": 5628,
+      "repliesPerSecond": 160.26,
+      "chatDeliveries": 2634,
+      "byEvent": {
+        "game:roll": {
+          "count": 3325,
+          "p50Ms": 48.61,
+          "p95Ms": 116.28,
+          "p99Ms": 177.22,
+          "maxMs": 249.22
+        },
+        "game:move": {
+          "count": 540,
+          "p50Ms": 47.42,
+          "p95Ms": 108.04,
+          "p99Ms": 149.02,
+          "maxMs": 179.55
+        },
+        "voice:send": {
+          "count": 223,
+          "p50Ms": 48.66,
+          "p95Ms": 137.5,
+          "p99Ms": 186.38,
+          "maxMs": 201.38
+        },
+        "voice:download": {
+          "count": 223,
+          "p50Ms": 45.53,
+          "p95Ms": 130.74,
+          "p99Ms": 157.86,
+          "maxMs": 201.39
+        },
+        "chat:send": {
+          "count": 1317,
+          "p50Ms": 47.58,
+          "p95Ms": 114.11,
+          "p99Ms": 162.88,
+          "maxMs": 245.58
+        }
+      },
+      "p95Ms": 114.83,
+      "maxMs": 249.22,
+      "latencyTargetsMet": true,
+      "acceptedByEvent": {
+        "game:roll": 3325,
+        "game:move": 540,
+        "voice:send": 223,
+        "chat:send": 1317,
+        "room:create": 100,
+        "room:join": 100,
+        "room:start": 100
+      },
+      "failureCount": 0,
+      "replyCodes": {},
+      "failures": [],
+      "peakServerRssMiB": 151.6,
+      "eventLoopMaxMs": 233.05,
+      "serverErrors": 0,
+      "operations": {
+        "backupCopy": {
+          "count": 2,
+          "recentSamples": 2,
+          "lastMs": 12.3,
+          "p95Ms": 9.85,
+          "maxMs": 12.3,
+          "maxAt": 1793086970250
+        },
+        "backupVerify": {
+          "count": 2,
+          "recentSamples": 2,
+          "lastMs": 106.36,
+          "p95Ms": 82.87,
+          "maxMs": 106.36,
+          "maxAt": 1793086970356
+        },
+        "backupHash": {
+          "count": 2,
+          "recentSamples": 2,
+          "lastMs": 26.6,
+          "p95Ms": 1.64,
+          "maxMs": 26.6,
+          "maxAt": 1793086970383
+        },
+        "retention": {
+          "count": 2,
+          "recentSamples": 2,
+          "lastMs": 0.79,
+          "p95Ms": 0.79,
+          "maxMs": 0.8,
+          "maxAt": 1793086910327
+        },
+        "backup": {
+          "count": 2,
+          "recentSamples": 2,
+          "lastMs": 151.29,
+          "p95Ms": 101.35,
+          "maxMs": 151.29,
+          "maxAt": 1793086970389
+        },
+        "dbBegin": {
+          "count": 12020,
+          "recentSamples": 128,
+          "lastMs": 0,
+          "p95Ms": 0.01,
+          "maxMs": 0.09,
+          "maxAt": 1793086973075
+        },
+        "dbBody": {
+          "count": 12020,
+          "recentSamples": 128,
+          "lastMs": 0.17,
+          "p95Ms": 0.25,
+          "maxMs": 3.2,
+          "maxAt": 1793086970517
+        },
+        "dbCommit": {
+          "count": 12020,
+          "recentSamples": 128,
+          "lastMs": 2.84,
+          "p95Ms": 3.02,
+          "maxMs": 10.95,
+          "maxAt": 1793087011753
+        },
+        "maintenance": {
+          "count": 2,
+          "recentSamples": 2,
+          "lastMs": 3.39,
+          "p95Ms": 0.28,
+          "maxMs": 3.39,
+          "maxAt": 1793086970517
+        },
+        "views": {
+          "count": 11618,
+          "recentSamples": 128,
+          "lastMs": 0.06,
+          "p95Ms": 0.07,
+          "maxMs": 1.95,
+          "maxAt": 1793086996301
+        },
+        "persist": {
+          "count": 11618,
+          "recentSamples": 128,
+          "lastMs": 3.05,
+          "p95Ms": 3.31,
+          "maxMs": 11.19,
+          "maxAt": 1793087021355
+        },
+        "commit": {
+          "count": 11618,
+          "recentSamples": 128,
+          "lastMs": 3.42,
+          "p95Ms": 3.75,
+          "maxMs": 11.69,
+          "maxAt": 1793087015308
+        }
+      },
+      "rateBudgets": {
+        "keys": 6200,
+        "maxKeys": 20000,
+        "capacityRejected": 0,
+        "quotaRejected": 0
+      },
+      "serverConnections": 400,
+      "serverRooms": 200,
+      "driver": {
+        "fileDescriptors": 422,
+        "rssMiB": 162.8,
+        "loopP95Ms": 20.87,
+        "loopMaxMs": 21.87,
+        "cpuSeconds": 1.38
+      },
+      "stopReason": null
+    },
+    {
+      "targetRooms": 300,
+      "rooms": 300,
+      "connectedUsers": 0,
+      "setupSeconds": 2.36,
+      "seconds": 44.96,
+      "replies": 6092,
+      "repliesPerSecond": 135.49,
+      "chatDeliveries": 2922,
+      "byEvent": {
+        "game:roll": {
+          "count": 3158,
+          "p50Ms": 572.77,
+          "p95Ms": 9999.44,
+          "p99Ms": 10000.47,
+          "maxMs": 10000.65
+        },
+        "chat:send": {
+          "count": 1806,
+          "p50Ms": 604.54,
+          "p95Ms": 10000.44,
+          "p99Ms": 10000.87,
+          "maxMs": 10001.23
+        },
+        "voice:send": {
+          "count": 339,
+          "p50Ms": 647.55,
+          "p95Ms": 10000.4,
+          "p99Ms": 10000.94,
+          "maxMs": 10001.64
+        },
+        "game:move": {
+          "count": 525,
+          "p50Ms": 593.68,
+          "p95Ms": 882.54,
+          "p99Ms": 10000.24,
+          "maxMs": 10000.48
+        },
+        "voice:download": {
+          "count": 264,
+          "p50Ms": 538.88,
+          "p95Ms": 3911.28,
+          "p99Ms": 4857.06,
+          "maxMs": 4867.33
+        }
+      },
+      "p95Ms": 10000.28,
+      "maxMs": 10001.23,
+      "latencyTargetsMet": false,
+      "acceptedByEvent": {
+        "game:roll": 2903,
+        "chat:send": 1461,
+        "voice:send": 264,
+        "game:move": 491
+      },
+      "failureCount": 709,
+      "replyCodes": {
+        "SERVER_CLOSING": 137
+      },
+      "failures": [
+        {
+          "event": "chat:send",
+          "code": "SERVER_CLOSING",
+          "error": "Server is restarting. Please reconnect."
+        },
+        {
+          "event": "game:roll",
+          "code": "SERVER_CLOSING",
+          "error": "Server is restarting. Please reconnect."
+        },
+        {
+          "event": "game:roll",
+          "code": "SERVER_CLOSING",
+          "error": "Server is restarting. Please reconnect."
+        },
+        {
+          "event": "game:roll",
+          "code": "SERVER_CLOSING",
+          "error": "Server is restarting. Please reconnect."
+        },
+        {
+          "event": "chat:send",
+          "code": "SERVER_CLOSING",
+          "error": "Server is restarting. Please reconnect."
+        },
+        {
+          "event": "game:roll",
+          "code": "SERVER_CLOSING",
+          "error": "Server is restarting. Please reconnect."
+        },
+        {
+          "event": "chat:send",
+          "code": "SERVER_CLOSING",
+          "error": "Server is restarting. Please reconnect."
+        },
+        {
+          "event": "game:roll",
+          "code": "SERVER_CLOSING",
+          "error": "Server is restarting. Please reconnect."
+        },
+        {
+          "event": "game:roll",
+          "code": "SERVER_CLOSING",
+          "error": "Server is restarting. Please reconnect."
+        },
+        {
+          "event": "game:roll",
+          "code": "SERVER_CLOSING",
+          "error": "Server is restarting. Please reconnect."
+        },
+        {
+          "event": "chat:send",
+          "code": "SERVER_CLOSING",
+          "error": "Server is restarting. Please reconnect."
+        },
+        {
+          "event": "game:roll",
+          "code": "SERVER_CLOSING",
+          "error": "Server is restarting. Please reconnect."
+        },
+        {
+          "event": "game:roll",
+          "code": "SERVER_CLOSING",
+          "error": "Server is restarting. Please reconnect."
+        },
+        {
+          "event": "game:roll",
+          "code": "SERVER_CLOSING",
+          "error": "Server is restarting. Please reconnect."
+        },
+        {
+          "event": "game:roll",
+          "code": "SERVER_CLOSING",
+          "error": "Server is restarting. Please reconnect."
+        },
+        {
+          "event": "game:roll",
+          "code": "SERVER_CLOSING",
+          "error": "Server is restarting. Please reconnect."
+        },
+        {
+          "event": "game:roll",
+          "code": "SERVER_CLOSING",
+          "error": "Server is restarting. Please reconnect."
+        },
+        {
+          "event": "game:roll",
+          "code": "SERVER_CLOSING",
+          "error": "Server is restarting. Please reconnect."
+        },
+        {
+          "event": "game:roll",
+          "code": "SERVER_CLOSING",
+          "error": "Server is restarting. Please reconnect."
+        },
+        {
+          "event": "game:roll",
+          "code": "SERVER_CLOSING",
+          "error": "Server is restarting. Please reconnect."
+        }
+      ],
+      "peakServerRssMiB": 192.1,
+      "eventLoopMaxMs": 935.85,
+      "serverErrors": 0,
+      "operations": {
+        "backupCopy": {
+          "count": 1,
+          "recentSamples": 1,
+          "lastMs": 25.85,
+          "p95Ms": 25.85,
+          "maxMs": 25.85,
+          "maxAt": 1793087052745
+        },
+        "dbBegin": {
+          "count": 1,
+          "recentSamples": 1,
+          "lastMs": 0.03,
+          "p95Ms": 0.03,
+          "maxMs": 0.03,
+          "maxAt": 1793087052874
+        },
+        "dbBody": {
+          "count": 1,
+          "recentSamples": 1,
+          "lastMs": 17.95,
+          "p95Ms": 17.95,
+          "maxMs": 17.95,
+          "maxAt": 1793087052892
+        },
+        "dbCommit": {
+          "count": 1,
+          "recentSamples": 1,
+          "lastMs": 0.01,
+          "p95Ms": 0.01,
+          "maxMs": 0.01,
+          "maxAt": 1793087052892
+        },
+        "maintenance": {
+          "count": 1,
+          "recentSamples": 1,
+          "lastMs": 18.16,
+          "p95Ms": 18.16,
+          "maxMs": 18.16,
+          "maxAt": 1793087052892
+        },
+        "backupVerify": {
+          "count": 1,
+          "recentSamples": 1,
+          "lastMs": 147.51,
+          "p95Ms": 147.51,
+          "maxMs": 147.51,
+          "maxAt": 1793087052893
+        },
+        "backupHash": {
+          "count": 1,
+          "recentSamples": 1,
+          "lastMs": 7.45,
+          "p95Ms": 7.45,
+          "maxMs": 7.45,
+          "maxAt": 1793087052900
+        },
+        "retention": {
+          "count": 1,
+          "recentSamples": 1,
+          "lastMs": 1.32,
+          "p95Ms": 1.32,
+          "maxMs": 1.32,
+          "maxAt": 1793087052928
+        },
+        "backup": {
+          "count": 1,
+          "recentSamples": 1,
+          "lastMs": 210.47,
+          "p95Ms": 210.47,
+          "maxMs": 210.47,
+          "maxAt": 1793087052928
+        }
+      },
+      "rateBudgets": {
+        "keys": 0,
+        "maxKeys": 20000,
+        "capacityRejected": 0,
+        "quotaRejected": 0
+      },
+      "serverConnections": 0,
+      "serverRooms": 300,
+      "driver": {
+        "fileDescriptors": 20,
+        "rssMiB": 171.8,
+        "loopP95Ms": 20.76,
+        "loopMaxMs": 24.15,
+        "cpuSeconds": 1.68
+      },
+      "stopReason": null
+    }
+  ],
+  "highestAdmittedRooms": 300,
+  "highestConnectedUsers": 400,
+  "highestPassingLatencyRooms": 200,
+  "firstLatencyFailureRooms": 300,
+  "stopReason": "Sustained p95 exceeded five seconds",
+  "testedBuild": "v0.1.8 candidate before dynamic admission; compiled backend mounted over v0.1.7 runtime",
+  "caveats": [
+    "Each stage lasted 35 seconds; this is a short capacity experiment, not an SLA.",
+    "300 rooms admitted 600 players; connectedUsers=0 is the post-restart observation, not peak concurrency.",
+    "Production-equivalent HTTP liveness/readiness probes caused one restart at 300 rooms; not an OOM.",
+    "Old harness mutable per-stage objects include some next-stage setup counters in final summary; latency samples and contemporaneous stage log are authoritative.",
+    "Single persistent local-path PVC; 1500m CPU and 768 MiB; distinct simulated IPs bypass shared-NAT quotas only in the isolated namespace.",
+    "A zero post-restart error counter does not establish error-free operation."
+  ],
+  "admittedParticipantsAtBreak": 600,
+  "restartCount": 1
+}

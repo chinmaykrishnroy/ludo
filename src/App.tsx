@@ -45,6 +45,8 @@ import VoicePanel from "./VoicePanel";
 import { useRoomVoice } from "./useRoomVoice";
 import RoomChat, { RoomTools } from "./RoomChat";
 import { useRoomChat } from "./useRoomChat";
+import { useServerAdmission, type AdmissionStatus } from "./useServerAdmission";
+import { reportUnexpected } from "./errorReporting";
 import { useGameFeedback } from "./useGameFeedback";
 import type { Typing, Voice } from "../shared/protocol";
 import {
@@ -203,6 +205,7 @@ function RoomBrowser({
   publicEnabled,
   botDifficulty,
   setBotDifficulty,
+  admission,
 }: {
   send: (e: string, d: unknown) => Promise<Reply>;
   notify: (s: string) => void;
@@ -213,6 +216,7 @@ function RoomBrowser({
   publicEnabled: boolean;
   botDifficulty: number;
   setBotDifficulty: (value: number) => void;
+  admission?: AdmissionStatus;
 }) {
   const [tab, setTab] = useState<"create" | "join" | "public">(
       new URLSearchParams(location.search).has("room") ? "join" : "create",
@@ -379,11 +383,23 @@ function RoomBrowser({
           )}
           <button
             className="primary full"
-            disabled={busy || !online || !name.trim()}
+            disabled={
+              busy ||
+              !online ||
+              !name.trim() ||
+              admission?.newRoomsAvailable === false
+            }
           >
             {busy ? <CircleNotch className="spin" /> : <Plus />} Create room{" "}
             <ArrowRight />
           </button>
+          {admission?.newRoomsAvailable === false && (
+            <p role="status" className="admission-notice">
+              The server is busy keeping existing games smooth. New rooms will
+              reopen automatically. You can still join an existing room or play
+              offline.
+            </p>
+          )}
         </form>
       ) : tab === "join" ? (
         <form
@@ -643,7 +659,10 @@ export default function App() {
           error: "The server is reconnecting. Please try again shortly.",
         };
       try {
-        return await s.timeout(8000).emitWithAck(event, data);
+        const reply = (await s.timeout(8000).emitWithAck(event, data)) as Reply;
+        if (!reply.ok && reply.code === "STORAGE_UNAVAILABLE")
+          reportUnexpected("SERVER_ERROR");
+        return reply;
       } catch {
         return {
           ok: false,
@@ -714,6 +733,7 @@ export default function App() {
               setConnected(false);
               if (error.data?.code === "SESSION_EXPIRED") renew();
               else if (error.data?.code === "STORAGE_UNAVAILABLE") {
+                reportUnexpected("SERVER_ERROR");
                 if (retry) clearTimeout(retry);
                 retry = setTimeout(connect, 5000);
               }
@@ -731,6 +751,7 @@ export default function App() {
             if (retry) clearTimeout(retry);
           });
           s.on("server:unavailable", (value?: { message?: string }) => {
+            reportUnexpected("SERVER_ERROR");
             notify(
               value?.message ??
                 "Saved game is temporarily unavailable. Reconnecting shortly.",
@@ -870,6 +891,9 @@ export default function App() {
     lobby = !!room && !room.game,
     myTurn = !!current && current.id === playerId && !current.bot && !lobby,
     finished = game.phase === "finished";
+  const admission = useServerAdmission(
+    connected && (setup || lobby || modal === "rooms"),
+  );
   const feedback = useGameFeedback(
       game,
       room?.code ?? "local",
@@ -1373,7 +1397,13 @@ export default function App() {
                 </button>
                 <button
                   className="primary"
-                  disabled={!room.game && (!host || occupied < 2 || !connected)}
+                  disabled={
+                    (!room.game || finished) &&
+                    (!host ||
+                      occupied < 2 ||
+                      !connected ||
+                      admission?.newRoomsAvailable === false)
+                  }
                   onClick={() => {
                     setSetup(false);
                     if (!room.game || finished) void start();
@@ -1387,6 +1417,13 @@ export default function App() {
                       : "WAITING FOR HOST"}
                 </button>
               </div>
+              {(!room.game || finished) &&
+                admission?.newRoomsAvailable === false && (
+                  <p role="status" className="admission-notice">
+                    The server is busy. Starting new games will reopen
+                    automatically; your room and seats are saved.
+                  </p>
+                )}
             </section>
           ) : (
             <Home
@@ -1495,6 +1532,7 @@ export default function App() {
           publicEnabled={publicRoomsEnabled}
           botDifficulty={botDifficulty}
           setBotDifficulty={changeDifficulty}
+          admission={admission}
         />
       )}
       {modal === "rules" && <Rules onClose={() => setModal(null)} />}

@@ -1,3 +1,5 @@
+import { AdmissionController } from "./admission.js";
+import { PressureSampler } from "./pressure-sampler.js";
 import express from "express";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
@@ -66,6 +68,7 @@ export type ApplicationOptions = {
   botDelay?: number;
   maxRooms?: number;
   maxConnections?: number;
+  admission?: AdmissionController;
   maxGuestConnections?: number;
   maxIpConnections?: number;
   publicRoomsEnabled?: boolean;
@@ -133,6 +136,23 @@ export function createApplication(options: ApplicationOptions = {}) {
     new AiScheduler({
       searchBudget: aiBudget,
     });
+  const admission = options.admission ?? new AdmissionController();
+  // A supplied controller is externally sampled (integration tests or an
+  // embedding host). The normal server always owns its real pressure sampler.
+  const pressure = options.admission
+    ? undefined
+    : new PressureSampler(admission, () => ({
+        persistP95Ms: monitor.recentP95("persist"),
+        aiQueueAgeMs: ai.oldestPendingMs,
+      }));
+  const requireCapacity = () => {
+    pressure?.refresh();
+    if (!admission.allow())
+      throw new PublicError(
+        "The server is busy keeping existing games smooth. New rooms and games will reopen shortly.",
+        "SERVER_BUSY",
+      );
+  };
   const aiJobs = new Map<string, string>();
   let closing = false,
     storageRetryAt = 0,
@@ -152,6 +172,8 @@ export function createApplication(options: ApplicationOptions = {}) {
       if (changed) store.save(r);
     }
   } catch (error) {
+    pressure?.close();
+    void ai.close();
     monitor.close();
     store.close();
     throw error;
@@ -537,6 +559,8 @@ export function createApplication(options: ApplicationOptions = {}) {
       disk,
       ...monitor.snapshot(),
       connections: io.engine.clientsCount,
+      rateBudgets: budgets.snapshot(),
+      admission: admission.snapshot(),
       ai: {
         ...ai.stats,
         pending: ai.pending,
@@ -544,6 +568,18 @@ export function createApplication(options: ApplicationOptions = {}) {
       },
     };
   }
+  app.get("/api/admission", (_req, res) => {
+    pressure?.refresh();
+    res.setHeader("Cache-Control", "no-store");
+    const status = admission.publicStatus();
+    res.json({
+      ...status,
+      newRoomsAvailable:
+        status.newRoomsAvailable && !closing && monitor.storageHealthy,
+      retryAfterSeconds:
+        !closing && monitor.storageHealthy ? status.retryAfterSeconds : 5,
+    });
+  });
   app.get("/livez", (_req, res) => res.json({ ok: true }));
   app.get(["/api/health", "/readyz"], (_req, res) => {
     try {
@@ -887,6 +923,7 @@ export function createApplication(options: ApplicationOptions = {}) {
         throw new PublicError(
           "Public rooms are not open yet. Private rooms are available.",
         );
+      requireCapacity();
       if (rooms.size >= (options.maxRooms ?? 500))
         throw new PublicError("All tables are busy. Please try again later.");
       let code: string;
@@ -1003,6 +1040,7 @@ export function createApplication(options: ApplicationOptions = {}) {
         );
       if (r.seats.filter(Boolean).length < 2)
         throw new PublicError("At least two players are needed.");
+      requireCapacity();
       r.game = newGame(
         r.seats.map((s) => (s ? { ...s, tokens: [-1, -1, -1, -1] } : null)),
         Date.now(),
@@ -1453,6 +1491,7 @@ export function createApplication(options: ApplicationOptions = {}) {
         closing = true;
         monitor.closing = true;
         clearInterval(tick);
+        pressure?.close();
         await ai.close();
         await new Promise<void>((resolve) => {
           // A stalled peer can otherwise hold the WebSocket close handshake
