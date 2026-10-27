@@ -1,4 +1,4 @@
-import { memo, useEffect, useState } from "react";
+import { memo, useLayoutEffect, useRef, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import {
   Star,
@@ -52,12 +52,25 @@ function Token({
   const [path, setPath] = useState<[number, number][]>([
     position(color, step, index),
   ]);
-  useEffect(() => {
+  const previousStep = useRef(step);
+  useLayoutEffect(() => {
+    const from = previousStep.current;
+    previousStep.current = step;
+    // lastMove is durable history, not a new animation command. A baseline,
+    // repeated snapshot or another player's revision must never replay it.
+    if (from === step) {
+      if (reduced)
+        setPath((current) =>
+          current.length > 1 ? [position(color, step, index)] : current,
+        );
+      return;
+    }
     const m = game.lastMove;
     if (
       m?.color === color &&
       m.token === index &&
       m.to === step &&
+      m.from === from &&
       m.from >= 0 &&
       !reduced
     ) {
@@ -67,7 +80,6 @@ function Token({
         ),
       );
     } else setPath([position(color, step, index)]);
-    // A room chat update must not replay the last movement animation.
   }, [game.revision, color, index, step, reduced]);
   const stack = game.seats
     .flatMap((s) =>
@@ -87,6 +99,11 @@ function Token({
       disabled={!enabled}
       onClick={() => onMove(index)}
       initial={false}
+      onAnimationComplete={() =>
+        setPath((current) =>
+          current.length > 1 ? [position(color, step, index)] : current,
+        )
+      }
       animate={{
         left: path.map((p) => `${((p[1] + 0.5) / 15) * 100 + offset}%`),
         top: path.map((p) => `${((p[0] + 0.5) / 15) * 100}%`),

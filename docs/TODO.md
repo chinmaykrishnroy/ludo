@@ -79,3 +79,19 @@ The short mixed load and guarded burst are complete; longer sustained ramps,
 reconnect storms, bot-heavy capacity/strength comparisons, moderation drills and
 new physical-device acceptance remain unchecked above. Off-host backup/alert
 work stays deferred.
+
+## Motion corrections in v0.1.10
+
+- [x] **Prevent token animation replay.** Reproduced a network handoff rendering
+      board revisions `1 → 2 → 3 → 2 → 3`, with the token returning toward its origin.
+      The board now stays on canonical revisions `1 → 2 → 3`; dice actor/deadline
+      presentation is separate. Position-transition guards and completed-path cleanup
+      prevent historical movement replay on saved-game restoration and later updates.
+- [x] **Make dice landing coherent.** Six fixed solid faces tumble and land on
+      the authoritative face. The result hold begins after physical landing completes.
+      Browser tests cover all six actual front-face orientations, unchanged pip
+      graphics, delayed responses and reduced-motion behavior.
+- [ ] **Confirm the revised motion on physical phones.** Cross-engine browser
+      and viewport checks cover the implementation; verify perceived smoothness on
+      real iPhone/Android hardware after the update. Existing installed PWAs may need
+      all Ludo tabs closed and the app reopened to activate their waiting update.

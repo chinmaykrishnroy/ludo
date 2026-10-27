@@ -55,7 +55,7 @@ export default function PlayScreen({
   }, []);
   const seconds = Math.max(
     0,
-    Math.ceil((presentation.board.deadline - (now + clockOffset)) / 1000),
+    Math.ceil((presentation.deadline - (now + clockOffset)) / 1000),
   );
   const inputBusy =
     busy ||
@@ -131,9 +131,13 @@ export default function PlayScreen({
             <span className="dice-clock" aria-label="Time remaining">
               {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, "0")}
             </span>
-            <Dice value={presentation.value} rolling={presentation.rolling} />
+            <Dice
+              value={presentation.value}
+              rolling={presentation.rolling}
+              onSettled={presentation.onSettled}
+            />
             <span className="dice-action">
-              {presentation.rolling
+              {presentation.rolling || presentation.settling
                 ? "ROLLING"
                 : presentation.result?.phase === "roll"
                   ? "TURN OVER"

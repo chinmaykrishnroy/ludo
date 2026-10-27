@@ -246,9 +246,6 @@ select {
 .dice-pips i.visible {
   opacity: 1;
 }
-.dice.rolling {
-  animation: dice-roll 0.65s cubic-bezier(0.2, 0.8, 0.4, 1) both;
-}
 .compact-voice {
   margin: 0 !important;
   padding: 0 !important;
@@ -890,23 +887,6 @@ select {
   }
   50% {
     opacity: 0.7;
-  }
-}
-@keyframes dice-roll {
-  0% {
-    transform: rotate(-6deg);
-  }
-  25% {
-    transform: rotate(130deg) translateY(-12px);
-  }
-  60% {
-    transform: rotate(280deg) translateY(3px);
-  }
-  80% {
-    transform: rotate(375deg) translateY(-5px);
-  }
-  100% {
-    transform: rotate(354deg);
   }
 }
 @media (max-width: 700px) and (min-height: 501px) {
@@ -2825,9 +2805,6 @@ button:disabled {
     opacity: 0.65;
   }
 }
-.dice.rolling {
-  animation-iteration-count: infinite;
-}
 .dice-ready {
   position: absolute;
   inset: 0;
@@ -2968,4 +2945,77 @@ dialog .app-error-notice {
   inset: 12px;
   bottom: auto;
   width: auto;
+}
+
+/* Fixed solid faces: the result turns into view instead of repainting pips. */
+.game-stage .big-dice-button .dice {
+  --dice-depth: 27.5px;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  transform: none;
+  perspective: 320px;
+  overflow: visible;
+}
+.game-stage .dice.rolling {
+  animation: none;
+}
+.dice-stage,
+.dice-cube {
+  position: absolute;
+  inset: 0;
+  display: block;
+  transform-style: preserve-3d;
+}
+.dice-stage {
+  transition: transform 280ms cubic-bezier(0.18, 0.7, 0.25, 1);
+}
+.dice[data-phase="rolling"] .dice-stage {
+  transform: scale(0.78);
+}
+.dice-cube {
+  transform: translateZ(calc(var(--dice-depth) * -1)) rotateZ(-6deg);
+}
+.dice-face,
+.dice-idle {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: #fffdf5;
+  border: 3px solid #191919;
+  border-radius: 8px;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.face-1 {
+  transform: translateZ(var(--dice-depth));
+}
+.face-6 {
+  transform: rotateY(180deg) translateZ(var(--dice-depth));
+}
+.face-3 {
+  transform: rotateY(90deg) translateZ(var(--dice-depth));
+}
+.face-4 {
+  transform: rotateY(-90deg) translateZ(var(--dice-depth));
+}
+.face-2 {
+  transform: rotateX(90deg) translateZ(var(--dice-depth));
+}
+.face-5 {
+  transform: rotateX(-90deg) translateZ(var(--dice-depth));
+}
+.dice-idle {
+  transform: rotate(-6deg);
+  box-shadow: 3px 3px #191919;
+  display: none;
+}
+.dice[data-phase="ready"] .dice-stage,
+.dice[data-reduced="true"][data-phase="rolling"] .dice-stage {
+  visibility: hidden;
+}
+.dice[data-phase="ready"] .dice-idle,
+.dice[data-reduced="true"][data-phase="rolling"] .dice-idle {
+  display: grid;
 }
