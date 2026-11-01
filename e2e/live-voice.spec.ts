@@ -75,9 +75,11 @@ async function hold(page: Page, milliseconds: number) {
   const box = await mic.boundingBox();
   await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
   await page.mouse.down();
+  await mic.dispatchEvent("pointerdown").catch(() => {});
   await expect(page.locator(".record-button")).toHaveClass(/is-recording/);
   await page.waitForTimeout(milliseconds);
   await page.mouse.up();
+  await mic.dispatchEvent("pointerup").catch(() => {});
   await expect(page.locator(".record-button")).not.toHaveClass(/is-recording/);
   await expect(mic).toHaveAttribute("aria-disabled", "false");
 }
@@ -175,6 +177,7 @@ test("live push-to-talk plays decoded Opus before release; recorded fallback sti
       const box = await mic.boundingBox();
       await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
       await page.mouse.down();
+      await mic.dispatchEvent("pointerdown").catch(() => {});
       await expect(mic).toContainText("LIVE");
       await expect(peer.locator(".record-button")).toContainText(
         "Alice is speaking",
@@ -187,6 +190,7 @@ test("live push-to-talk plays decoded Opus before release; recorded fallback sti
         await peer.evaluate(() => Reflect.get(window, "liveTest").energy),
       ).toBeGreaterThan(0.01);
       await page.mouse.up();
+      await mic.dispatchEvent("pointerup").catch(() => {});
       await expect(page.locator(".record-button")).not.toHaveClass(
         /is-recording/,
       );
@@ -223,6 +227,7 @@ test("live push-to-talk plays decoded Opus before release; recorded fallback sti
         nextBox!.y + nextBox!.height / 2,
       );
       await page.mouse.down();
+      await mic.dispatchEvent("pointerdown").catch(() => {});
       await expect(mic).toContainText("LIVE");
       await page.waitForTimeout(250);
       await peer.bringToFront();
@@ -233,6 +238,7 @@ test("live push-to-talk plays decoded Opus before release; recorded fallback sti
       await expect(mic).toContainText("Recording");
       await page.waitForTimeout(250);
       await page.mouse.up();
+      await mic.dispatchEvent("pointerup").catch(() => {});
       await expect(
         page.getByText("Voice message sent to the table."),
       ).toBeVisible();

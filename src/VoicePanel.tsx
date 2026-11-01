@@ -170,12 +170,12 @@ export default function VoicePanel({
       >
         <Microphone weight={recording ? "fill" : "bold"} />
         <span className="record-status" aria-live="polite">
-          {pending
-            ? voice.requesting
-              ? "Waiting for microphone…"
-              : "Sending voice…"
-            : recording
-              ? `${voice.talkingLive ? "LIVE" : "Recording"} · ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")} / 1:00`
+          {recording
+            ? `${voice.talkingLive ? "LIVE" : "Recording"} · ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")} / 1:00`
+            : pending
+              ? voice.requesting
+                ? "Waiting for microphone…"
+                : "Sending voice…"
               : voice.liveState.speaking
                 ? `${voice.liveState.speaking.name} is speaking`
                 : "HOLD TO SPEAK"}
