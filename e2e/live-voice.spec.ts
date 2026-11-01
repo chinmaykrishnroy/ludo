@@ -68,6 +68,7 @@ async function microphone(page: Page) {
 }
 async function hold(page: Page, milliseconds: number) {
   const mic = page.getByRole("button", { name: /Hold to (speak live|record)/ });
+  await expect(mic).toHaveAttribute("aria-disabled", "false");
   await mic.scrollIntoViewIfNeeded();
   const box = await mic.boundingBox();
   await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
@@ -75,6 +76,7 @@ async function hold(page: Page, milliseconds: number) {
   await expect(page.locator(".record-button")).toHaveClass(/is-recording/);
   await page.waitForTimeout(milliseconds);
   await page.mouse.up();
+  await expect(page.locator(".record-button")).not.toHaveClass(/is-recording/);
 }
 async function table(a: Page, b: Page) {
   await microphone(a);
@@ -101,22 +103,12 @@ async function table(a: Page, b: Page) {
   ).toBeVisible();
   // These are real user gestures that unlock playback; microphone access remains untouched.
   for (const page of [a, b]) {
-    const enable = page.getByRole("button", {
-      name: "Enable live audio",
-      exact: true,
-    });
-    const clicked = await enable
-      .click({ timeout: 1000 })
-      .then(() => true)
-      .catch(() => false);
-    if (!clicked) {
-      await page
-        .getByRole("button", { name: "Mute speakers", exact: true })
-        .click();
-      await page
-        .getByRole("button", { name: "Unmute speakers", exact: true })
-        .click();
-    }
+    await page
+      .getByRole("button", { name: "Mute speakers", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Unmute speakers", exact: true })
+      .click();
   }
 }
 
@@ -168,6 +160,7 @@ test("live push-to-talk plays decoded Opus before release; recorded fallback sti
         ),
       ).toBe(1);
       const mic = page.getByRole("button", { name: /Hold to speak live/ });
+      await expect(mic).toHaveAttribute("aria-disabled", "false");
       await mic.scrollIntoViewIfNeeded();
       const box = await mic.boundingBox();
       await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
