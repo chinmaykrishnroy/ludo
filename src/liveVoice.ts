@@ -237,7 +237,12 @@ export class LiveVoiceClient {
         this.update({ supported: false });
         return false;
       }
-      await this.context!.audioWorklet.addModule(captureUrl);
+      await Promise.race([
+        this.context!.audioWorklet.addModule(captureUrl),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("AudioWorklet timeout")), 2000),
+        ),
+      ]);
       if (this.closed) return false;
       this.supported = true;
       this.update({ supported: true });

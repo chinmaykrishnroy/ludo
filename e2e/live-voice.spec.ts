@@ -67,6 +67,7 @@ async function microphone(page: Page) {
   });
 }
 async function hold(page: Page, milliseconds: number) {
+  await page.bringToFront();
   const mic = page.getByRole("button", { name: /Hold to (speak live|record)/ });
   await expect(mic).toHaveAttribute("aria-disabled", "false");
   await mic.scrollIntoViewIfNeeded();
@@ -81,6 +82,7 @@ async function hold(page: Page, milliseconds: number) {
 async function table(a: Page, b: Page) {
   await microphone(a);
   await microphone(b);
+  await a.bringToFront();
   await a.goto("/");
   await a
     .getByRole("button", { name: "PLAY WITH FRIENDS", exact: true })
@@ -93,16 +95,19 @@ async function table(a: Page, b: Page) {
     .last()
     .click();
   const code = await a.locator(".invite-strip strong").innerText();
+  await b.bringToFront();
   await b.goto(`${new URL(a.url()).origin}/?room=${code}`);
   await b.getByLabel("Your name", { exact: true }).fill("Bob");
   await b.getByRole("button", { name: /^Join the table/ }).click();
   await expect(b.locator(".invite-strip strong")).toHaveText(code);
+  await a.bringToFront();
   await a.getByRole("button", { name: "START GAME", exact: true }).click();
   await expect(
     b.getByRole("button", { name: "Roll dice", exact: true }),
   ).toBeVisible();
   // These are real user gestures that unlock playback; microphone access remains untouched.
   for (const page of [a, b]) {
+    await page.bringToFront();
     await page
       .getByRole("button", { name: "Mute speakers", exact: true })
       .click();
@@ -145,6 +150,7 @@ test("live push-to-talk plays decoded Opus before release; recorded fallback sti
     ).toBe(0);
     if (supported) {
       // Typing must not spend audio-control quotas on identical unlock/listen updates.
+      await peer.bringToFront();
       await peer
         .getByRole("button", { name: "Open room chat", exact: true })
         .click();
@@ -159,6 +165,7 @@ test("live push-to-talk plays decoded Opus before release; recorded fallback sti
           () => (Reflect.get(window, "testLiveSocket") as WebSocket).readyState,
         ),
       ).toBe(1);
+      await page.bringToFront();
       const mic = page.getByRole("button", { name: /Hold to speak live/ });
       await expect(mic).toHaveAttribute("aria-disabled", "false");
       await mic.scrollIntoViewIfNeeded();
@@ -184,6 +191,7 @@ test("live push-to-talk plays decoded Opus before release; recorded fallback sti
       await expect(page.locator(".voice-message")).toHaveCount(0);
       await expect(peer.locator(".voice-message")).toHaveCount(0);
       // Existing mute has the same meaning for live audio and voice notes.
+      await peer.bringToFront();
       await peer
         .getByRole("button", { name: "Mute speakers", exact: true })
         .click();
@@ -197,9 +205,11 @@ test("live push-to-talk plays decoded Opus before release; recorded fallback sti
       ).toBe(before);
       await page.waitForTimeout(250);
       // A failed live transport keeps the full note while the game socket remains connected.
+      await peer.bringToFront();
       await peer
         .getByRole("button", { name: "Unmute speakers", exact: true })
         .click();
+      await page.bringToFront();
       await expect(mic).toHaveAttribute("aria-disabled", "false");
       await mic.scrollIntoViewIfNeeded();
       const nextBox = await mic.boundingBox();
@@ -210,9 +220,11 @@ test("live push-to-talk plays decoded Opus before release; recorded fallback sti
       await page.mouse.down();
       await expect(mic).toContainText("LIVE");
       await page.waitForTimeout(250);
+      await peer.bringToFront();
       await peer.evaluate(() =>
         (Reflect.get(window, "testLiveSocket") as WebSocket).close(),
       );
+      await page.bringToFront();
       await expect(mic).toContainText("Recording");
       await page.waitForTimeout(250);
       await page.mouse.up();
