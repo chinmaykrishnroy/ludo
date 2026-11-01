@@ -102,7 +102,9 @@ async function fixture(
   };
 }
 test("live Opus streams over a separate socket, scoped to one room, with no state writes or retained audio", async () => {
-  const f = await fixture();
+  // Isolate media writes from independently scheduled room maintenance. The
+  // latter can commit at the first tick while a fast CI runner is asserting.
+  const f = await fixture({ tickMs: 60000 });
   try {
     const a = await f.a.voice(),
       b = await f.b.voice();
@@ -130,6 +132,13 @@ test("live Opus streams over a separate socket, scoped to one room, with no stat
     assert.equal(f.service.rooms.get(f.room.code)!.voices.length, 0);
     assert.equal(f.service.liveVoice.snapshot().speakers, 0);
     assert.equal(f.service.liveVoice.stats.completed, 1);
+    assert(
+      (await f.a.call("chat:send", { text: "Write observer control" })).ok,
+    );
+    assert(
+      writes > 0,
+      "the observer must still detect ordinary durable writes",
+    );
   } finally {
     await f.close();
   }

@@ -105,8 +105,11 @@ async function table(a: Page, b: Page) {
       name: "Enable live audio",
       exact: true,
     });
-    if (await enable.isVisible()) await enable.click();
-    else {
+    const clicked = await enable
+      .click({ timeout: 1000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!clicked) {
       await page
         .getByRole("button", { name: "Mute speakers", exact: true })
         .click();
@@ -204,6 +207,7 @@ test("live push-to-talk plays decoded Opus before release; recorded fallback sti
       await peer
         .getByRole("button", { name: "Unmute speakers", exact: true })
         .click();
+      await expect(mic).toHaveAttribute("aria-disabled", "false");
       await mic.scrollIntoViewIfNeeded();
       const nextBox = await mic.boundingBox();
       await page.mouse.move(
