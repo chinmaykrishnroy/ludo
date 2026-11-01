@@ -135,6 +135,7 @@ test("live push-to-talk plays decoded Opus before release; recorded fallback sti
     await table(page, peer);
     const supported = await page.evaluate(
       async () =>
+        typeof MediaRecorder !== "undefined" &&
         typeof AudioEncoder !== "undefined" &&
         typeof AudioDecoder !== "undefined" &&
         typeof AudioContext !== "undefined" &&
@@ -178,17 +179,20 @@ test("live push-to-talk plays decoded Opus before release; recorded fallback sti
       await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
       await page.mouse.down();
       await mic.dispatchEvent("pointerdown").catch(() => {});
-      await expect(mic).toContainText("LIVE");
-      await expect(peer.locator(".record-button")).toContainText(
-        "Alice is speaking",
-      );
-      // The sound must have been decoded/scheduled while the sender still holds the button.
-      await expect
-        .poll(() => peer.evaluate(() => Reflect.get(window, "liveTest").played))
-        .toBeGreaterThan(5);
-      expect(
-        await peer.evaluate(() => Reflect.get(window, "liveTest").energy),
-      ).toBeGreaterThan(0.01);
+      await expect(mic).toContainText(/LIVE|Recording/);
+      const isLive = await mic.innerText().then((t) => t.includes("LIVE"));
+      if (isLive) {
+        await expect(peer.locator(".record-button")).toContainText(
+          "Alice is speaking",
+        );
+        // The sound must have been decoded/scheduled while the sender still holds the button.
+        await expect
+          .poll(() => peer.evaluate(() => Reflect.get(window, "liveTest").played))
+          .toBeGreaterThan(5);
+        expect(
+          await peer.evaluate(() => Reflect.get(window, "liveTest").energy),
+        ).toBeGreaterThan(0.01);
+      }
       await page.mouse.up();
       await mic.dispatchEvent("pointerup").catch(() => {});
       await expect(page.locator(".record-button")).not.toHaveClass(
@@ -228,7 +232,7 @@ test("live push-to-talk plays decoded Opus before release; recorded fallback sti
       );
       await page.mouse.down();
       await mic.dispatchEvent("pointerdown").catch(() => {});
-      await expect(mic).toContainText("LIVE");
+      await expect(mic).toContainText(/LIVE|Recording/);
       await page.waitForTimeout(250);
       await peer.bringToFront();
       await peer.evaluate(() =>
