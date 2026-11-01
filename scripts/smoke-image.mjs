@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { io } from "socket.io-client";
+import { probeLiveVoice } from "./probe-live-voice.mjs";
 const image = process.argv[2],
   arch = process.argv[3],
   name = "ludo-image-smoke-" + randomUUID().slice(0, 8),
@@ -127,6 +128,11 @@ try {
       })
     ).ok,
   );
+  assert.equal(
+    (await (await fetch(url + "/api/config")).json()).liveVoiceEnabled,
+    true,
+  );
+  const liveVoice = await probeLiveVoice(url, a.cookie, b.cookie);
   assert((await call(a.socket, "room:start")).ok);
   await pause(1000);
   assert((await call(a.socket, "game:roll", { revision: 0 })).ok);
@@ -164,8 +170,9 @@ try {
       ok: true,
       image,
       architecture,
+      liveVoice,
       scope:
-        "Real image HTTP/PWA assets, multiplayer roll, persisted restart/reconnect and compiled AI worker",
+        "Real image HTTP/PWA assets, live Opus WebSocket relay, multiplayer roll, persisted restart/reconnect and compiled AI worker",
     }),
   );
 } catch (error) {

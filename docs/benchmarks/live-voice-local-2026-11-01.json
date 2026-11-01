@@ -1,0 +1,21 @@
+{
+  "scope": "local single-process relay + synthetic clients, in-memory SQLite, externally controlled admission, no tunnel/codecs/physical devices",
+  "rooms": 20,
+  "guests": 80,
+  "simultaneousSpeakers": 20,
+  "seconds": 15,
+  "framesIn": 15000,
+  "framesOut": 45000,
+  "expectedFramesOut": 45000,
+  "completed": 20,
+  "fallbacks": 0,
+  "bytesIn": 1080000,
+  "bytesOut": 3240000,
+  "chatCommands": 300,
+  "chatP95Ms": 134.67,
+  "eventLoopP95Ms": 22.41,
+  "eventLoopMaxMs": 126.94,
+  "maxClientBufferedBytes": 0,
+  "rssDeltaMiB": 40.29,
+  "cpuCorePercent": 34.24
+}

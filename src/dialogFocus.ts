@@ -8,23 +8,24 @@ export function containDialogFocus(
       "button:not(:disabled),a[href],input:not(:disabled),select:not(:disabled),textarea:not(:disabled),summary,[tabindex]",
     ),
   ].filter((e) => e.tabIndex >= 0 && e.getClientRects().length > 0);
-  const first = items[0],
-    last = items.at(-1);
+  const first = items[0];
   if (!first) {
     event.preventDefault();
     dialog.focus();
     return;
   }
-  if (
-    event.shiftKey &&
-    (document.activeElement === first || document.activeElement === dialog)
-  ) {
-    event.preventDefault();
-    last!.focus();
-  } else if (!event.shiftKey && document.activeElement === last) {
-    event.preventDefault();
-    first.focus();
-  }
+  // Some WebKit keyboard preferences skip links and reach BODY before the
+  // nominal last item. Own each Tab step rather than relying on native order
+  // to eventually reach that boundary.
+  event.preventDefault();
+  const index = items.indexOf(document.activeElement as HTMLElement);
+  const next =
+    index < 0
+      ? event.shiftKey
+        ? items.length - 1
+        : 0
+      : (index + (event.shiftKey ? -1 : 1) + items.length) % items.length;
+  items[next].focus();
 }
 
 export function openDialog(dialog: HTMLDialogElement) {

@@ -38,7 +38,8 @@ export default function VoicePanel({
     <section className={`voice-section ${compact ? "compact-voice" : ""}`}>
       <div className="section-title">
         <h3>
-          Table talk <span>VOICE MESSAGES</span>
+          Table talk{" "}
+          <span>{voice.preferLive ? "LIVE / VOICE NOTES" : "VOICE NOTES"}</span>
         </h3>
         <button
           className="icon-button"
@@ -53,6 +54,12 @@ export default function VoicePanel({
           {auto ? <SpeakerHigh /> : <SpeakerSlash />}
         </button>
       </div>
+      {room && voice.liveState.speaking && (
+        <p className="live-speaker" role="status">
+          <span className="record-dot" /> {voice.liveState.speaking.name} is
+          speaking
+        </p>
+      )}
       <div className="voice-feed">
         {room?.voices.length ? (
           room.voices.slice(-4).map((v) => (
@@ -111,9 +118,25 @@ export default function VoicePanel({
           Play voice messages
         </button>
       )}
+      {compact &&
+        room &&
+        voice.preferLive &&
+        voice.liveState.connected &&
+        voice.liveState.supported !== false &&
+        !voice.liveState.available &&
+        !voice.muted &&
+        !voice.needsPlayback && (
+          <button className="voice-playback-prompt" onClick={voice.enableLive}>
+            <SpeakerHigh /> Enable live audio
+          </button>
+        )}
       <button
         className={`record-button ${recording ? "is-recording" : ""}`}
-        aria-label="Hold to record a voice message"
+        aria-label={
+          voice.preferLive
+            ? "Hold to speak live or send a voice note"
+            : "Hold to record a voice message"
+        }
         aria-disabled={pending}
         onPointerDown={(e) => {
           e.preventDefault();
@@ -144,20 +167,48 @@ export default function VoicePanel({
         onContextMenu={(e) => e.preventDefault()}
       >
         <Microphone weight={recording ? "fill" : "bold"} />
-        {pending
-          ? voice.requesting
-            ? "Waiting for microphone…"
-            : "Sending voice…"
-          : recording
-            ? `Recording · ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")} / 1:00`
-            : "HOLD TO SPEAK"}
+        <span className="record-status" aria-live="polite">
+          {pending
+            ? voice.requesting
+              ? "Waiting for microphone…"
+              : "Sending voice…"
+            : recording
+              ? `${voice.talkingLive ? "LIVE" : "Recording"} · ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")} / 1:00`
+              : voice.liveState.speaking
+                ? `${voice.liveState.speaking.name} is speaking`
+                : "HOLD TO SPEAK"}
+        </span>
         {recording && <span className="record-dot" />}
       </button>
       <p className="record-hint">
         {recording
-          ? "Release to send · Escape to cancel"
-          : "Release to send to everyone · Up to 60 sec"}
+          ? voice.talkingLive
+            ? "Release to stop · Already heard live"
+            : "Release to send · Escape to cancel"
+          : voice.preferLive && voice.liveState.supported !== false
+            ? "Live when everyone is ready · Voice note otherwise"
+            : "Release to send to everyone · Up to 60 sec"}
       </p>
+      {room && (
+        <div className="voice-mode-controls">
+          <button
+            className="text-button"
+            disabled={recording || pending}
+            onClick={voice.toggleLive}
+          >
+            {voice.preferLive ? "Use voice notes" : "Use live talk"}
+          </button>
+          {voice.preferLive &&
+            voice.liveState.connected &&
+            voice.liveState.supported !== false &&
+            !voice.liveState.available &&
+            !voice.muted && (
+              <button className="text-button" onClick={voice.enableLive}>
+                Enable live audio
+              </button>
+            )}
+        </div>
+      )}
     </section>
   );
 }

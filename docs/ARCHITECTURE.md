@@ -2,16 +2,18 @@
 
 ## Components
 
-| Path                               | Responsibility                                                                        |
-| ---------------------------------- | ------------------------------------------------------------------------------------- |
-| `src/`                             | React interface, board animations, room controls, recording and offline saves         |
-| `shared/game.ts`                   | Pure legal moves, dice application, captures, safe squares, turns and winning rules   |
-| `shared/ai/`                       | Bot analysis, evaluation, difficulty policies and bounded search                      |
-| `server/app.ts`                    | HTTP/WebSocket authentication, commands, room ownership, deadlines and publication    |
-| `server/store.ts`                  | SQLite transactions, sessions, room snapshots, recordings, retention and writer lease |
-| `server/ai/`                       | Background bot worker, queue, cancellation and fallback                               |
-| `server/backups.ts`                | Verified online backups and restore validation                                        |
-| `scripts/build-service-worker.mjs` | Versioned static offline app cache                                                    |
+| Path                               | Responsibility                                                                                        |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `src/`                             | React interface, board animations, room controls, recording and offline saves                         |
+| `shared/game.ts`                   | Pure legal moves, dice application, captures, safe squares, turns and winning rules                   |
+| `shared/ai/`                       | Bot analysis, evaluation, difficulty policies and bounded search                                      |
+| `server/app.ts`                    | HTTP/WebSocket authentication, commands, room ownership, deadlines and publication                    |
+| `server/store.ts`                  | SQLite transactions, sessions, room snapshots, recordings, retention and writer lease                 |
+| `server/live-voice.ts`             | Authenticated transient Opus relay, room speaker floor, bounded fan-out and delivery acknowledgements |
+| `src/liveVoice.ts`                 | Live transport, worker codecs, audio worklet capture and bounded playback                             |
+| `server/ai/`                       | Background bot worker, queue, cancellation and fallback                                               |
+| `server/backups.ts`                | Verified online backups and restore validation                                                        |
+| `scripts/build-service-worker.mjs` | Versioned static offline app cache                                                                    |
 
 ## Online game updates
 
@@ -33,9 +35,11 @@ The shared AI returns a legal token choice and diagnostics without network or st
 
 ## Audio and offline operation
 
-Hold-to-speak records a message for upload over HTTPS; it does not create a live call. Permission is requested on first use. Recordings are capped at 60 seconds and 1 MiB, membership checked, and subject to count, age and storage retention. SQLite stores recording blobs and metadata together.
+Hold-to-speak attempts live push-to-talk over a dedicated WebSocket and keeps a local recording as fallback. Permission is requested on first microphone use. Saved voice notes are capped at 60 seconds and 1 MiB, membership checked, and subject to count, age and storage retention. SQLite stores recording blobs and metadata together; successful live streams are not saved.
 
 `useRoomVoice` owns recording and playback above its compact/menu presentations. `VoicePlayback` reuses one audio element so a user tap can unlock playback on iOS. Blocked autoplay retains a bounded queue and exposes a visible playback action; speaker mute stops queued audio and game sounds. Up to 30 voice sends per guest and 180 per IP per minute allow normal conversation, with separate byte, transport and storage limits retained.
+
+Live push-to-talk uses its own `/live-voice` WebSocket, with the same guest identity and current room membership. It bypasses room-state publication and SQLite entirely for media frames; room revocation is applied synchronously after successful persistence. Live capture and the existing recorder are coordinated by one room-level voice controller. Recorded fallback remains available for unsupported/locked browsers, unavailable listeners and interrupted delivery. See [LIVE_VOICE.md](LIVE_VOICE.md) for the protocol, constraints and validation.
 
 ## Room chat
 

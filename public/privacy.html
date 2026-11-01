@@ -73,9 +73,19 @@
           archived waiting rooms for one day.
         </li>
         <li>
+          Live push-to-talk relays audio only to current, unblocked room
+          members. Live audio is encrypted in transit to the hosting service and
+          is not end-to-end encrypted. It is not stored on the server. Your
+          browser temporarily records each hold so that unavailable or
+          interrupted live delivery can fall back to a saved voice message. A
+          failed live session may therefore produce a full voice note after some
+          speech has already been heard. Cancelling stops transmission and
+          discards the local fallback, but cannot retract speech already heard.
+        </li>
+        <li>
           Voice messages are shared with room members. Each recording is limited
           to 60 seconds and 1 MiB. Only the most recent 20 messages are retained
-          per room. The default live-recording retention is 24 hours; a
+          per room. The default saved-recording retention is 24 hours; a
           self-hosting operator can configure a different period.
         </li>
         <li>

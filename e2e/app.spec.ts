@@ -187,7 +187,7 @@ test("voice preference survives menu replacement and refresh; microphone is requ
     0,
   );
   const mic = page.getByRole("button", {
-    name: "Hold to record a voice message",
+    name: /Hold to (record a voice message|speak live or send a voice note)/,
   });
   await mic.click();
   const supported = await page.evaluate(
@@ -269,7 +269,7 @@ test("voice capture sends and cancels, or explains an unavailable browser encode
     .getByRole("button", { name: "Disable automatic voice playback" })
     .click();
   const mic = page.getByRole("button", {
-    name: "Hold to record a voice message",
+    name: /Hold to (record a voice message|speak live or send a voice note)/,
   });
   if (!(await page.evaluate(() => typeof MediaRecorder !== "undefined"))) {
     await mic.click();

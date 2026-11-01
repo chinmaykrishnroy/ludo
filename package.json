@@ -1,6 +1,6 @@
 {
   "name": "ludo-club",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "private": true,
   "type": "module",
   "engines": {
@@ -13,8 +13,9 @@
     "test": "tsx --test tests/*.test.ts",
     "check": "npm run test && npm run build",
     "test:load": "tsx scripts/load-smoke.ts",
+    "test:voice-load": "tsx scripts/live-voice-load.ts",
     "format": "prettier --write src server shared tests scripts *.ts *.json docs README.md",
-    "test:browser": "playwright test"
+    "test:browser": "node scripts/test-browsers.mjs"
   },
   "dependencies": {
     "@fontsource/dm-sans": "^5.2.8",
@@ -29,6 +30,7 @@
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1",
     "socket.io-parser": "4.2.7",
+    "ws": "8.21.3",
     "zod": "^4.1.12"
   },
   "devDependencies": {
@@ -38,6 +40,7 @@
     "@types/node": "^24.10.0",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
+    "@types/ws": "^8.18.2",
     "@vitejs/plugin-react": "^5.1.0",
     "prettier": "^3.9.10",
     "tsx": "^4.20.6",

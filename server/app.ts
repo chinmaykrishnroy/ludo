@@ -1,5 +1,6 @@
 import { AdmissionController } from "./admission.js";
 import { PressureSampler } from "./pressure-sampler.js";
+import { LiveVoiceRelay } from "./live-voice.js";
 import express from "express";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
@@ -81,6 +82,7 @@ export type ApplicationOptions = {
   minimumFreeBytes?: number;
   binaryTimeoutMs?: number;
   chatIdleSeconds?: number;
+  liveVoiceEnabled?: boolean;
 };
 export function createApplication(options: ApplicationOptions = {}) {
   const aiBudget = {
@@ -231,6 +233,7 @@ export function createApplication(options: ApplicationOptions = {}) {
       for (const id of memberIds(old))
         if (playerRooms.get(id) === code) playerRooms.delete(id);
     rooms.delete(code);
+    liveVoice.reconcile(code);
     transitions.delete(code);
   }
   const engineIps = new Map<string, Set<string>>();
@@ -356,6 +359,7 @@ export function createApplication(options: ApplicationOptions = {}) {
       ai.cancel(draft.code);
     monitor.success();
     indexRoom(structuredClone(draft));
+    liveVoice.reconcile(draft.code);
     if (config.delay !== undefined) transitions.set(draft.code, actionReadyAt);
     // Revocation precedes delivery. Guest channels include all tabs, not just the caller.
     for (const id of oldIds)
@@ -444,11 +448,47 @@ export function createApplication(options: ApplicationOptions = {}) {
     store.touchSession(id);
     return id;
   }
+  const liveBlocks = new Map<string, Set<string>>();
+  const liveVoice = new LiveVoiceRelay(http, {
+    enabled:
+      options.liveVoiceEnabled ?? process.env.LIVE_VOICE_ENABLED !== "false",
+    maxConnections: options.maxConnections ?? 1000,
+    maxPerGuest: options.maxGuestConnections ?? 4,
+    maxPerIp: options.maxIpConnections ?? 80,
+    address: proxy.address,
+    authenticate: (req) => {
+      if (closing || !originAllowed(req.headers.origin, req.headers.host))
+        throw new PublicError("Origin denied");
+      const id = sessionFor(req.headers.cookie, proxy.address(req));
+      const room = activeRoom(id);
+      if (!room || !guestSockets.has(id))
+        throw new PublicError("Join a room first");
+      liveBlocks.set(id, new Set(store.blockedSubjects(id)));
+      return { id, room: room.code };
+    },
+    member: (id, code) => {
+      if (closing || !guestSockets.has(id)) return;
+      const room = activeRoom(id);
+      const s =
+        room?.code === code ? room.seats.find((s) => s?.id === id) : undefined;
+      return s ? { id: s.id, name: s.name, color: s.color } : undefined;
+    },
+    members: (code) => {
+      const room = rooms.get(code);
+      return room ? memberIds(room).filter((id) => guestSockets.has(id)) : [];
+    },
+    blocked: (listener, sender) =>
+      liveBlocks.get(listener)?.has(sender) ?? false,
+    capacity: () => !closing && monitor.storageHealthy && admission.allow(),
+    failure: (error) => failure("live_voice", error),
+  });
   function release(socketId: string, id: string, ip: string) {
     guestSockets.get(id)?.delete(socketId);
     if (!guestSockets.get(id)?.size) guestSockets.delete(id);
     ipSockets.get(ip)?.delete(socketId);
     if (!ipSockets.get(ip)?.size) ipSockets.delete(ip);
+    liveVoice.reconcile(activeRoom(id)?.code);
+    if (!guestSockets.has(id)) liveBlocks.delete(id);
   }
   io.use((socket, next) => {
     try {
@@ -532,6 +572,7 @@ export function createApplication(options: ApplicationOptions = {}) {
       publicRoomsEnabled: publicEnabled,
       defaultBotDifficulty,
       voiceMaxSeconds: VOICE_MAX_SECONDS,
+      liveVoiceEnabled: liveVoice.snapshot().enabled,
       chatIdleSeconds: options.chatIdleSeconds ?? CHAT_IDLE_SECONDS,
       voiceRetentionHours: store.voiceRetentionMs / 3600000,
       unfinishedRoomRetentionDays: 30,
@@ -560,6 +601,7 @@ export function createApplication(options: ApplicationOptions = {}) {
       ...monitor.snapshot(),
       connections: io.engine.clientsCount,
       rateBudgets: budgets.snapshot(),
+      liveVoice: liveVoice.snapshot(),
       admission: admission.snapshot(),
       ai: {
         ...ai.stats,
@@ -607,7 +649,7 @@ export function createApplication(options: ApplicationOptions = {}) {
     res
       .type("text/plain")
       .send(
-        `ludo_ready ${h.ok ? 1 : 0}\nludo_rooms ${rooms.size}\nludo_connections ${io.engine.clientsCount}\nludo_storage_errors_total ${monitor.storageErrors}\nludo_rejected_total ${monitor.rejected}\nludo_actions_total ${monitor.actions}\nludo_memory_rss_bytes ${h.memory.rss}\nludo_event_loop_p95_ms ${h.eventLoopP95Ms}\nludo_disk_free_bytes ${h.disk.freeBytes}\nludo_voice_bytes ${h.database.voiceBytes}\n`,
+        `ludo_ready ${h.ok ? 1 : 0}\nludo_rooms ${rooms.size}\nludo_connections ${io.engine.clientsCount}\nludo_storage_errors_total ${monitor.storageErrors}\nludo_rejected_total ${monitor.rejected}\nludo_actions_total ${monitor.actions}\nludo_memory_rss_bytes ${h.memory.rss}\nludo_event_loop_p95_ms ${h.eventLoopP95Ms}\nludo_disk_free_bytes ${h.disk.freeBytes}\nludo_voice_bytes ${h.database.voiceBytes}\nludo_live_voice_connections ${h.liveVoice.connections}\nludo_live_voice_speakers ${h.liveVoice.speakers}\nludo_live_voice_frames_total ${h.liveVoice.frames}\nludo_live_voice_bytes_out_total ${h.liveVoice.bytesOut}\nludo_live_voice_fallbacks_total ${h.liveVoice.fallbacks}\n`,
       );
   });
   app.get("/api/session", (req, res) => {
@@ -1317,6 +1359,13 @@ export function createApplication(options: ApplicationOptions = {}) {
     handle("moderation:block", (data) => {
       const { input, r } = target(data);
       store.block(id, input.player);
+      liveBlocks.set(id, new Set(store.blockedSubjects(id)));
+      if (liveBlocks.has(input.player))
+        liveBlocks.set(
+          input.player,
+          new Set(store.blockedSubjects(input.player)),
+        );
+      liveVoice.reconcile(r.code);
       emitRoom(r);
     });
     socket.once("disconnect", () => {
@@ -1480,10 +1529,12 @@ export function createApplication(options: ApplicationOptions = {}) {
     store,
     monitor,
     ai,
+    liveVoice,
     playerRooms,
     beginShutdown: () => {
       closing = true;
       monitor.closing = true;
+      liveVoice.close();
       void ai.close();
     },
     close: () =>
@@ -1491,6 +1542,7 @@ export function createApplication(options: ApplicationOptions = {}) {
         closing = true;
         monitor.closing = true;
         clearInterval(tick);
+        liveVoice.close();
         pressure?.close();
         await ai.close();
         await new Promise<void>((resolve) => {

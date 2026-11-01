@@ -3019,3 +3019,31 @@ dialog .app-error-notice {
 .dice[data-reduced="true"][data-phase="rolling"] .dice-idle {
   display: grid;
 }
+.voice-mode-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 0.875rem;
+}
+.voice-mode-controls .text-button {
+  font-size: inherit;
+}
+.live-speaker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 8px 0;
+  font-weight: 700;
+}
+.live-speaker .record-dot {
+  background: var(--ink);
+}
+.record-button .record-status {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

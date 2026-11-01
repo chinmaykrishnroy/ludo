@@ -1275,7 +1275,10 @@ export default function App() {
               <button
                 className="square-button"
                 aria-label="Settings"
-                onClick={() => setModal("settings")}
+                onClick={(event) => {
+                  event.currentTarget.focus({ preventScroll: true });
+                  setModal("settings");
+                }}
               >
                 <GearSix weight="bold" />
               </button>
@@ -1461,7 +1464,10 @@ export default function App() {
             )}
             <button
               className="secondary full"
-              onClick={() => setModal("settings")}
+              onClick={(event) => {
+                event.currentTarget.focus({ preventScroll: true });
+                setModal("settings");
+              }}
             >
               <GearSix />
               SETTINGS

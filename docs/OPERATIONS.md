@@ -55,7 +55,9 @@ Route an HTTPS reverse proxy or tunnel to the loopback listener, for example `ht
 
 `PUBLIC_ROOMS_ENABLED=false` is the default. A nonempty `ADMIN_TOKEN` of at least 32 characters is required before public rooms can be enabled. Generate it with a cryptographic generator and keep it out of Git, logs and client bundles. Review reports and remaining acceptance checks before opening public matchmaking.
 
-Defaults: 500 active rooms, 1,000 total sockets, four sockets per guest, 80 per IP, 256 MiB voice storage, 1 GiB SQLite page limit, 24-hour audio retention, six-hour backup interval. These are defensive caps, not a concurrency promise. Leave disk headroom for WAL and backup copies; the database page limit does not bound those files.
+Defaults: 500 active rooms, 1,000 game sockets, four game sockets per guest, 80 per IP, 256 MiB voice storage, 1 GiB SQLite page limit, 24-hour audio retention, six-hour backup interval. The independent live-audio transport has its own connection counters and reuses those ceilings, so total TCP connections can reach twice the game-socket cap. These are defensive caps, not a concurrency promise. Leave disk headroom for WAL and backup copies; the database page limit does not bound those files.
+
+Live push-to-talk is enabled by default; set `LIVE_VOICE_ENABLED=false` to keep voice notes only. Pass WebSocket upgrades for `/live-voice` through the normal HTTPS proxy/tunnel route. No new public listener or UDP port is needed. Protected health and Prometheus metrics expose live connections, speakers, frame count, output bytes and failed live deliveries. Audio frames never write SQLite; full recorded fallbacks keep the existing storage limits. See [LIVE_VOICE.md](LIVE_VOICE.md) for browser capability and device acceptance checks.
 
 Guest and IP budgets cover room creation, joining, text, voice count/bytes, reports, connections and aggregate actions. IPv6 addresses are grouped by /64. Shared-network users consume shared IP budgets. Guest bans cannot establish permanent identity after browser data is cleared; public launch may need accounts and stronger abuse operations.
 

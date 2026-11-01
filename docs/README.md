@@ -4,6 +4,7 @@
 | ---------------------------------- | ---------------------------------------------------------------------------------------------- |
 | [Architecture](ARCHITECTURE.md)    | Client/server boundaries, authoritative game updates, persistence, reconnects and offline play |
 | [Bot AI](AI.md)                    | Difficulty policies, search workers, fair randomness and measured results                      |
+| [Live voice](LIVE_VOICE.md)        | WebSocket push-to-talk, Opus, recorded fallback, privacy, bounded queues and validation        |
 | [Operations](OPERATIONS.md)        | Configuration, monitoring, moderation, backups and recovery                                    |
 | [Container releases](RELEASING.md) | Version tags, image verification, Docker/Kubernetes deployment and GitOps                      |
 | [Validation](DELIVERY.md)          | Verified behavior, test evidence and remaining acceptance limits                               |
