@@ -3,6 +3,19 @@ import { test, expect, type Page } from "@playwright/test";
 async function microphone(page: Page) {
   await page.addInitScript(() => {
     const NativeSocket = WebSocket;
+    const origSend = NativeSocket.prototype.send;
+    NativeSocket.prototype.send = function (
+      data: string | ArrayBufferLike | Blob | ArrayBufferView,
+    ) {
+      try {
+        if (typeof data === "string") {
+          const msg = JSON.parse(data);
+          if (msg.type === "listen")
+            Reflect.set(window, "testLiveReady", msg.ready);
+        }
+      } catch {}
+      return origSend.call(this, data);
+    };
     window.WebSocket = class extends NativeSocket {
       constructor(url: string | URL, protocols?: string | string[]) {
         super(url, protocols);
@@ -133,22 +146,25 @@ test("live push-to-talk plays decoded Opus before release; recorded fallback sti
   peer.on("pageerror", (error) => errors.push(error.message));
   try {
     await table(page, peer);
-    const supported = await page.evaluate(
-      async () =>
-        typeof MediaRecorder !== "undefined" &&
-        typeof AudioEncoder !== "undefined" &&
-        typeof AudioDecoder !== "undefined" &&
-        typeof AudioContext !== "undefined" &&
-        typeof AudioWorkletNode !== "undefined" &&
-        !!(
-          await AudioEncoder.isConfigSupported({
-            codec: "opus",
-            sampleRate: 48000,
-            numberOfChannels: 1,
-            bitrate: 24000,
-          })
-        ).supported,
-    );
+    const supported =
+      (await page.evaluate(
+        async () =>
+          typeof MediaRecorder !== "undefined" &&
+          typeof AudioEncoder !== "undefined" &&
+          typeof AudioDecoder !== "undefined" &&
+          typeof AudioContext !== "undefined" &&
+          typeof AudioWorkletNode !== "undefined" &&
+          !!(
+            await AudioEncoder.isConfigSupported({
+              codec: "opus",
+              sampleRate: 48000,
+              numberOfChannels: 1,
+              bitrate: 24000,
+            })
+          ).supported &&
+          Reflect.get(window, "testLiveReady") === true,
+      )) &&
+      (await peer.evaluate(() => Reflect.get(window, "testLiveReady") === true));
     await page.waitForTimeout(500);
     expect(
       await peer.evaluate(() => Reflect.get(window, "liveTest").calls),
@@ -179,20 +195,17 @@ test("live push-to-talk plays decoded Opus before release; recorded fallback sti
       await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
       await page.mouse.down();
       await mic.dispatchEvent("pointerdown").catch(() => {});
-      await expect(mic).toContainText(/LIVE|Recording/);
-      const isLive = await mic.innerText().then((t) => t.includes("LIVE"));
-      if (isLive) {
-        await expect(peer.locator(".record-button")).toContainText(
-          "Alice is speaking",
-        );
-        // The sound must have been decoded/scheduled while the sender still holds the button.
-        await expect
-          .poll(() => peer.evaluate(() => Reflect.get(window, "liveTest").played))
-          .toBeGreaterThan(5);
-        expect(
-          await peer.evaluate(() => Reflect.get(window, "liveTest").energy),
-        ).toBeGreaterThan(0.01);
-      }
+      await expect(mic).toContainText("LIVE");
+      await expect(peer.locator(".record-button")).toContainText(
+        "Alice is speaking",
+      );
+      // The sound must have been decoded/scheduled while the sender still holds the button.
+      await expect
+        .poll(() => peer.evaluate(() => Reflect.get(window, "liveTest").played))
+        .toBeGreaterThan(5);
+      expect(
+        await peer.evaluate(() => Reflect.get(window, "liveTest").energy),
+      ).toBeGreaterThan(0.01);
       await page.mouse.up();
       await mic.dispatchEvent("pointerup").catch(() => {});
       await expect(page.locator(".record-button")).not.toHaveClass(
@@ -232,7 +245,7 @@ test("live push-to-talk plays decoded Opus before release; recorded fallback sti
       );
       await page.mouse.down();
       await mic.dispatchEvent("pointerdown").catch(() => {});
-      await expect(mic).toContainText(/LIVE|Recording/);
+      await expect(mic).toContainText("LIVE");
       await page.waitForTimeout(250);
       await peer.bringToFront();
       await peer.evaluate(() =>
@@ -259,6 +272,8 @@ test("live push-to-talk plays decoded Opus before release; recorded fallback sti
     await page
       .getByRole("button", { name: "Use voice notes", exact: true })
       .click();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
     if (
       await page.evaluate(
         () =>

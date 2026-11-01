@@ -73,10 +73,12 @@ export function useRoomVoice({
     const visibility = () => client.visibility();
     document.addEventListener("pointerdown", unlock, { capture: true });
     document.addEventListener("keydown", unlock, { capture: true });
+    document.addEventListener("click", unlock, { capture: true });
     document.addEventListener("visibilitychange", visibility);
     return () => {
       document.removeEventListener("pointerdown", unlock, { capture: true });
       document.removeEventListener("keydown", unlock, { capture: true });
+      document.removeEventListener("click", unlock, { capture: true });
       document.removeEventListener("visibilitychange", visibility);
       client.close();
       if (live.current === client) live.current = null;
@@ -206,7 +208,7 @@ export function useRoomVoice({
     for (const v of room?.voices ?? []) {
       if (!seen.current.has(v.id)) {
         seen.current.add(v.id);
-        if (auto && !muted) fresh.push(v.id);
+        if (auto && !muted && v.senderId !== me) fresh.push(v.id);
         if (muted && v.senderId !== me) onMutedVoice(v);
       }
     }
