@@ -71,6 +71,7 @@ async function hold(page: Page, milliseconds: number) {
   const mic = page.getByRole("button", { name: /Hold to (speak live|record)/ });
   await expect(mic).toHaveAttribute("aria-disabled", "false");
   await mic.scrollIntoViewIfNeeded();
+  await mic.focus();
   const box = await mic.boundingBox();
   await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
   await page.mouse.down();
@@ -78,6 +79,7 @@ async function hold(page: Page, milliseconds: number) {
   await page.waitForTimeout(milliseconds);
   await page.mouse.up();
   await expect(page.locator(".record-button")).not.toHaveClass(/is-recording/);
+  await expect(mic).toHaveAttribute("aria-disabled", "false");
 }
 async function table(a: Page, b: Page) {
   await microphone(a);
@@ -169,6 +171,7 @@ test("live push-to-talk plays decoded Opus before release; recorded fallback sti
       const mic = page.getByRole("button", { name: /Hold to speak live/ });
       await expect(mic).toHaveAttribute("aria-disabled", "false");
       await mic.scrollIntoViewIfNeeded();
+      await mic.focus();
       const box = await mic.boundingBox();
       await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
       await page.mouse.down();
@@ -187,6 +190,7 @@ test("live push-to-talk plays decoded Opus before release; recorded fallback sti
       await expect(page.locator(".record-button")).not.toHaveClass(
         /is-recording/,
       );
+      await expect(mic).toHaveAttribute("aria-disabled", "false");
       await page.waitForTimeout(400);
       await expect(page.locator(".voice-message")).toHaveCount(0);
       await expect(peer.locator(".voice-message")).toHaveCount(0);
@@ -212,6 +216,7 @@ test("live push-to-talk plays decoded Opus before release; recorded fallback sti
       await page.bringToFront();
       await expect(mic).toHaveAttribute("aria-disabled", "false");
       await mic.scrollIntoViewIfNeeded();
+      await mic.focus();
       const nextBox = await mic.boundingBox();
       await page.mouse.move(
         nextBox!.x + nextBox!.width / 2,
@@ -231,6 +236,7 @@ test("live push-to-talk plays decoded Opus before release; recorded fallback sti
       await expect(
         page.getByText("Voice message sent to the table."),
       ).toBeVisible();
+      await expect(mic).toHaveAttribute("aria-disabled", "false");
     } else {
       test.info().annotations.push({
         type: "capability",

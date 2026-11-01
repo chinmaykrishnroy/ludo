@@ -140,7 +140,9 @@ export default function VoicePanel({
         aria-disabled={pending}
         onPointerDown={(e) => {
           e.preventDefault();
-          e.currentTarget.setPointerCapture(e.pointerId);
+          try {
+            e.currentTarget.setPointerCapture(e.pointerId);
+          } catch {}
           void begin();
         }}
         onPointerUp={() => stop()}

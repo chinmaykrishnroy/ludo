@@ -188,18 +188,24 @@ export class LiveVoiceClient {
         latencyHint: "interactive",
       });
       // Must execute resume synchronously, before any await, for Safari autoplay.
-      const resume = this.context.resume();
+      const resume = Promise.race([
+        this.context.resume().catch(() => {}),
+        new Promise<void>((resolve) => setTimeout(resolve, 800)),
+      ]);
       if (!this.initialized) this.initialized = this.initialize();
-      return Promise.all([resume, this.initialized])
-        .then(([, ok]) => {
+      return Promise.race([
+        Promise.all([resume, this.initialized]).then(([, ok]) => {
           this.listen();
           this.update({ blocked: !ok || this.context?.state !== "running" });
           return ok;
-        })
-        .catch(() => {
-          this.update({ blocked: true });
-          return false;
-        });
+        }),
+        new Promise<boolean>((resolve) =>
+          setTimeout(() => resolve(false), 1200),
+        ),
+      ]).catch(() => {
+        this.update({ blocked: true });
+        return false;
+      });
     } catch {
       return Promise.resolve(false);
     }

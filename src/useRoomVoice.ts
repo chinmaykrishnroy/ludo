@@ -397,7 +397,7 @@ export function useRoomVoice({
   }
   return {
     recording,
-    pending,
+    pending: pending || permissionPending.current || !!recorder.current,
     requesting: permissionPending.current,
     seconds,
     auto,
