@@ -4,7 +4,6 @@ import { LiveVoiceRelay } from "./voice/index.js";
 import {
   guestChannel,
   memberIds,
-  createRoomView,
   transferHostAuthority,
 } from "./rooms/index.js";
 import { actionIdempotency } from "./game/index.js";

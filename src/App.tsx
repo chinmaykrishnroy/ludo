@@ -1,19 +1,15 @@
 import {
   useCallback,
-  useId,
   useSyncExternalStore,
   useEffect,
   useRef,
   useState,
-  type ReactNode,
 } from "react";
 import { io, type Socket } from "socket.io-client";
 import {
   DiceFive,
-  Users,
   Question,
   GearSix,
-  ArrowUpRight,
   ArrowRight,
   Plus,
   GlobeHemisphereWest,
@@ -27,16 +23,8 @@ import {
   ArrowCounterClockwise,
   SignOut,
   Trophy,
-  CircleNotch,
-  CaretLeft,
-  CaretRight,
 } from "@phosphor-icons/react";
-import {
-  Dialog,
-  containDialogFocus,
-  openDialog,
-  reportUnexpected,
-} from "./lib";
+import { Dialog, reportUnexpected } from "./lib";
 import {
   useAppearance,
   type Appearance,
@@ -47,7 +35,6 @@ import {
   loadDisplayName,
   rememberDisplayName,
   useServerAdmission,
-  type AdmissionStatus,
 } from "./store";
 import { RoomBrowser, BotDifficulty } from "./features/lobby";
 import {
@@ -73,7 +60,7 @@ import {
   forcedMoveAt,
   type Game,
 } from "../shared/game";
-import type { Room, Reply, PublicRoom } from "../shared/protocol";
+import type { Room, Reply } from "../shared/protocol";
 
 const LOCAL_ID = "local-you";
 function practice(
