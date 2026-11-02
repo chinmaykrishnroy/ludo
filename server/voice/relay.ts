@@ -281,7 +281,7 @@ export class LiveVoiceRelay {
           unreadyCount++;
         }
       }
-      if (otherMembers.length > 0 && !listeners.size) {
+      if (!listeners.size) {
         this.send(p, {
           type: "grant",
           request: m.request,
