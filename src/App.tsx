@@ -31,25 +31,34 @@ import {
   CaretLeft,
   CaretRight,
 } from "@phosphor-icons/react";
-import { PALETTE } from "./Board";
-import { Dialog } from "./lib/Dialog";
+import {
+  Dialog,
+  containDialogFocus,
+  openDialog,
+  reportUnexpected,
+} from "./lib";
+import {
+  useAppearance,
+  type Appearance,
+  useInstall,
+  browserStorage,
+  loadPractice,
+  savePractice,
+  loadDisplayName,
+  rememberDisplayName,
+  useServerAdmission,
+  type AdmissionStatus,
+} from "./store";
 import { RoomBrowser, BotDifficulty } from "./features/lobby";
-import PlayScreen from "./PlayScreen";
-import { containDialogFocus, openDialog } from "./dialogFocus";
-import { useAppearance, type Appearance } from "./useAppearance";
+import {
+  PlayScreen,
+  useGameFeedback,
+  requestOfflineMove,
+  PALETTE,
+} from "./features/game";
+import { RoomChat, RoomTools, useRoomChat } from "./features/chat";
+import { VoicePanel, useRoomVoice } from "./features/voice";
 import Home, { type ClubStats } from "./Home";
-import { useInstall } from "./useInstall";
-import { browserStorage } from "./storage";
-import { loadPractice, savePractice } from "./persistence";
-import { loadDisplayName, rememberDisplayName } from "./profile";
-import { requestOfflineMove } from "./offlineAi";
-import VoicePanel from "./VoicePanel";
-import { useRoomVoice } from "./useRoomVoice";
-import RoomChat, { RoomTools } from "./RoomChat";
-import { useRoomChat } from "./useRoomChat";
-import { useServerAdmission, type AdmissionStatus } from "./useServerAdmission";
-import { reportUnexpected } from "./errorReporting";
-import { useGameFeedback } from "./useGameFeedback";
 import type { Typing, Voice } from "../shared/protocol";
 import {
   COLORS,
