@@ -116,7 +116,15 @@ export default function PlayScreen({
               presentation.begin();
               onRoll();
             }}
-            aria-label="Roll dice"
+            aria-label={
+              finished
+                ? "Game over"
+                : mine
+                  ? game.phase === "roll"
+                    ? "Roll dice"
+                    : "Pick token to move"
+                  : `${current.name}'s turn`
+            }
           >
             <span className="dice-turn">
               <i style={{ background: PALETTE[current.color] }} />

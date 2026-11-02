@@ -3047,3 +3047,34 @@ dialog .app-error-notice {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+@media (prefers-contrast: more) {
+  :root {
+    --ink: #000000;
+    --paper: #ffffff;
+    --line: #000000;
+    --faint: #222222;
+  }
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: 4px solid #000000;
+    outline-offset: 4px;
+  }
+  .token {
+    stroke: #000000;
+    stroke-width: 2px;
+  }
+  .board-grid {
+    outline: 2px solid #000000;
+  }
+  .badge,
+  .status-pill {
+    border: 2px solid #000000;
+  }
+  .dialog {
+    border: 3px solid #000000;
+  }
+}
