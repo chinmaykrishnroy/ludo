@@ -1,3 +1,5 @@
+import { memo } from "react";
+
 export interface BotDifficultyProps {
   value: number;
   onChange: (value: number) => void;
@@ -5,7 +7,7 @@ export interface BotDifficultyProps {
   label?: string;
 }
 
-export function BotDifficulty({
+export const BotDifficulty = memo(function BotDifficulty({
   value,
   onChange,
   disabled = false,
@@ -32,6 +34,6 @@ export function BotDifficulty({
       </select>
     </label>
   );
-}
+});
 
 export default BotDifficulty;

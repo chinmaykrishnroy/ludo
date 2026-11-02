@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import {
   DiceFive,
   Users,
@@ -30,7 +30,7 @@ export interface RoomBrowserProps {
   admission?: AdmissionStatus;
 }
 
-export function RoomBrowser({
+export const RoomBrowser = memo(function RoomBrowser({
   send,
   notify,
   onClose,
@@ -337,6 +337,6 @@ export function RoomBrowser({
       )}
     </Dialog>
   );
-}
+});
 
 export default RoomBrowser;

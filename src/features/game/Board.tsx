@@ -31,7 +31,7 @@ const LIGHT: Record<Color, string> = {
   yellow: "#fcf3d9",
   blue: "#e8effc",
 };
-function Token({
+const Token = memo(function Token({
   game,
   color,
   index,
@@ -123,7 +123,7 @@ function Token({
       {enabled && <span className="token-ring" />}
     </motion.button>
   );
-}
+});
 export const Board = memo(function Board({
   game,
   me,

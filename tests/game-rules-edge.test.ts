@@ -57,10 +57,15 @@ test("validateGameAction: enforces room, turn, phase, revision, and authority", 
 
   const mockRoom: Room = {
     code: "TEST01",
+    name: "Test Room",
+    public: false,
     host: "p0",
-    created: Date.now(),
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    lastHumanAt: Date.now(),
     seats: g.seats,
     chat: [],
+    voices: [],
     game: g,
   };
 
