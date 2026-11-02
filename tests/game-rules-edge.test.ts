@@ -17,6 +17,7 @@ import {
 } from "../shared/game.js";
 import type { Room } from "../shared/protocol.js";
 import { PublicError } from "../server/security.js";
+import { roomSchema } from "../server/validation.js";
 
 test("IdempotencyCache: stores, retrieves, expires, and trims entries", async () => {
   const cache = new IdempotencyCache<string>(50, 5); // 50ms TTL, max 5 entries
@@ -259,4 +260,29 @@ test("Game rules edge cases: exact finish, overshooting, safe square captures, a
   // p0 should get an extra roll for capturing
   assert.equal(afterCapture.turn, 0, "p0 retains turn after capture");
   assert.equal(afterCapture.phase, "roll", "phase is roll after capture");
+});
+
+test("Room code security & validation: enforces 6-char Crockford format and rejects malformed codes", () => {
+  // Valid codes: 6 uppercase alphanumeric characters excluding ambiguous 0, 1, I, O
+  const validCodes = ["ABC234", "TEST99", "ZYXWVU", "888888"];
+  for (const code of validCodes) {
+    assert.doesNotThrow(() => {
+      roomSchema.shape.code.parse(code);
+    });
+  }
+
+  // Invalid codes: too short, too long, lowercase, special characters, whitespace
+  const invalidCodes = [
+    "ABC", // too short (3)
+    "ABCDEFG", // too long (7)
+    "abcdef", // lowercase
+    "ABC-EF", // hyphen
+    "ABC 23", // whitespace
+    "ABC!23", // symbol
+  ];
+  for (const code of invalidCodes) {
+    assert.throws(() => {
+      roomSchema.shape.code.parse(code);
+    });
+  }
 });
