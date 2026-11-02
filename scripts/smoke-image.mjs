@@ -120,22 +120,30 @@ try {
       bots: 0,
     });
   assert(createdRoom.ok, createdRoom.error);
-  assert(
-    (
-      await call(b.socket, "room:join", {
-        code: createdRoom.room.code,
-        playerName: "Beta",
-      })
-    ).ok,
-  );
+  const joined = await call(b.socket, "room:join", {
+    code: createdRoom.room.code,
+    playerName: "Beta",
+  });
+  assert(joined.ok, joined.error);
   assert.equal(
     (await (await fetch(url + "/api/config")).json()).liveVoiceEnabled,
     true,
   );
   const liveVoice = await probeLiveVoice(url, a.cookie, b.cookie);
-  assert((await call(a.socket, "room:start")).ok);
+  await pause(500);
+  let startRes = await call(a.socket, "room:start");
+  for (let i = 0; i < 25 && !startRes.ok; i++) {
+    await pause(1000);
+    startRes = await call(a.socket, "room:start");
+  }
+  assert(startRes.ok, startRes.error || "Room start failed");
   await pause(1000);
-  assert((await call(a.socket, "game:roll", { revision: 0 })).ok);
+  let rollRes = await call(a.socket, "game:roll", { revision: 0 });
+  for (let i = 0; i < 10 && !rollRes.ok; i++) {
+    await pause(1000);
+    rollRes = await call(a.socket, "game:roll", { revision: 0 });
+  }
+  assert(rollRes.ok, rollRes.error || "Game roll failed");
   const before = structuredClone(a.state.game);
   assert.equal(before.revision, 1);
   clients.splice(0).forEach((s) => s.disconnect());

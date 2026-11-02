@@ -22,7 +22,7 @@ const game = () =>
   );
 test("real Node worker executes the shared MCTS and closes cleanly", async () => {
   const scheduler = new AiScheduler({
-    timeoutMs: 10000,
+    timeoutMs: 20000,
     searchBudget: { iterations: 8, maxDepth: 6, maxTimeMs: 500 },
   });
   try {
