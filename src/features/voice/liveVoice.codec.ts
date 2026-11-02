@@ -54,7 +54,7 @@ scope.onmessage = ({ data }) => {
       }
       case "encode": {
         if (!encoder || encoder.state !== "configured") break;
-        if (encoder.encodeQueueSize > 8) {
+        if (encoder.encodeQueueSize > 32) {
           error();
           break;
         }
@@ -110,7 +110,7 @@ scope.onmessage = ({ data }) => {
       }
       case "decode": {
         if (!decoder || decoder.state !== "configured") break;
-        if (decoder.decodeQueueSize > 8) {
+        if (decoder.decodeQueueSize > 32) {
           error();
           break;
         }

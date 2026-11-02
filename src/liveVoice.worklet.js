@@ -20,9 +20,11 @@ class LiveCapture extends AudioWorkletProcessor {
       for (const c of channels) value += c[i] / channels.length;
       this.frame[this.used++] = value;
       if (this.used === this.frame.length) {
-        if (++this.pending > 10) {
-          this.port.postMessage({ overflow: true });
-          return false;
+        if (++this.pending > 50) {
+          this.pending = 50;
+          this.frame = new Float32Array(960);
+          this.used = 0;
+          return true;
         }
         this.port.postMessage({ samples: this.frame }, [this.frame.buffer]);
         this.frame = new Float32Array(960);

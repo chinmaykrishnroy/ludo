@@ -53,6 +53,7 @@ export class LiveVoiceClient {
   private playAt = 0;
   private sources = new Set<AudioBufferSourceNode>();
   private lastMutedNotice = -Infinity;
+  private speakingWatchdog?: ReturnType<typeof setTimeout>;
   readonly metrics = { encoded: 0, received: 0, played: 0, fallbacks: 0 };
   constructor(
     private change: (state: LiveState) => void,
@@ -60,6 +61,28 @@ export class LiveVoiceClient {
     private origin = location.origin,
   ) {
     this.connect();
+  }
+  private clearSpeaking() {
+    clearTimeout(this.speakingWatchdog);
+    this.speakingWatchdog = undefined;
+    if (this.state.speaking) {
+      this.update({ speaking: null });
+    }
+  }
+  private setSpeaking(speaker: LiveSpeaker) {
+    clearTimeout(this.speakingWatchdog);
+    this.update({ speaking: speaker });
+    this.speakingWatchdog = setTimeout(() => {
+      this.clearSpeaking();
+    }, 3500);
+  }
+  private touchSpeaking() {
+    if (this.state.speaking) {
+      clearTimeout(this.speakingWatchdog);
+      this.speakingWatchdog = setTimeout(() => {
+        this.clearSpeaking();
+      }, 3500);
+    }
   }
   private update(next: Partial<LiveState>) {
     if (this.closed) return;
@@ -133,26 +156,29 @@ export class LiveVoiceClient {
             lastAt: performance.now(),
           };
           this.worker?.postMessage({ type: "decode-start", stream: m.stream });
-          this.update({ speaking: m.speaker });
+          this.setSpeaking(m.speaker);
           if (this.muted && performance.now() - this.lastMutedNotice > 1000) {
             this.lastMutedNotice = performance.now();
             this.onMuted(m.speaker);
           }
-        } else if (
-          m.type === "end" &&
-          this.receiving &&
-          this.receiving.stream === m.stream
-        ) {
-          if (this.muted) this.control({ type: "delivered", stream: m.stream });
-          else if (this.receiving.sequence === m.frames)
-            this.worker?.postMessage({ type: "decode-end", stream: m.stream });
-          else this.fail();
-          this.update({ speaking: null });
-        } else if (m.type === "abort" && this.receiving?.stream === m.stream) {
+        } else if (m.type === "end") {
+          if (this.receiving && this.receiving.stream === m.stream) {
+            if (this.muted || this.receiving.sequence > 0) {
+              if (!this.muted)
+                this.worker?.postMessage({
+                  type: "decode-end",
+                  stream: m.stream,
+                });
+              else this.control({ type: "delivered", stream: m.stream });
+            }
+          }
+          this.clearSpeaking();
+        } else if (m.type === "abort") {
           this.stopPlayback();
-          this.update({ speaking: null });
+          this.clearSpeaking();
         }
       } catch {
+        this.clearSpeaking();
         this.fail();
       }
     };
@@ -162,6 +188,7 @@ export class LiveVoiceClient {
     ws.onclose = () => {
       if (this.ws !== ws) return;
       this.interrupt();
+      this.clearSpeaking();
       this.update({ connected: false, available: false, speaking: null });
       if (!this.closed)
         this.retry = setTimeout(
@@ -301,11 +328,12 @@ export class LiveVoiceClient {
       if (this.muted) return;
       const ctx = this.context;
       if (!ctx || ctx.state !== "running") {
-        this.fail();
         return;
       }
-      if (this.playAt - ctx.currentTime > 0.25 || this.sources.size >= 16) {
-        this.fail();
+      if (this.playAt - ctx.currentTime > 1.0) {
+        this.playAt = ctx.currentTime + 0.06;
+      }
+      if (this.sources.size >= 32) {
         return;
       }
       const buffer = ctx.createBuffer(1, data.samples.length, data.sampleRate);
@@ -334,15 +362,11 @@ export class LiveVoiceClient {
     const header = new DataView(data),
       r = this.receiving;
     if (header.getUint32(0) !== r.stream) return;
-    if (
-      header.getUint32(4) !== r.sequence ||
-      (r.sequence && performance.now() - r.lastAt > 500)
-    ) {
-      this.fail();
-      return;
-    }
-    r.sequence++;
+    const seq = header.getUint32(4);
+    if (seq < r.sequence) return;
+    r.sequence = seq + 1;
     r.lastAt = performance.now();
+    this.touchSpeaking();
     this.metrics.received++;
     if (this.muted) return;
     const bytes = data.slice(LIVE_HEADER_BYTES);
@@ -456,7 +480,7 @@ export class LiveVoiceClient {
           const didFlush = await Promise.race([
             flushed.then(() => true),
             new Promise<false>((resolve) => {
-              timeout = setTimeout(() => resolve(false), 400);
+              timeout = setTimeout(() => resolve(false), 1200);
             }),
           ]);
           clearTimeout(timeout);
@@ -470,7 +494,7 @@ export class LiveVoiceClient {
         const result = await Promise.race([
           sending.result,
           new Promise<false>((resolve) => {
-            timeout = setTimeout(() => resolve(false), 3500);
+            timeout = setTimeout(() => resolve(false), 5000);
           }),
         ]);
         if (!result) this.control({ type: "cancel", request: sending.request });
@@ -500,6 +524,7 @@ export class LiveVoiceClient {
   }
   private stopPlayback() {
     this.receiving = undefined;
+    this.clearSpeaking();
     this.worker?.postMessage({ type: "decode-stop" });
     for (const source of this.sources) {
       try {
@@ -514,6 +539,7 @@ export class LiveVoiceClient {
   }
   private interrupt() {
     this.update({ transmitting: false });
+    this.clearSpeaking();
     this.grant?.resolve(undefined);
     this.grant = undefined;
     if (this.sending) {
@@ -534,6 +560,7 @@ export class LiveVoiceClient {
   close() {
     this.closed = true;
     clearTimeout(this.retry);
+    this.clearSpeaking();
     this.interrupt();
     this.ws?.close();
     this.worker?.terminate();

@@ -225,9 +225,10 @@ export class LiveVoiceRelay {
       p.ready = m.ready;
       p.muted = m.muted;
       const floor = this.floors.get(p.room);
-      if (floor?.listeners.has(p) && !p.ready && !p.muted)
-        this.finish(p.room, false);
-      else if (floor?.listeners.has(p) && wasMuted && !p.muted)
+      if (floor?.listeners.has(p) && !p.ready && !p.muted) {
+        floor.listeners.delete(p);
+        if (!floor.listeners.size) this.finish(p.room, false);
+      } else if (floor?.listeners.has(p) && wasMuted && !p.muted)
         this.send(p, {
           type: "start",
           stream: floor.stream,
@@ -361,7 +362,7 @@ export class LiveVoiceRelay {
       data.readUInt32BE(4) !== f.sequence ||
       data.readUInt32BE(8) !== f.sequence * LIVE_FRAME_MS ||
       f.sequence >= LIVE_MAX_SECONDS * (1000 / LIVE_FRAME_MS) + 1 ||
-      f.sequence * LIVE_FRAME_MS > now - f.started + 300 ||
+      f.sequence * LIVE_FRAME_MS > now - f.started + 2000 ||
       now - f.started > LIVE_MAX_SECONDS * 1000 + 1000 ||
       !this.budgets.take(`frames:${p.id}`, 75, 1000) ||
       !this.budgets.take(`frames-ip:${p.ip}`, 1500, 1000)
@@ -410,16 +411,25 @@ export class LiveVoiceRelay {
     else this.stats.fallbacks++;
     this.send(floor.sender, { type: "finished", request: floor.request, ok });
     if (!ok)
-      for (const p of floor.listeners)
-        this.send(p, { type: "abort", stream: floor.stream });
+      for (const p of this.byRoom.get(room) ?? [])
+        if (p !== floor.sender)
+          this.send(p, { type: "abort", stream: floor.stream });
   }
   private drop(p: Peer) {
     if (!this.peers.delete(p)) return;
     this.byRoom.get(p.room)?.delete(p);
     if (!this.byRoom.get(p.room)?.size) this.byRoom.delete(p.room);
     const floor = this.floors.get(p.room);
-    if (floor && (floor.sender === p || floor.listeners.has(p)))
-      this.finish(p.room, false);
+    if (floor) {
+      if (floor.sender === p) {
+        this.finish(p.room, false);
+      } else if (floor.listeners.has(p)) {
+        floor.listeners.delete(p);
+        if (!floor.listeners.size) {
+          this.finish(p.room, false);
+        }
+      }
+    }
     p.ws.terminate();
   }
   // Called synchronously after persisted membership/policy changes, before further media delivery.
