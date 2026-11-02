@@ -7,6 +7,7 @@ import {
   createRoomView,
   transferHostAuthority,
 } from "./rooms/index.js";
+import { actionIdempotency } from "./game/index.js";
 import express from "express";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
@@ -1120,13 +1121,31 @@ export function createApplication(options: ApplicationOptions = {}) {
       return r;
     }
     handle("game:roll", (data) => {
+      const idempotencyKey = (data as { idempotencyKey?: string })
+        ?.idempotencyKey;
+      if (idempotencyKey) {
+        const cached = actionIdempotency.get(`${id}:${idempotencyKey}`);
+        if (cached) return cached;
+      }
       const r = requireTurn(data);
       if (r.game!.phase !== "roll")
         throw new PublicError("Choose a token before rolling again.");
       r.game = roll(r.game!, randomInt(1, 7));
-      commit(r, { delay: 850 });
+      const committed = commit(r, { delay: 850 });
+      if (idempotencyKey) {
+        actionIdempotency.set(`${id}:${idempotencyKey}`, {
+          ok: true,
+          room: view(committed, id),
+        });
+      }
     });
     handle("game:move", (data) => {
+      const idempotencyKey = (data as { idempotencyKey?: string })
+        ?.idempotencyKey;
+      if (idempotencyKey) {
+        const cached = actionIdempotency.get(`${id}:${idempotencyKey}`);
+        if (cached) return cached;
+      }
       const input = revision
           .extend({ token: z.number().int().min(0).max(3) })
           .parse(data),
@@ -1134,7 +1153,13 @@ export function createApplication(options: ApplicationOptions = {}) {
       if (!legalMoves(r.game!).includes(input.token))
         throw new PublicError("That token cannot move.");
       r.game = move(r.game!, input.token);
-      commit(r, { delay: 1100 });
+      const committed = commit(r, { delay: 1100 });
+      if (idempotencyKey) {
+        actionIdempotency.set(`${id}:${idempotencyKey}`, {
+          ok: true,
+          room: view(committed, id),
+        });
+      }
     });
     handle("chat:typing", (data) => {
       const input = z.object({ active: z.boolean() }).parse(data),
