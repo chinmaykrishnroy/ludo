@@ -82,8 +82,7 @@ export class LiveVoiceClient {
     return true;
   }
   private listen() {
-    const ready =
-      this.supported && this.context?.state === "running" && !document.hidden;
+    const ready = this.supported && this.context?.state === "running";
     const message = { type: "listen", ready, muted: this.muted };
     const serialized = JSON.stringify(message);
     if (serialized !== this.lastListen && this.control(message))
@@ -234,11 +233,7 @@ export class LiveVoiceClient {
         };
         worker.postMessage({ type: "init" });
       });
-      if (
-        !supported ||
-        this.closed ||
-        this.context!.sampleRate !== LIVE_SAMPLE_RATE
-      ) {
+      if (!supported || this.closed) {
         this.update({ supported: false });
         return false;
       }
@@ -376,8 +371,8 @@ export class LiveVoiceClient {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const id = await Promise.race([
       granted,
-      new Promise<undefined>((resolve) => {
-        timer = setTimeout(() => resolve(undefined), 750);
+      new Promise<number | undefined>((resolve) => {
+        timer = setTimeout(() => resolve(undefined), 3000);
       }),
     ]);
     clearTimeout(timer);
@@ -475,7 +470,7 @@ export class LiveVoiceClient {
         const result = await Promise.race([
           sending.result,
           new Promise<false>((resolve) => {
-            timeout = setTimeout(() => resolve(false), 1500);
+            timeout = setTimeout(() => resolve(false), 3500);
           }),
         ]);
         if (!result) this.control({ type: "cancel", request: sending.request });
@@ -498,9 +493,8 @@ export class LiveVoiceClient {
     this.listen();
   }
   visibility() {
-    if (document.hidden) {
-      this.interrupt();
-      this.stopPlayback();
+    if (document.hidden && this.sending) {
+      void this.end(this.sending, true);
     }
     this.listen();
   }

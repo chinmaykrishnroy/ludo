@@ -188,7 +188,7 @@ export default function VoicePanel({
             ? "Release to stop · Already heard live"
             : "Release to send · Escape to cancel"
           : voice.preferLive && voice.liveState.supported !== false
-            ? "Live when everyone is ready · Voice note otherwise"
+            ? "Hold to talk live · Voice note fallback"
             : "Release to send to everyone · Up to 60 sec"}
       </p>
       {room && (

@@ -71,14 +71,20 @@ export function useRoomVoice({
       void client.unlock();
     };
     const visibility = () => client.visibility();
+    void client.unlock();
     document.addEventListener("pointerdown", unlock, { capture: true });
     document.addEventListener("keydown", unlock, { capture: true });
     document.addEventListener("click", unlock, { capture: true });
+    document.addEventListener("touchstart", unlock, {
+      capture: true,
+      passive: true,
+    });
     document.addEventListener("visibilitychange", visibility);
     return () => {
       document.removeEventListener("pointerdown", unlock, { capture: true });
       document.removeEventListener("keydown", unlock, { capture: true });
       document.removeEventListener("click", unlock, { capture: true });
+      document.removeEventListener("touchstart", unlock, { capture: true });
       document.removeEventListener("visibilitychange", visibility);
       client.close();
       if (live.current === client) live.current = null;

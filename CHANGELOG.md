@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.14] - 2026-11-02
+
+### Live Push-to-Talk Reliability & Architecture
+
+- **Fault-Tolerant Floor Granting**:
+  - Removed rigid 100% all-listeners readiness requirement in `LiveVoiceRelay`, isolating dropped/unready peers instead of terminating the session.
+  - Enabled live talk in solo and bot rooms.
+  - Preserved strict bidirectional block enforcement.
+- **Background Playback**:
+  - Removed hidden document check so background tab listeners receive live audio without interruption.
+- **Universal Hardware Support**:
+  - Allowed native Web Audio resampling from Opus frame rates to any client hardware rate (e.g. 44.1 kHz Bluetooth/AirPods and iOS devices).
+- **Network Resilience**:
+  - Increased socket buffer threshold from 1 KB to 16 KB (`LIVE_BUFFER_BYTES`).
+  - Extended floor grant timeout to 3,000 ms and end delivery sweep timeout to 3,500 ms to eliminate false voice note fallbacks over WAN latency.
+- **Mobile Safari/Chrome Audio**:
+  - Added `touchstart` capture and immediate unlock invocation on room mount.
+
 ## [0.1.13] - 2026-11-02
 
 ### Architecture & Domain Modularization

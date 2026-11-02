@@ -262,28 +262,26 @@ export class LiveVoiceRelay {
         });
         return;
       }
+      const otherMembers = this.options
+        .members(p.room)
+        .filter((id) => id !== p.id);
       const listeners = new Set<Peer>();
-      for (const id of this.options.members(p.room)) {
-        if (id === p.id || this.options.blocked(id, p.id)) continue;
-        // Exactly one receiving tab per guest. Unready/legacy listeners use the recorded path.
+      let unreadyCount = 0;
+      for (const id of otherMembers) {
+        if (this.options.blocked(id, p.id)) continue;
         const peer = [...(this.byRoom.get(p.room) ?? [])].find(
           (x) =>
             x.id === id &&
             (x.ready || x.muted) &&
             x.ws.readyState === WebSocket.OPEN,
         );
-        if (!peer) {
-          this.send(p, {
-            type: "grant",
-            request: m.request,
-            ok: false,
-            reason: "voice-note",
-          });
-          return;
+        if (peer) {
+          listeners.add(peer);
+        } else {
+          unreadyCount++;
         }
-        listeners.add(peer);
       }
-      if (!listeners.size) {
+      if (otherMembers.length > 0 && !listeners.size) {
         this.send(p, {
           type: "grant",
           request: m.request,
@@ -304,18 +302,19 @@ export class LiveVoiceRelay {
       };
       this.floors.set(p.room, floor);
       const speaker = this.options.member(p.id, p.room)!;
-      for (const listener of listeners)
+      for (const listener of [...listeners])
         if (
           !this.send(listener, { type: "start", stream: floor.stream, speaker })
         ) {
-          this.finish(p.room, false);
-          return;
+          listeners.delete(listener);
+          this.drop(listener);
         }
       this.send(p, {
         type: "grant",
         request: m.request,
         ok: true,
         stream: floor.stream,
+        hasUnready: unreadyCount > 0,
       });
     } else if (m.type === "end" || m.type === "cancel") {
       const floor = this.floors.get(p.room);
@@ -323,17 +322,24 @@ export class LiveVoiceRelay {
         if (m.type === "cancel" || !floor.sequence) this.finish(p.room, false);
         else if (!floor.ending) {
           floor.ending = performance.now();
-          for (const listener of floor.listeners)
-            if (
-              !this.send(listener, {
-                type: "end",
-                stream: floor.stream,
-                frames: floor.sequence,
-              })
-            ) {
-              this.finish(p.room, false);
-              break;
+          if (!floor.listeners.size) {
+            this.finish(p.room, true);
+          } else {
+            for (const listener of [...floor.listeners])
+              if (
+                !this.send(listener, {
+                  type: "end",
+                  stream: floor.stream,
+                  frames: floor.sequence,
+                })
+              ) {
+                floor.listeners.delete(listener);
+                this.drop(listener);
+              }
+            if (!floor.listeners.size) {
+              this.finish(p.room, true);
             }
+          }
         }
       }
     } else {
@@ -368,13 +374,14 @@ export class LiveVoiceRelay {
     f.lastFrame = now;
     this.stats.frames++;
     this.stats.bytesIn += data.length;
-    for (const listener of f.listeners) {
+    for (const listener of [...f.listeners]) {
       if (
         !this.options.member(listener.id, p.room) ||
         this.options.blocked(listener.id, p.id)
       ) {
-        this.finish(p.room, false);
-        return;
+        f.listeners.delete(listener);
+        this.drop(listener);
+        continue;
       }
       if (listener.muted) continue;
       if (
@@ -382,12 +389,15 @@ export class LiveVoiceRelay {
         listener.ws.readyState !== WebSocket.OPEN ||
         listener.ws.bufferedAmount > LIVE_BUFFER_BYTES
       ) {
-        this.finish(p.room, false);
+        f.listeners.delete(listener);
         this.drop(listener);
-        return;
+        continue;
       }
       listener.ws.send(data, { binary: true }, (error) => {
-        if (error) this.drop(listener);
+        if (error) {
+          f.listeners.delete(listener);
+          this.drop(listener);
+        }
       });
       this.stats.bytesOut += data.length;
     }
@@ -446,11 +456,14 @@ export class LiveVoiceRelay {
       this.reconcile();
       const now = performance.now();
       for (const [room, f] of this.floors)
-        if (
-          (f.ending ? now - f.ending > 1200 : now - f.lastFrame > 2500) ||
+        if (f.ending && now - f.ending > 3000) {
+          this.finish(room, f.delivered.size > 0 || !f.listeners.size);
+        } else if (
+          now - f.lastFrame > 2500 ||
           now - f.started > LIVE_MAX_SECONDS * 1000 + 2000
-        )
+        ) {
           this.finish(room, false);
+        }
       if (++this.heartbeat % 15 === 0) {
         for (const p of this.peers) {
           try {
