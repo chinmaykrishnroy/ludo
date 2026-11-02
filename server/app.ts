@@ -1,6 +1,12 @@
 import { AdmissionController } from "./admission.js";
 import { PressureSampler } from "./pressure-sampler.js";
 import { LiveVoiceRelay } from "./voice/index.js";
+import {
+  guestChannel,
+  memberIds,
+  createRoomView,
+  transferHostAuthority,
+} from "./rooms/index.js";
 import express from "express";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
@@ -58,9 +64,6 @@ const roomCode = z
     .toUpperCase()
     .regex(/^[A-Z2-9]{6}$/),
   revision = z.object({ revision: z.number().int().nonnegative() });
-const guestChannel = (id: string) => `guest:${id}`;
-const memberIds = (r: Room) =>
-  r.seats.flatMap((s) => (s && !s.id.startsWith("bot:") ? [s.id] : []));
 export type ApplicationOptions = {
   aiScheduler?: AiScheduler;
   botDifficulty?: number;
@@ -375,10 +378,7 @@ export function createApplication(options: ApplicationOptions = {}) {
     return draft;
   }
   function transfer(r: Room) {
-    if (!r.seats.some((s) => s?.id === r.host && !s.bot && s.connected)) {
-      const host = r.seats.find((s) => s && !s.bot && s.connected);
-      if (host) r.host = host.id;
-    }
+    transferHostAuthority(r);
   }
   function automaticallyAdvance(r: Room, now: number) {
     const g = r.game!;
