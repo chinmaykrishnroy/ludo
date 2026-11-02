@@ -1,6 +1,6 @@
 import { AdmissionController } from "./admission.js";
 import { PressureSampler } from "./pressure-sampler.js";
-import { LiveVoiceRelay } from "./live-voice.js";
+import { LiveVoiceRelay } from "./voice/index.js";
 import express from "express";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
