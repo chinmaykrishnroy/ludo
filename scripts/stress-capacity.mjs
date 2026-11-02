@@ -332,7 +332,6 @@ async function run() {
     accepted = {};
     driverLoop.reset();
     const cpuStart = process.cpuUsage();
-    const phaseClock = performance.now();
     samples = {};
     codes = {};
     failures = [];

@@ -15,7 +15,10 @@
     "test:load": "tsx scripts/load-smoke.ts",
     "test:voice-load": "tsx scripts/live-voice-load.ts",
     "format": "prettier --write src server shared tests scripts *.ts *.json docs README.md",
-    "test:browser": "node scripts/test-browsers.mjs"
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test:browser": "node scripts/test-browsers.mjs",
+    "prepare": "husky"
   },
   "dependencies": {
     "@fontsource/dm-sans": "^5.2.8",
@@ -35,13 +38,21 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "4.14.0",
+    "@eslint/js": "^10.0.1",
     "@playwright/test": "1.64.1",
     "@types/express": "^5.0.3",
     "@types/node": "^24.10.0",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
     "@types/ws": "^8.18.2",
+    "@typescript-eslint/eslint-plugin": "^8.72.1",
+    "@typescript-eslint/parser": "^8.72.1",
     "@vitejs/plugin-react": "^5.1.0",
+    "eslint": "^10.14.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.14.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
     "prettier": "^3.9.10",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3",

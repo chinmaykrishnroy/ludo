@@ -33,7 +33,7 @@ let actions = 0,
   maxRss = 0,
   maxLoop = 0,
   maxLoopDelay = 0,
-  initialErrors = 0;
+  initialErrors;
 async function call(guest, event, data = {}, transient = false) {
   const start = performance.now();
   const reply = await guest.socket.timeout(10000).emitWithAck(event, data);
