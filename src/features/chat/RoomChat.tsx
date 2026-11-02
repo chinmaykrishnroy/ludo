@@ -23,7 +23,7 @@ import {
 } from "../../../shared/chat";
 import type { Color } from "../../../shared/game";
 import { PALETTE } from "../game/Board";
-import type { VoiceController } from "../../useRoomVoice";
+import type { VoiceController } from "../voice/useRoomVoice";
 import type { ChatController } from "./useRoomChat";
 import { preparePhoto } from "../../preparePhoto";
 import { containDialogFocus, openDialog } from "../../dialogFocus";
