@@ -62,9 +62,40 @@ test.describe("room sound and membership recovery", () => {
     const intercept = async (tab: Page) => {
       let upgrading = false;
       let missed = false;
-      let interrupt: (() => Promise<void>) | undefined;
+      let socketWs:
+        { close: (options?: { code?: number }) => Promise<void> } | undefined;
+      let socketServer:
+        { close: (options?: { code?: number }) => Promise<void> } | undefined;
+      await tab.route("**/socket.io/**", async (route) => {
+        const url = route.request().url();
+        if (url.includes("transport=polling")) {
+          const response = await route.fetch();
+          const text = await response.text();
+          if (text.includes('"room:left"')) {
+            missed = true;
+            const sanitized = text
+              .split("\x1e")
+              .filter((chunk) => !chunk.includes('"room:left"'))
+              .join("\x1e");
+            await route.fulfill({
+              response,
+              body: sanitized,
+            });
+            return;
+          }
+          await route.fulfill({ response, body: text });
+          return;
+        }
+        await route.continue();
+      });
       await tab.routeWebSocket("**/socket.io/**", (ws) => {
+        socketWs = ws;
         const server = ws.connectToServer();
+        socketServer = server;
+        ws.onMessage((message) => {
+          if (message === "5") upgrading = true;
+          server.send(message);
+        });
         server.onMessage((message) => {
           if (message === "3probe") upgrading = true;
           if (
@@ -72,12 +103,6 @@ test.describe("room sound and membership recovery", () => {
             message.startsWith('42["room:left",')
           ) {
             missed = true;
-            interrupt = async () => {
-              await Promise.all([
-                ws.close({ code: 1012 }),
-                server.close({ code: 1012 }),
-              ]);
-            };
             return;
           }
           ws.send(message);
@@ -86,7 +111,12 @@ test.describe("room sound and membership recovery", () => {
       return {
         upgrading: () => upgrading,
         missed: () => missed,
-        reconnect: () => interrupt!(),
+        reconnect: async () => {
+          await Promise.all([
+            socketWs?.close({ code: 1012 }),
+            socketServer?.close({ code: 1012 }),
+          ]);
+        },
       };
     };
     const [connection, resume, quit] = await Promise.all(tabs.map(intercept));
