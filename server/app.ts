@@ -7,6 +7,17 @@ import {
 } from "./rooms/index.js";
 import { actionIdempotency } from "./game/index.js";
 import express from "express";
+import { sendAudio } from "./send-audio.js";
+import { dirname, join } from "node:path";
+import { TableEffects } from "./table-effects.js";
+import { loadSoundboard } from "./soundboard.js";
+import {
+  botReactionCandidates,
+  effectActor,
+  REACTION_IDS,
+  REACTION_STYLES,
+  type RoomEffects,
+} from "../shared/effects.js";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import { createServer } from "node:http";
@@ -65,6 +76,8 @@ const roomCode = z
     .regex(/^[A-Z2-9]{6}$/),
   revision = z.object({ revision: z.number().int().nonnegative() });
 export type ApplicationOptions = {
+  soundboardDirectory?: string;
+  soundboardFamilyMode?: boolean;
   aiScheduler?: AiScheduler;
   botDifficulty?: number;
   dbPath?: string;
@@ -87,6 +100,14 @@ export type ApplicationOptions = {
   chatIdleSeconds?: number;
 };
 export function createApplication(options: ApplicationOptions = {}) {
+  const effects = new TableEffects();
+  const soundboard = loadSoundboard(
+    options.soundboardDirectory ??
+      process.env.SOUNDBOARD_DIR ??
+      join(dirname(options.dbPath ?? "data/ludo.sqlite"), "soundboard"),
+    options.soundboardFamilyMode ??
+      process.env.SOUNDBOARD_FAMILY_MODE !== "false",
+  );
   const aiBudget = {
     iterations: Number(process.env.AI_SEARCH_ITERATIONS ?? 96),
     maxDepth: Number(process.env.AI_SEARCH_DEPTH ?? 24),
@@ -229,6 +250,7 @@ export function createApplication(options: ApplicationOptions = {}) {
     for (const id of memberIds(r)) playerRooms.set(id, r.code);
   }
   function eraseRoom(code: string) {
+    effects.delete(code);
     ai.cancel(code);
     const old = rooms.get(code);
     if (old)
@@ -301,6 +323,7 @@ export function createApplication(options: ApplicationOptions = {}) {
   ) {
     return {
       ...r,
+      effects: effects.view(r.code, (actor) => !blocked.has(actor.id)),
       actionReadyAt,
       voices: r.voices.filter((v) =>
         v.senderId ? !blocked.has(v.senderId) : blocked.size === 0,
@@ -314,6 +337,49 @@ export function createApplication(options: ApplicationOptions = {}) {
     const deliveries = memberIds(r).map((id) => ({ id, room: view(r, id) }));
     for (const delivery of deliveries)
       io.to(guestChannel(delivery.id)).emit("room:state", delivery.room);
+  }
+  function publishEffects(room: Room) {
+    for (const id of memberIds(room)) {
+      if (!guestSockets.has(id)) continue;
+      const blocked = new Set(store.blockedSubjects(id));
+      const state: RoomEffects = effects.view(
+        room.code,
+        (actor) => !blocked.has(actor.id),
+      ) ?? { room: room.code, reactionReadyAt: 0, soundReadyAt: 0 };
+      io.to(guestChannel(id)).emit("room:effects", state);
+    }
+  }
+  function roomBots(room: Room, reaction: "wave" | "laugh") {
+    return room.seats.flatMap((seat) =>
+      seat?.id.startsWith("bot:")
+        ? [{ actor: effectActor(seat), reaction }]
+        : [],
+    );
+  }
+  function afterRoomUpdate(before: Room | undefined, after: Room, delay = 0) {
+    if (!before) return;
+    try {
+      if (!after.game) {
+        if (before.game) {
+          effects.delete(after.code);
+          publishEffects(after);
+        }
+        return;
+      }
+      const left = memberIds(before).filter(
+        (id) => !memberIds(after).includes(id),
+      );
+      for (const id of left) effects.removeActor(after.code, id);
+      const candidates = left.length
+        ? roomBots(after, "wave")
+        : before.game
+          ? botReactionCandidates(before.game, after.game)
+          : [];
+      if (effects.bot(after.code, candidates, delay) || left.length)
+        publishEffects(after);
+    } catch (error) {
+      failure("room_effects", error);
+    }
   }
   function departure(room: Room, id: string) {
     const remaining = structuredClone(room);
@@ -396,6 +462,8 @@ export function createApplication(options: ApplicationOptions = {}) {
       );
       for (const delivery of previousDeliveries ?? [])
         io.to(guestChannel(delivery.id)).emit("room:state", delivery.room);
+      if (leaving.remaining)
+        afterRoomUpdate(config.switching.from, leaving.remaining);
     }
     if (
       old?.game?.revision !== draft.game?.revision ||
@@ -416,6 +484,7 @@ export function createApplication(options: ApplicationOptions = {}) {
     for (const delivery of deliveries)
       io.to(guestChannel(delivery.id)).emit("room:state", delivery.room);
     if (config.archive) eraseRoom(draft.code);
+    else afterRoomUpdate(old, draft, config.delay);
     monitor.observe("commit", performance.now() - commitStarted);
     return draft;
   }
@@ -710,42 +779,35 @@ export function createApplication(options: ApplicationOptions = {}) {
       res.sendStatus(404);
       return;
     }
-    res.set({
-      "Content-Type": blob.mime,
-      "Cache-Control": "private, no-store",
-      "X-Content-Type-Options": "nosniff",
-      "Accept-Ranges": "bytes",
-    });
-    const bytes = Buffer.from(blob.data),
-      range = req.headers.range;
-    if (range) {
-      const match = /^bytes=(\d*)-(\d*)$/.exec(range);
-      const start = match?.[1]
-        ? Number(match[1])
-        : Math.max(0, bytes.length - Number(match?.[2]));
-      const end =
-        match?.[1] && match[2]
-          ? Math.min(bytes.length - 1, Number(match[2]))
-          : bytes.length - 1;
-      if (
-        !match ||
-        (!match[1] && !match[2]) ||
-        !Number.isSafeInteger(start) ||
-        !Number.isSafeInteger(end) ||
-        start < 0 ||
-        start >= bytes.length ||
-        end < start
-      ) {
-        res.status(416).set("Content-Range", `bytes */${bytes.length}`).end();
+    sendAudio(req, res, Buffer.from(blob.data), blob.mime);
+  });
+  app.get("/api/soundboard/:clip/:cue", (req, res) => {
+    res.setHeader("Cache-Control", "private, no-store");
+    let id: string;
+    try {
+      id = sessionFor(req.headers.cookie, proxy.address(req));
+    } catch (error) {
+      if (error instanceof PublicError) {
+        res.sendStatus(404);
         return;
       }
-      res
-        .status(206)
-        .set("Content-Range", `bytes ${start}-${end}/${bytes.length}`)
-        .send(bytes.subarray(start, end + 1));
+      throw error;
+    }
+    const room = activeRoom(id);
+    const cue = room?.game && effects.view(room.code)?.sound;
+    const file = cue && soundboard.files.get(cue.sound);
+    if (
+      !cue ||
+      !file ||
+      cue.id !== req.params.cue ||
+      cue.sound !== req.params.clip ||
+      store.blocked(id, cue.actor.id)
+    ) {
+      res.sendStatus(404);
       return;
     }
-    res.send(bytes);
+    limited(`sound-download:${id}`, 90);
+    sendAudio(req, res, file.bytes, "audio/mpeg");
   });
   app.use("/api/admin", admin, express.json({ limit: "8kb" }));
   app.get("/api/chat-media/:id", (req, res) => {
@@ -861,6 +923,9 @@ export function createApplication(options: ApplicationOptions = {}) {
             "chat:send": [60, 300, 60000],
             "chat:typing": [12, 80, 10000],
             "voice:send": [30, 180, 60000],
+            "room:reaction": [30, 180, 60000],
+            "room:sound": [20, 100, 60000],
+            "room:sound-catalog": [12, 90, 60000],
             "moderation:report": [5, 30, 3600000],
             "moderation:block": [20, 100, 3600000],
           };
@@ -932,6 +997,84 @@ export function createApplication(options: ApplicationOptions = {}) {
         throw new PublicError("Only the room organiser can do that.");
     };
     handle("clock:sync", () => ({ ok: true, serverNow: Date.now() }));
+    const tableForEffects = (code: string) => {
+      const room = activeRoom(id);
+      if (!room?.game || room.code !== code)
+        throw new PublicError(
+          "Join an active game to use table effects.",
+          "ROOM_CHANGED",
+        );
+      return room;
+    };
+    handle("room:reaction", (data) => {
+      const input = z
+        .object({
+          room: roomCode,
+          reaction: z.enum(REACTION_IDS),
+          style: z.enum(REACTION_STYLES).optional(),
+        })
+        .parse(data);
+      const room = tableForEffects(input.room);
+      const actor = room.seats.find((seat) => seat?.id === id)!;
+      if (
+        !effects.react(
+          room.code,
+          effectActor(actor),
+          input.reaction,
+          0,
+          input.style,
+        )
+      )
+        throw new PublicError("Wait for the current reaction.", "EFFECT_BUSY");
+      publishEffects(room);
+      effects.afterRepeatedReactions(
+        room.code,
+        id,
+        roomBots(room, "laugh"),
+        () => {
+          const current = rooms.get(room.code);
+          return !closing && current?.game ? roomBots(current, "laugh") : [];
+        },
+        () => {
+          const current = rooms.get(room.code);
+          if (!current || closing) return;
+          try {
+            publishEffects(current);
+          } catch (error) {
+            failure("room_effects", error);
+          }
+        },
+      );
+    });
+    handle("room:sound-catalog", (data) => {
+      tableForEffects(z.object({ room: roomCode }).parse(data).room);
+      return { ok: true, soundCatalog: soundboard.catalog };
+    });
+    handle("room:sound", (data) => {
+      const input = z
+        .object({ room: roomCode, sound: z.string().max(80) })
+        .parse(data);
+      const room = tableForEffects(input.room);
+      const file = soundboard.files.get(input.sound);
+      const clip = soundboard.catalog.clips.find(
+        (item) => item.id === input.sound,
+      );
+      if (!file || !clip) throw new PublicError("That sound is unavailable.");
+      const actor = room.seats.find((seat) => seat?.id === id)!;
+      if (
+        !effects.sound(
+          room.code,
+          effectActor(actor),
+          { sound: clip.id, title: clip.label, gain: file.gain },
+          clip.duration,
+        )
+      )
+        throw new PublicError(
+          "Wait for the current sound to finish.",
+          "EFFECT_BUSY",
+        );
+      publishEffects(room);
+    });
     handle("rooms:list", (data) => {
       const input = z
         .object({
@@ -1597,12 +1740,14 @@ export function createApplication(options: ApplicationOptions = {}) {
     playerRooms,
     beginShutdown: () => {
       closing = true;
+      effects.clear();
       monitor.closing = true;
       void ai.close();
     },
     close: () =>
       (closePromise ??= (async () => {
         closing = true;
+        effects.clear();
         monitor.closing = true;
         clearInterval(tick);
         pressure?.close();

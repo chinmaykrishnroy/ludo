@@ -51,6 +51,67 @@ async function roomWithPeer(page: Page) {
   };
 }
 
+test("a reaction style can be selected by dragging and starts at the rotated home", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const peer = await roomWithPeer(page);
+  try {
+    const angry = page.getByRole("button", {
+      name: "React: Angry",
+      exact: true,
+    });
+    const box = (await angry.boundingBox())!;
+    const x = box.x + box.width / 2,
+      y = box.y + box.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x, y + 15);
+    const option = page.getByRole("button", { name: "Ripple", exact: true });
+    await expect(option).toBeVisible();
+    const choice = (await option.boundingBox())!;
+    await page.mouse.move(
+      choice.x + choice.width / 2,
+      choice.y + choice.height / 2,
+    );
+    await page.mouse.up();
+    const effect = page.locator(
+      '.table-reaction[data-reaction-style="ripple"]',
+    );
+    await expect(effect).toBeVisible();
+    await expect(effect.locator(".reaction-animation")).toHaveCSS(
+      "--origin-y",
+      "80%",
+    );
+    await expect(effect.locator(".reaction-animation")).toHaveCSS(
+      "--origin-x",
+      "20%",
+    );
+    await expect(angry).toBeDisabled();
+    await expect(angry.locator(".reaction-button-time")).toHaveText(/^[1-4]s$/);
+    await expect(angry).toBeEnabled();
+    await angry.focus();
+    await page.keyboard.press("ArrowDown");
+    await expect(
+      page.getByRole("button", { name: "Pop", exact: true }),
+    ).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(angry).toBeFocused();
+    await angry.hover();
+    await page.mouse.down();
+    const burst = page.getByRole("button", { name: "Burst", exact: true });
+    await expect(burst).toBeVisible();
+    await page.mouse.up();
+    await burst.click();
+    await expect(
+      page.locator('.table-reaction[data-reaction-style="burst"]'),
+    ).toBeVisible();
+  } finally {
+    await peer.close();
+  }
+});
+
 test("incoming text and GIF previews stack above the mobile board and expire independently", async ({
   page,
 }) => {

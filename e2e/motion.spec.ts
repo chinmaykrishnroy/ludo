@@ -379,6 +379,10 @@ test("online snapshots and the following roll cannot replay a completed move", a
     service.rooms.set(code, room);
     service.store.save(room);
     service.io.to(code).emit("room:state", room);
+    await expect(page.locator(".play-board .board")).toHaveAttribute(
+      "data-board-rotation",
+      "270",
+    );
     const token = page.locator(".token.red").first();
     await expect(token).toBeEnabled();
     await token.evaluate((element) => {
@@ -391,7 +395,7 @@ test("online snapshots and the following roll cannot replay a completed move", a
           const sample = () => {
             Reflect.get(window, "onlineFrames").push({
               t: performance.now() - start,
-              x: element.getBoundingClientRect().x,
+              x: -element.getBoundingClientRect().y,
             });
             if (performance.now() - start < 3600) requestAnimationFrame(sample);
           };

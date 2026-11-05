@@ -4,6 +4,7 @@ import { VOICE_MAX_SECONDS } from "../../../shared/voice";
 import { browserStorage } from "../../storage";
 import { createVoiceRecording, type VoiceRecording } from "./voiceRecording";
 import { VoicePlayback } from "./voicePlayback";
+import { RoomAudioMixer } from "./roomAudioMixer";
 
 const clip = (voice: Voice) => ({
   id: voice.id,
@@ -36,14 +37,18 @@ export function useRoomVoice({
     [muted, setMuted] = useState(
       () => browserStorage.getItem("ludo-room-muted") === "on",
     );
+  const [mixer] = useState(() => new RoomAudioMixer());
   const playback = useRef<VoicePlayback | null>(null);
   if (!playback.current)
     playback.current = new VoicePlayback(
       (ids, blocked) => {
+        mixer.voiceActivity(ids.length > 0);
         setPlaying(ids);
         setNeedsPlayback(blocked);
       },
       () => notify("This voice message could not be played."),
+      undefined,
+      (audio) => mixer.prepareVoice(audio),
     );
 
   const recorder = useRef<VoiceRecording | null>(null),
@@ -89,11 +94,12 @@ export function useRoomVoice({
       cancelled.current = true;
       recorder.current?.stop(true);
       playback.current!.clear();
+      mixer.close();
       document.removeEventListener("keydown", escape);
       document.removeEventListener("visibilitychange", visibility);
       window.removeEventListener("blur", cancel);
     };
-  }, []);
+  }, [mixer]);
 
   useEffect(() => {
     seen.current = new Set(room?.voices.map((voice) => voice.id) ?? []);
@@ -109,6 +115,7 @@ export function useRoomVoice({
     if (!room?.code || muted || !auto) return;
     // Some mobile browsers only allow audio elements started from a user gesture.
     const unlock = () => {
+      mixer.unlock();
       playback.current!.resume();
       document.removeEventListener("click", unlock, true);
       document.removeEventListener("keydown", unlock, true);
@@ -119,7 +126,22 @@ export function useRoomVoice({
       document.removeEventListener("click", unlock, true);
       document.removeEventListener("keydown", unlock, true);
     };
-  }, [room?.code, muted, auto]);
+  }, [room?.code, muted, auto, mixer]);
+  useEffect(() => {
+    if (!room?.code || muted) return;
+    const unlock = () => mixer.unlock();
+    document.addEventListener("click", unlock, true);
+    document.addEventListener("keydown", unlock, true);
+    const restore = () => {
+      if (!document.hidden) mixer.resume();
+    };
+    document.addEventListener("visibilitychange", restore);
+    return () => {
+      document.removeEventListener("click", unlock, true);
+      document.removeEventListener("keydown", unlock, true);
+      document.removeEventListener("visibilitychange", restore);
+    };
+  }, [room?.code, muted, mixer]);
 
   useEffect(() => {
     const capture = recorder.current;
@@ -153,6 +175,7 @@ export function useRoomVoice({
       onOnline();
       return;
     }
+    if (!muted) mixer.unlock();
     playback.current!.resume();
     held.current = true;
     cancelled.current = false;
@@ -271,6 +294,7 @@ export function useRoomVoice({
     setMuted(next);
   }
   return {
+    mixer,
     recording,
     pending:
       !recording &&

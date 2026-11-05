@@ -1,6 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { once } from "node:events";
+import { mkdtempSync, rmdirSync, unlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import type { RoomEffects } from "../shared/effects.js";
 import { io, type Socket } from "socket.io-client";
 import type { ApplicationOptions } from "../server/app.js";
 import { createTestApplication as createApplication } from "./application.js";
@@ -1122,5 +1126,118 @@ test("seat swaps preserve organiser succession and offline humans can start and 
     assert.equal(h.service.rooms.get(code)!.host, bob.me);
   } finally {
     await h.close();
+  }
+});
+
+test("table effects stay in the room, enforce overlap limits, and stream only the active authorized clip", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "ludo-soundboard-"));
+  const audio = Buffer.from([0x49, 0x44, 0x33, ...Array(60).fill(0)]);
+  writeFileSync(join(directory, "ding.mp3"), audio);
+  writeFileSync(
+    join(directory, "catalog.json"),
+    JSON.stringify({
+      schemaVersion: 1,
+      categories: [{ id: "silly", label: "Silly" }],
+      sounds: [
+        {
+          id: "ding",
+          label: "Ding",
+          filename: "ding.mp3",
+          categories: ["silly"],
+          durationSeconds: 3,
+          enabledInFamilyMode: true,
+        },
+        {
+          id: "restricted",
+          label: "Restricted",
+          filename: "ding.mp3",
+          categories: ["silly"],
+          durationSeconds: 3,
+          enabledInFamilyMode: false,
+        },
+      ],
+    }),
+  );
+  const h = await harness({ soundboardDirectory: directory, tickMs: 60000 });
+  try {
+    const a = await h.client(),
+      b = await h.client(),
+      outsider = await h.client();
+    const created = await h.call(a.socket, "room:create", {
+      name: "Effects",
+      playerName: "Alice",
+      bots: 0,
+      public: false,
+    });
+    const room = created.room!.code;
+    assert(
+      (await h.call(b.socket, "room:join", { code: room, playerName: "Bob" }))
+        .ok,
+    );
+    assert((await h.call(a.socket, "room:start")).ok);
+    assert.equal(
+      (
+        await h.call(outsider.socket, "room:reaction", {
+          room,
+          reaction: "laugh",
+        })
+      ).code,
+      "ROOM_CHANGED",
+    );
+    const list = await h.call(a.socket, "room:sound-catalog", { room });
+    assert.deepEqual(
+      list.soundCatalog!.clips.map((clip) => clip.id),
+      ["ding"],
+    );
+    let received: RoomEffects | undefined;
+    b.socket.on("room:effects", (state: RoomEffects) => {
+      received = state;
+    });
+    assert(
+      (await h.call(a.socket, "room:reaction", { room, reaction: "celebrate" }))
+        .ok,
+    );
+    assert.equal(
+      (await h.call(b.socket, "room:reaction", { room, reaction: "angry" }))
+        .code,
+      "EFFECT_BUSY",
+    );
+    assert((await h.call(a.socket, "room:sound", { room, sound: "ding" })).ok);
+    assert.equal(
+      (await h.call(b.socket, "room:sound", { room, sound: "ding" })).code,
+      "EFFECT_BUSY",
+    );
+    assert.equal(received?.reaction?.reaction, "celebrate");
+    const path = `${h.url}/api/soundboard/ding/${received!.sound!.id}`;
+    const clip = await fetch(path, {
+      headers: { Cookie: b.cookie, Range: "bytes=0-2" },
+    });
+    assert.equal(clip.status, 206);
+    assert.equal(clip.headers.get("cache-control"), "private, no-store");
+    assert.deepEqual(
+      Buffer.from(await clip.arrayBuffer()),
+      audio.subarray(0, 3),
+    );
+    assert.equal(
+      (await fetch(path, { headers: { Cookie: outsider.cookie } })).status,
+      404,
+    );
+    assert(
+      (await h.call(b.socket, "moderation:block", { player: created.me })).ok,
+    );
+    assert.equal(
+      (await fetch(path, { headers: { Cookie: b.cookie } })).status,
+      404,
+    );
+    assert((await h.call(a.socket, "room:leave")).ok);
+    assert.equal(
+      (await fetch(path, { headers: { Cookie: a.cookie } })).status,
+      404,
+    );
+  } finally {
+    await h.close();
+    unlinkSync(join(directory, "ding.mp3"));
+    unlinkSync(join(directory, "catalog.json"));
+    rmdirSync(directory);
   }
 });

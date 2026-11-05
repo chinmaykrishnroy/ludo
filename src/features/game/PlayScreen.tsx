@@ -1,5 +1,5 @@
 import { DotsThree, ArrowLeft } from "@phosphor-icons/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Board, PALETTE } from "./Board";
 import Dice from "./Dice";
 import { useDicePresentation } from "./useDicePresentation";
@@ -9,12 +9,29 @@ import type { ChatController } from "../../useRoomChat";
 import VoicePanel from "../../VoicePanel";
 import { ChatPreviews } from "../chat/ChatPreviews";
 import { soleLegalMove, type Game } from "../../../shared/game";
-import type { Room } from "../../../shared/protocol";
+import type { Reply, Room } from "../../../shared/protocol";
+import {
+  DEFAULT_REACTION_STYLE,
+  botReactionCandidates,
+  effectActor,
+  REACTION_GAP_MS,
+  REACTION_MS,
+  type EffectActor,
+  type ReactionId,
+  type ReactionStyle,
+  type RoomEffects,
+} from "../../../shared/effects";
+import { ReactionOverlay, TableEffectsControls } from "./TableEffectsControls";
+import { useTableSound } from "./useTableSound";
+import { rotationForHome } from "./boardOrientation";
 
 export default function PlayScreen({
   game,
   me,
   room,
+  roomEffects,
+  send,
+  notify,
   busy,
   pending,
   connected,
@@ -31,6 +48,9 @@ export default function PlayScreen({
   game: Game;
   me: string;
   room: Room | null;
+  roomEffects?: RoomEffects;
+  send: (event: string, data: unknown) => Promise<Reply>;
+  notify: (text: string) => void;
   busy: boolean;
   pending: boolean;
   connected: boolean;
@@ -50,6 +70,81 @@ export default function PlayScreen({
     pending,
   );
   const [now, setNow] = useState(Date.now());
+  const [localEffects, setLocalEffects] = useState<RoomEffects>();
+  const previousGame = useRef(game);
+  const nextBotAt = useRef(0);
+  const localCueId = useRef(0);
+  const tableEffects = room
+    ? roomEffects?.room === room.code
+      ? roomEffects
+      : undefined
+    : localEffects;
+  const serverNow = now + clockOffset;
+  const sound = useTableSound(
+    tableEffects?.sound,
+    connected ? room?.code : undefined,
+    clockOffset,
+    voice.muted,
+    voice.recording || voice.playing.length > 0,
+    voice.mixer,
+  );
+  const cue = tableEffects?.reaction;
+
+  function localReact(
+    actor: EffectActor,
+    reaction: ReactionId,
+    delay = 0,
+    style = DEFAULT_REACTION_STYLE[reaction],
+  ) {
+    const timestamp = Date.now();
+    const startsAt = timestamp + delay;
+    const endsAt = startsAt + REACTION_MS;
+    const id = String(++localCueId.current);
+    setLocalEffects((current) =>
+      (current?.reactionReadyAt ?? 0) > timestamp
+        ? current
+        : {
+            room: "local",
+            reactionReadyAt: endsAt + REACTION_GAP_MS,
+            soundReadyAt: 0,
+            reaction: { id, actor, reaction, style, startsAt, endsAt },
+          },
+    );
+  }
+  useEffect(() => {
+    const before = previousGame.current;
+    previousGame.current = game;
+    if (room || game === before || game.revision <= before.revision) {
+      if (game.revision < before.revision || room) setLocalEffects(undefined);
+      return;
+    }
+    if (
+      Date.now() < nextBotAt.current ||
+      (localEffects?.reactionReadyAt ?? 0) > Date.now()
+    )
+      return;
+    const candidates = botReactionCandidates(before, game);
+    if (candidates.length && Math.random() < 0.45) {
+      const selected =
+        candidates[Math.floor(Math.random() * candidates.length)];
+      nextBotAt.current = Date.now() + 12000;
+      localReact(selected.actor, selected.reaction, 950);
+    }
+  }, [game, room, localEffects?.reactionReadyAt]);
+
+  function react(reaction: ReactionId, style: ReactionStyle) {
+    if (room) {
+      void send("room:reaction", { room: room.code, reaction, style }).then(
+        (reply) => {
+          if (!reply.ok && reply.code !== "EFFECT_BUSY")
+            notify(reply.error ?? "Could not send the reaction.");
+        },
+      );
+      return;
+    }
+    const player = game.seats.find((seat) => seat?.id === me && !seat.bot);
+    if (player) localReact(effectActor(player), reaction, 0, style);
+  }
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 250);
     return () => clearInterval(timer);
@@ -66,6 +161,10 @@ export default function PlayScreen({
     mine = current.id === me && !current.bot,
     sharedDevice = !room && game.seats.filter((s) => s && !s.bot).length > 1,
     finished = game.phase === "finished";
+  // A shared device stays fixed so a hand-off cannot interrupt a token's move.
+  const rotation = sharedDevice
+    ? 0
+    : rotationForHome(game.seats.find((seat) => seat?.id === me)?.color);
   const speaking = room?.seats.reduce(
     (mask, seat, index) =>
       seat &&
@@ -102,8 +201,12 @@ export default function PlayScreen({
             onMove={onMove}
             busy={inputBusy || (!connected && !!room)}
             speaking={speaking}
+            rotation={rotation}
           />
           {!chat.open && <ChatPreviews messages={chat.previews} />}
+          {cue && cue.startsAt <= serverNow && cue.endsAt > serverNow && (
+            <ReactionOverlay key={cue.id} cue={cue} rotation={rotation} />
+          )}
           <button
             className="board-menu"
             aria-label="Open game menu"
@@ -170,6 +273,17 @@ export default function PlayScreen({
           {showVoice && (
             <VoicePanel compact room={room} voice={voice} onOnline={onOnline} />
           )}
+          <TableEffectsControls
+            room={room?.code}
+            effects={tableEffects}
+            now={serverNow}
+            connected={connected}
+            muted={voice.muted}
+            onReact={react}
+            sound={sound}
+            send={send}
+            notify={notify}
+          />
           <span className="sr-only" role="status" aria-live="polite">
             {presentation.active ? `${current.name} is rolling.` : game.notice}
           </span>

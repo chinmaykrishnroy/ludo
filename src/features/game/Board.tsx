@@ -18,6 +18,7 @@ import {
   type Game,
   type Color,
 } from "../../../shared/game";
+import { orientCell, type BoardRotation } from "./boardOrientation";
 
 export const PALETTE: Record<Color, string> = {
   red: "#e85050",
@@ -39,6 +40,7 @@ const Token = memo(function Token({
   onMove,
   enabled,
   disconnected,
+  rotation,
 }: {
   game: Game;
   color: Color;
@@ -47,6 +49,7 @@ const Token = memo(function Token({
   onMove: (n: number) => void;
   enabled: boolean;
   disconnected: boolean;
+  rotation: BoardRotation;
 }) {
   const reduced = useReducedMotion();
   const [path, setPath] = useState<[number, number][]>([
@@ -90,6 +93,7 @@ const Token = memo(function Token({
     });
   const order = stack.findIndex((t) => t.color === color && t.i === index),
     offset = stack.length > 1 ? (order - (stack.length - 1) / 2) * 0.85 : 0;
+  const oriented = path.map((cell) => orientCell(cell, rotation));
   return (
     <motion.button
       className={`token ${color} ${enabled ? "selectable" : ""} ${step === 56 ? "finished-token" : ""} ${disconnected ? "disconnected-token" : ""}`}
@@ -103,8 +107,8 @@ const Token = memo(function Token({
         )
       }
       animate={{
-        left: path.map((p) => `${((p[1] + 0.5) / 15) * 100 + offset}%`),
-        top: path.map((p) => `${((p[0] + 0.5) / 15) * 100}%`),
+        left: oriented.map(([x]) => `${((x + 0.5) / 15) * 100 + offset}%`),
+        top: oriented.map(([, y]) => `${((y + 0.5) / 15) * 100}%`),
       }}
       transition={{
         duration: reduced
@@ -130,142 +134,150 @@ export const Board = memo(function Board({
   onMove,
   busy,
   speaking = 0,
+  rotation = 0,
 }: {
   game: Game;
   me: string;
   onMove: (n: number) => void;
   busy: boolean;
   speaking?: number;
+  rotation?: BoardRotation;
 }) {
   const moves = legalMoves(game),
     current = game.seats[game.turn]!;
   return (
-    <div className="board" aria-label="Ludo game board">
+    <div
+      className="board"
+      aria-label="Ludo game board"
+      data-board-rotation={rotation}
+    >
       <svg
         className="board-grid"
         viewBox="0 0 480 480"
         role="img"
         aria-label="Classic four-colour Ludo board. Stars mark safe squares."
       >
-        <rect width="480" height="480" fill="#fffdf8" />
-        {COLORS.map((color, i) => {
-          const x = i === 1 || i === 2 ? 288 : 0,
-            y = i >= 2 ? 288 : 0;
-          return (
-            <g key={color}>
-              <rect
-                x={x}
-                y={y}
-                width="192"
-                height="192"
-                fill={PALETTE[color]}
-              />
-              {!!(speaking & (1 << i)) && (
+        <g transform={`rotate(${rotation} 240 240)`}>
+          <rect width="480" height="480" fill="#fffdf8" />
+          {COLORS.map((color, i) => {
+            const x = i === 1 || i === 2 ? 288 : 0,
+              y = i >= 2 ? 288 : 0;
+            return (
+              <g key={color} data-home-colour={color}>
                 <rect
-                  className="board-home-glow"
-                  data-speaking-colour={color}
-                  x={x + 5}
-                  y={y + 5}
-                  width="182"
-                  height="182"
-                  rx="3"
-                  fill="none"
-                  stroke="#fffce9"
-                  strokeWidth="7"
-                  aria-hidden="true"
-                />
-              )}
-              <rect
-                x={x + 30}
-                y={y + 30}
-                width="132"
-                height="132"
-                rx="19"
-                fill={LIGHT[color]}
-              />
-              {[0, 1, 2, 3].map((n) => (
-                <circle
-                  key={n}
-                  cx={x + 64 + (n % 2) * 64}
-                  cy={y + 64 + Math.floor(n / 2) * 64}
-                  r="14"
+                  x={x}
+                  y={y}
+                  width="192"
+                  height="192"
                   fill={PALETTE[color]}
-                  opacity=".17"
                 />
-              ))}
-            </g>
-          );
-        })}
-        {PATH.map(([r, c], i) => {
-          const color = STARTS.includes(i) ? COLORS[STARTS.indexOf(i)] : null;
-          return (
-            <rect
-              key={i}
-              x={c * 32}
-              y={r * 32}
-              width="32"
-              height="32"
-              fill={color ? PALETTE[color] : "#fffdf8"}
-              stroke="#9b9f93"
-              strokeWidth=".8"
-            />
-          );
-        })}
-        {COLORS.map((color, i) =>
-          HOMES[i]
-            .slice(0, 5)
-            .map(([r, c], j) => (
+                {!!(speaking & (1 << i)) && (
+                  <rect
+                    className="board-home-glow"
+                    data-speaking-colour={color}
+                    x={x + 5}
+                    y={y + 5}
+                    width="182"
+                    height="182"
+                    rx="3"
+                    fill="none"
+                    stroke="#fffce9"
+                    strokeWidth="7"
+                    aria-hidden="true"
+                  />
+                )}
+                <rect
+                  x={x + 30}
+                  y={y + 30}
+                  width="132"
+                  height="132"
+                  rx="19"
+                  fill={LIGHT[color]}
+                />
+                {[0, 1, 2, 3].map((n) => (
+                  <circle
+                    key={n}
+                    cx={x + 64 + (n % 2) * 64}
+                    cy={y + 64 + Math.floor(n / 2) * 64}
+                    r="14"
+                    fill={PALETTE[color]}
+                    opacity=".17"
+                  />
+                ))}
+              </g>
+            );
+          })}
+          {PATH.map(([r, c], i) => {
+            const color = STARTS.includes(i) ? COLORS[STARTS.indexOf(i)] : null;
+            return (
               <rect
-                key={`${color}${j}`}
+                key={i}
                 x={c * 32}
                 y={r * 32}
                 width="32"
                 height="32"
-                fill={j === 4 ? PALETTE[color] : LIGHT[color]}
+                fill={color ? PALETTE[color] : "#fffdf8"}
                 stroke="#9b9f93"
                 strokeWidth=".8"
               />
-            )),
-        )}
-        <path d="M192 192 L240 240 L192 288Z" fill={PALETTE.red} />
-        <path d="M192 192 L288 192 L240 240Z" fill={PALETTE.green} />
-        <path d="M288 192 L288 288 L240 240Z" fill={PALETTE.yellow} />
-        <path d="M192 288 L240 240 L288 288Z" fill={PALETTE.blue} />
-        <circle cx="240" cy="240" r="12" fill="#fffdf8" />
-        <circle cx="240" cy="240" r="4" fill="#253e37" />
-        {[...SAFE]
-          .filter((i) => !STARTS.includes(i))
-          .map((i) => {
-            const [r, c] = PATH[i];
+            );
+          })}
+          {COLORS.map((color, i) =>
+            HOMES[i]
+              .slice(0, 5)
+              .map(([r, c], j) => (
+                <rect
+                  key={`${color}${j}`}
+                  x={c * 32}
+                  y={r * 32}
+                  width="32"
+                  height="32"
+                  fill={j === 4 ? PALETTE[color] : LIGHT[color]}
+                  stroke="#9b9f93"
+                  strokeWidth=".8"
+                />
+              )),
+          )}
+          <path d="M192 192 L240 240 L192 288Z" fill={PALETTE.red} />
+          <path d="M192 192 L288 192 L240 240Z" fill={PALETTE.green} />
+          <path d="M288 192 L288 288 L240 240Z" fill={PALETTE.yellow} />
+          <path d="M192 288 L240 240 L288 288Z" fill={PALETTE.blue} />
+          <circle cx="240" cy="240" r="12" fill="#fffdf8" />
+          <circle cx="240" cy="240" r="4" fill="#253e37" />
+          {[...SAFE]
+            .filter((i) => !STARTS.includes(i))
+            .map((i) => {
+              const [r, c] = PATH[i];
+              return (
+                <Star
+                  key={i}
+                  weight="regular"
+                  aria-hidden="true"
+                  className="safe-star"
+                  x={c * 32 + 7}
+                  y={r * 32 + 7}
+                  width={18}
+                  height={18}
+                />
+              );
+            })}
+          {[ArrowRight, ArrowDown, ArrowLeft, ArrowUp].map((Icon, i) => {
+            const [r, c] = PATH[STARTS[i]];
             return (
-              <Star
+              <Icon
                 key={i}
-                weight="regular"
+                weight="bold"
                 aria-hidden="true"
-                className="safe-star"
-                x={c * 32 + 7}
-                y={r * 32 + 7}
-                width={18}
-                height={18}
+                className="start-arrow"
+                x={c * 32 + 8}
+                y={r * 32 + 8}
+                width={16}
+                height={16}
+                color={i === 2 ? "#594719" : "white"}
               />
             );
           })}
-        {[ArrowRight, ArrowDown, ArrowLeft, ArrowUp].map((Icon, i) => {
-          const [r, c] = PATH[STARTS[i]];
-          return (
-            <Icon
-              key={i}
-              weight="bold"
-              aria-hidden="true"
-              className="start-arrow"
-              x={c * 32 + 8}
-              y={r * 32 + 8}
-              width={16}
-              height={16}
-              color={i === 2 ? "#594719" : "white"}
-            />
-          );
-        })}
+        </g>
       </svg>
       {game.seats.map(
         (s) =>
@@ -279,6 +291,7 @@ export const Board = memo(function Board({
               step={step}
               onMove={onMove}
               disconnected={!s.connected && !s.id.startsWith("bot:")}
+              rotation={rotation}
               enabled={
                 !busy && s.id === me && current.id === me && moves.includes(i)
               }

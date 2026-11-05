@@ -1,5 +1,13 @@
 import { VOICE_MAX_SECONDS } from "../../../shared/voice";
 
+export function silentAudioUrl() {
+  const bytes = Uint8Array.from(
+    atob("UklGRiYAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQIAAAAAAA=="),
+    (c) => c.charCodeAt(0),
+  );
+  return URL.createObjectURL(new Blob([bytes], { type: "audio/wav" }));
+}
+
 /** Reuse the element a listener unlocks on iOS; never lose a blocked recording. */
 class PlaybackChannel {
   private audio: HTMLAudioElement | null = null;
@@ -14,6 +22,7 @@ class PlaybackChannel {
     private change: (playing: string | null, blocked: boolean) => void,
     private error: () => void,
     private create = () => new Audio(),
+    private prepare?: (audio: HTMLAudioElement) => void,
   ) {}
   get occupied() {
     return !!this.current || this.queue.length > 0;
@@ -92,13 +101,7 @@ class PlaybackChannel {
     // A short silent WAV primes this same element during the user's gesture.
     this.pause();
     const a = this.element();
-    const bytes = Uint8Array.from(
-      atob("UklGRiYAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQIAAAAAAA=="),
-      (c) => c.charCodeAt(0),
-    );
-    this.unlockUrl = URL.createObjectURL(
-      new Blob([bytes], { type: "audio/wav" }),
-    );
+    this.unlockUrl = silentAudioUrl();
     a.src = this.unlockUrl;
     void a.play().catch(() => {});
   }
@@ -113,6 +116,7 @@ class PlaybackChannel {
       generation = this.generation;
     this.current = id;
     a.src = `/api/voice/${id}`;
+    this.prepare?.(a);
     this.change(null, false);
     const playing = (value: string | null) => {
       if (generation === this.generation) this.change(value, false);
@@ -176,6 +180,7 @@ export class VoicePlayback {
     change: (playing: string[], blocked: boolean) => void,
     error: () => void,
     create?: () => HTMLAudioElement,
+    prepare?: (audio: HTMLAudioElement) => void,
   ) {
     this.slots = Array.from({ length: 4 }, (_, index) => ({
       speaker: undefined,
@@ -193,6 +198,7 @@ export class VoicePlayback {
         },
         error,
         create,
+        prepare,
       ),
     }));
   }

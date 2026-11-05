@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.18]
+
+- Added a room soundboard with automatic voice ducking and speaker mute.
+- Added quick reactions, four animation styles, and cooldowns inside the reaction buttons.
+- Oriented each online player's board with their own home at bottom left.
+- Made mobile chat previews translucent.
+
 ## [0.1.17]
 
 - Restored recorded hold-to-speak with lobby access, overlapping playback and board speaker highlights.

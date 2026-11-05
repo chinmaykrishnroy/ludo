@@ -1,5 +1,6 @@
 import type { Game, Seat } from "./game.js";
 import type { Mention } from "./chat.js";
+import type { RoomEffects, SoundCatalog } from "./effects.js";
 export type Typing = {
   room: string;
   playerId: string;
@@ -29,6 +30,7 @@ export type Chat = {
   at: number;
 };
 export type Room = {
+  effects?: RoomEffects;
   joinOrder?: string[];
   actionReadyAt?: number;
   botDifficulty?: number;
@@ -52,6 +54,8 @@ export type PublicRoom = {
   bots: number;
 };
 export type Reply = {
+  effects?: RoomEffects;
+  soundCatalog?: SoundCatalog;
   code?: string;
   serverNow?: number;
   ok: boolean;

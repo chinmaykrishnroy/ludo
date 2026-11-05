@@ -1,0 +1,11 @@
+# Table effects and soundboard
+
+Quick reactions work in local and online games. An online room has one reaction overlay at a time, with a shared countdown before the next one. Bots may celebrate a capture, react when captured, plead when exposed, wave when someone leaves, or respond to repeated reactions. Their choices have a random chance and a separate cooldown. They do not affect dice or bot strategy.
+
+The soundboard is optional on the server. Put the prepared `catalog.json` and MP3 files in the `soundboard` directory beside the SQLite database, or set `SOUNDBOARD_DIR` to an absolute path. The default local path is `data/soundboard`. The container default is `/data/soundboard`, on the persistent volume. Restart the app after updating the library. The downloaded library and its original manifest and mapping are stored in this local data directory. They are outside Git and the container build. For a hosted game, install a library you have permission to serve on that host.
+
+The runtime catalog uses the supplied version 1 manifest shape. Each installed entry needs a unique ID, a display label, an MP3 filename, one or more matching category IDs, and an accurate `durationSeconds` up to 15. MP3s are limited to 512 KiB per clip and 12 MiB per library. Family mode is on by default and lists only entries marked `enabledInFamilyMode: true`. Set `SOUNDBOARD_FAMILY_MODE=false` to include the other entries. Optional `measuredMeanDbfs` metadata helps level the sound effects.
+
+A table plays one sound at a time. Players can silence it locally or turn off room speakers to mute both sounds and voice notes. Audio is served through a temporary, membership checked URL with `Cache-Control: private, no-store`. The app does not prefetch the library, put its clips in offline storage, or include them in the PWA precache. The browser buffers the requested clip while playing it.
+
+Recorded speech uses adaptive leveling, compression, and a limiting stage at playback. Sound effects lower while a voice note plays or while the local microphone is recording. The recorded file itself stays unchanged. When a browser blocks playback until a tap, the game offers a play button. Web Audio processing is used when available, with native playback as the fallback.

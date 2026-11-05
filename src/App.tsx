@@ -50,6 +50,7 @@ import { ChatPreviews } from "./features/chat/ChatPreviews";
 import { VoicePanel, useRoomVoice } from "./features/voice";
 import Home, { type ClubStats } from "./Home";
 import type { Typing, Voice } from "../shared/protocol";
+import type { RoomEffects } from "../shared/effects";
 import {
   COLORS,
   ROLL_MS,
@@ -188,6 +189,7 @@ export default function App() {
     ),
     [practiceOpen, setPracticeOpen] = useState(!!initialPractice),
     [room, setRoom] = useState<Room | null>(null),
+    [roomEffects, setRoomEffects] = useState<RoomEffects>(),
     [mutedVoice, setMutedVoice] = useState<Voice | null>(null),
     [typingEvent, setTypingEvent] = useState<(Typing & { at: number }) | null>(
       null,
@@ -355,7 +357,11 @@ export default function App() {
           s.on("room:state", (r: Room) => {
             activeRoomCode.current = r.code;
             setRoom(r);
+            setRoomEffects(r.effects);
             setSetup(!r.game);
+          });
+          s.on("room:effects", (state: RoomEffects) => {
+            if (state?.room === activeRoomCode.current) setRoomEffects(state);
           });
           s.on("chat:typing", (event: Typing) =>
             setTypingEvent({ ...event, at: Date.now() }),
@@ -364,6 +370,7 @@ export default function App() {
             if (activeRoomCode.current !== code) return false;
             activeRoomCode.current = undefined;
             setRoom(null);
+            setRoomEffects(undefined);
             setSetup(true);
             return true;
           };
@@ -847,6 +854,9 @@ export default function App() {
           game={game}
           me={playerId}
           room={room}
+          roomEffects={roomEffects}
+          send={send}
+          notify={notify}
           busy={busy || commandBusy}
           pending={commandBusy}
           showVoice={modal !== "menu" && !chat.open}

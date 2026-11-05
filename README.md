@@ -27,7 +27,7 @@ Room chat supports replies, player mentions, typing indicators, keyboard emoji a
 Version tags publish multi-architecture images to **GitHub Container Registry**:
 
 ```sh
-docker pull ghcr.io/chinmaykrishnroy/ludo:v0.1.17
+docker pull ghcr.io/chinmaykrishnroy/ludo:v0.1.18
 docker pull ghcr.io/chinmaykrishnroy/ludo:latest
 ```
 
@@ -53,7 +53,7 @@ Open `http://localhost:3000`. Development: `npm run dev`. In PowerShell use `npm
 cp .env.example .env
 # Set ALLOWED_ORIGINS to the exact HTTPS origin.
 # Set ADMIN_TOKEN to a securely generated secret of at least 32 characters.
-# Add LUDO_IMAGE=ghcr.io/chinmaykrishnroy/ludo:v0.1.17 to .env.
+# Add LUDO_IMAGE=ghcr.io/chinmaykrishnroy/ludo:v0.1.18 to .env.
 docker compose pull
 docker compose up -d --no-build
 ```
@@ -73,6 +73,7 @@ See [operations, backup, restore and rollback](docs/OPERATIONS.md). Keep the dat
 - **Turns:** 15 seconds to roll, then a separate 30 seconds to choose a token. A missed roll happens automatically; a missed move uses the first legal token. Online deadlines come from the server and survive refresh.
 - **Rooms:** opening a valid new table switches you out of your old one. Online matches need two humans; reserved offline seats still count. The organiser can swap lobby colours, and control passes to the earliest connected player when the organiser disconnects.
 - **Voice:** hold the mic in the lobby or game, then release to send a recording to the room. Clips from up to four players can overlap, including your own, and each speaker’s home glows during playback. The first microphone permission prompt may require a second hold. Each recording is capped at **60 seconds** and **1 MiB**.
+- **Table effects:** send quick emoji reactions or choose a sound from the server’s optional soundboard. Voice playback automatically lowers sound effects. See [soundboard setup](docs/SOUNDBOARD.md).
 - **Resume:** refresh or reopen in the same browser and hostname to recover your game and tokens. Back opens a confirmation; only confirming Quit releases your seat or clears the offline save. Saved online games have the retention limits below.
 - **Appearance:** Settings offers System default, Light and Dark. System default follows OS changes. The playing screen keeps the board, dice and microphone together, with Back in a separate header.
 
