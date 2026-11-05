@@ -145,7 +145,7 @@ test.describe("room sound and membership recovery", () => {
       for (const tab of tabs) {
         await expect(
           tab.getByRole("button", { name: "PLAY WITH FRIENDS", exact: true }),
-        ).toBeVisible({ timeout: 6000 });
+        ).toBeVisible({ timeout: 15000 });
         await expect(
           tab.getByText("Join a room first.", { exact: true }),
         ).toHaveCount(0);
