@@ -219,8 +219,9 @@ test("missing hashed assets return 404 instead of the application HTML", async (
 
 test("voice capture sends and cancels, or explains an unavailable browser encoder", async ({
   page,
+  browserName,
 }) => {
-  await page.addInitScript(() => {
+  await page.addInitScript((nativeFake) => {
     let audioContext: AudioContext | undefined;
     let calls = 0;
     Object.defineProperty(window, "testMicCalls", { get: () => calls });
@@ -228,6 +229,7 @@ test("voice capture sends and cancels, or explains an unavailable browser encode
       get: () => audioContext?.state,
     });
     const prime = () => {
+      if (nativeFake) return;
       audioContext ??= new AudioContext();
       void audioContext.resume();
     };
@@ -239,11 +241,22 @@ test("voice capture sends and cancels, or explains an unavailable browser encode
         descriptor.name === "microphone"
           ? ({ state: "granted" } as PermissionStatus)
           : query!(descriptor);
-    // A real browser encoder records a generated stream, never the host mic.
+    // Firefox supplies its own fake microphone, independent of the runner's audio output.
+    const getFakeMicrophone = navigator.mediaDevices?.getUserMedia.bind(
+      navigator.mediaDevices,
+    );
+    const play = HTMLMediaElement.prototype.play;
+    HTMLMediaElement.prototype.play = function () {
+      return play.call(this).then(() => {
+        if (this.src.includes("/api/voice/"))
+          Reflect.set(window, "testVoicePlayed", true);
+      });
+    };
     Object.defineProperty(navigator, "mediaDevices", {
       value: {
         getUserMedia: async () => {
           calls++;
+          if (nativeFake) return getFakeMicrophone!({ audio: true });
           const context = audioContext ?? new AudioContext();
           const destination = context.createMediaStreamDestination(),
             oscillator = context.createOscillator();
@@ -254,7 +267,7 @@ test("voice capture sends and cancels, or explains an unavailable browser encode
         },
       },
     });
-  });
+  }, browserName === "firefox");
   await page.goto("/");
   await page
     .getByRole("button", { name: "PLAY WITH FRIENDS", exact: true })
@@ -297,13 +310,13 @@ test("voice capture sends and cancels, or explains an unavailable browser encode
   await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
   await page.mouse.down();
   await expect(page.locator(".record-button")).toHaveClass(/is-recording/);
-  await page.waitForTimeout(600);
+  await page.waitForTimeout(1200);
   await page.mouse.up();
   await expect(page.locator(".voice-message")).toHaveCount(1);
   await page.getByRole("button", { name: /^Play voice message from/ }).click();
-  await expect(
-    page.getByRole("button", { name: /^Pause voice message from/ }),
-  ).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => Reflect.get(window, "testVoicePlayed")))
+    .toBe(true);
   await mic.scrollIntoViewIfNeeded();
   const nextBox = await mic.boundingBox();
   expect(nextBox).not.toBeNull();
