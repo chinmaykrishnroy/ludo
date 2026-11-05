@@ -5,7 +5,7 @@ export const REACTIONS = {
   angry: { emoji: "😡", label: "Angry" },
   celebrate: { emoji: "🎉", label: "Celebrate" },
   plead: { emoji: "🥺", label: "Please" },
-  wave: { emoji: "👋", label: "Wave" },
+  wave: { emoji: "😏", label: "Bye" },
   surprised: { emoji: "😮", label: "Surprised" },
 } as const;
 export type ReactionId = keyof typeof REACTIONS;

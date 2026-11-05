@@ -49,13 +49,15 @@ export function ReactionOverlay({
       >
         {style === "burst" && (
           <div className="reaction-confetti" aria-hidden="true">
-            {Array.from({ length: 12 }, (_, index) => (
+            {Array.from({ length: 20 }, (_, index) => (
               <i
                 key={index}
                 style={
                   {
-                    "--particle-angle": index * 30 + "deg",
+                    "--particle-angle": index * 18 + "deg",
                     "--particle-colour": Object.values(PALETTE)[index % 4],
+                    "--particle-delay": (index % 4) * 0.04 + "s",
+                    "--particle-distance": 55 + (index % 5) * 14 + "px",
                   } as React.CSSProperties
                 }
               />
@@ -63,7 +65,14 @@ export function ReactionOverlay({
           </div>
         )}
         {style === "ripple" && (
-          <span className="reaction-ripple" aria-hidden="true" />
+          <div className="reaction-ripples" aria-hidden="true">
+            <span className="reaction-ripple ripple-1" />
+            <span className="reaction-ripple ripple-2" />
+            <span className="reaction-ripple ripple-3" />
+          </div>
+        )}
+        {style === "pop" && (
+          <span className="reaction-pop-halo" aria-hidden="true" />
         )}
         <span className="reaction-emoji" aria-hidden="true">
           {meta.emoji}
