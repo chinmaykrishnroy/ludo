@@ -781,7 +781,7 @@ export function createApplication(options: ApplicationOptions = {}) {
     }
     sendAudio(req, res, Buffer.from(blob.data), blob.mime);
   });
-  app.get("/api/soundboard/:clip/:cue", (req, res) => {
+  app.get("/api/soundboard/:cue", (req, res) => {
     res.setHeader("Cache-Control", "private, no-store");
     let id: string;
     try {
@@ -795,18 +795,16 @@ export function createApplication(options: ApplicationOptions = {}) {
     }
     const room = activeRoom(id);
     const cue = room?.game && effects.view(room.code)?.sound;
-    const file = cue && soundboard.files.get(cue.sound);
-    if (
-      !cue ||
-      !file ||
-      cue.id !== req.params.cue ||
-      cue.sound !== req.params.clip ||
-      store.blocked(id, cue.actor.id)
-    ) {
+    if (!cue || cue.id !== req.params.cue || store.blocked(id, cue.actor.id)) {
       res.sendStatus(404);
       return;
     }
     limited(`sound-download:${id}`, 90);
+    const file = soundboard.available(cue.sound);
+    if (!file) {
+      res.sendStatus(404);
+      return;
+    }
     sendAudio(req, res, file.bytes, "audio/mpeg");
   });
   app.use("/api/admin", admin, express.json({ limit: "8kb" }));
@@ -1048,18 +1046,23 @@ export function createApplication(options: ApplicationOptions = {}) {
     });
     handle("room:sound-catalog", (data) => {
       tableForEffects(z.object({ room: roomCode }).parse(data).room);
-      return { ok: true, soundCatalog: soundboard.catalog };
+      return { ok: true, soundCatalog: soundboard.availableCatalog() };
     });
     handle("room:sound", (data) => {
       const input = z
         .object({ room: roomCode, sound: z.string().max(80) })
         .parse(data);
       const room = tableForEffects(input.room);
-      const file = soundboard.files.get(input.sound);
+      const file = soundboard.available(input.sound);
       const clip = soundboard.catalog.clips.find(
         (item) => item.id === input.sound,
       );
-      if (!file || !clip) throw new PublicError("That sound is unavailable.");
+      if (!file || !clip)
+        return {
+          ok: false,
+          code: "SOUND_UNAVAILABLE",
+          soundCatalog: soundboard.availableCatalog(),
+        };
       const actor = room.seats.find((seat) => seat?.id === id)!;
       if (
         !effects.sound(

@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { botReactionCandidates, effectActor } from "../shared/effects.js";
+import {
+  botReactionCandidates,
+  effectActor,
+  selectBotReaction,
+} from "../shared/effects.js";
 import { move, newGame, roll, seat } from "../shared/game.js";
 import { TableEffects } from "../server/table-effects.js";
 import { speechGain } from "../src/features/voice/roomAudioMixer.js";
@@ -71,6 +75,30 @@ test("a table has separate reaction and sound slots that expire and respect visi
   assert(effects.react("A", b, "angry"));
   effects.removeActor("A", b.id);
   assert.equal(effects.view("A")!.reaction, undefined);
+});
+
+test("capture reactions give all bots a chance and vary the captured bot's expression", () => {
+  const before = newGame([
+    seat("alice", "Alice", 0),
+    seat("bot:b", "Bob", 1, true),
+    seat("bot:c", "Coco", 2, true),
+    seat("bot:d", "Dino", 3, true),
+  ]);
+  before.seats[0]!.tokens[0] = 12;
+  before.seats[1]!.tokens[0] = 1;
+  const rolled = roll(before, 2);
+  const candidates = botReactionCandidates(rolled, move(rolled, 0));
+  assert.equal(
+    selectBotReaction(candidates, new Map(), 0, () => 0.7)?.reaction,
+    "plead",
+  );
+  const recent = new Map<string, number>();
+  const speakers = [0, 3300, 6600].map((now) => {
+    const choice = selectBotReaction(candidates, recent, now, () => 0)!;
+    recent.set(choice.actor.id, now);
+    return choice.actor.id;
+  });
+  assert.deepEqual(speakers, ["bot:b", "bot:c", "bot:d"]);
 });
 
 test("voice leveling boosts quiet speech, leaves silence alone and tames loud peaks", () => {

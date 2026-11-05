@@ -13,6 +13,7 @@ import type { Reply, Room } from "../../../shared/protocol";
 import {
   DEFAULT_REACTION_STYLE,
   botReactionCandidates,
+  selectBotReaction,
   effectActor,
   REACTION_GAP_MS,
   REACTION_MS,
@@ -72,7 +73,7 @@ export default function PlayScreen({
   const [now, setNow] = useState(Date.now());
   const [localEffects, setLocalEffects] = useState<RoomEffects>();
   const previousGame = useRef(game);
-  const nextBotAt = useRef(0);
+  const recentBots = useRef(new Map<string, number>());
   const localCueId = useRef(0);
   const tableEffects = room
     ? roomEffects?.room === room.code
@@ -115,19 +116,21 @@ export default function PlayScreen({
     const before = previousGame.current;
     previousGame.current = game;
     if (room || game === before || game.revision <= before.revision) {
-      if (game.revision < before.revision || room) setLocalEffects(undefined);
+      if (game.revision < before.revision || room) {
+        recentBots.current.clear();
+        setLocalEffects(undefined);
+      }
       return;
     }
-    if (
-      Date.now() < nextBotAt.current ||
-      (localEffects?.reactionReadyAt ?? 0) > Date.now()
-    )
-      return;
-    const candidates = botReactionCandidates(before, game);
-    if (candidates.length && Math.random() < 0.45) {
-      const selected =
-        candidates[Math.floor(Math.random() * candidates.length)];
-      nextBotAt.current = Date.now() + 12000;
+    const timestamp = Date.now();
+    if ((localEffects?.reactionReadyAt ?? 0) > timestamp) return;
+    const selected = selectBotReaction(
+      botReactionCandidates(before, game),
+      recentBots.current,
+      timestamp,
+    );
+    if (selected) {
+      recentBots.current.set(selected.actor.id, timestamp);
       localReact(selected.actor, selected.reaction, 950);
     }
   }, [game, room, localEffects?.reactionReadyAt]);

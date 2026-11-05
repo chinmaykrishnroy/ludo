@@ -117,7 +117,7 @@ export function useTableSound(
     if (now - cue.startsAt > 2200 || cue.endsAt <= now) return;
     const player = element();
     active.current = cue;
-    player.src = `/api/soundboard/${encodeURIComponent(cue.sound)}/${encodeURIComponent(cue.id)}`;
+    player.src = `/api/soundboard/${encodeURIComponent(cue.id)}`;
     player.onended = player.onerror = reset;
     if (latestLevel.current()) play(player, cue.id);
     const stopAt = setTimeout(reset, cue.endsAt - now);

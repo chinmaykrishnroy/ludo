@@ -3,6 +3,7 @@ import {
   REACTION_GAP_MS,
   REACTION_MS,
   DEFAULT_REACTION_STYLE,
+  selectBotReaction,
   type BotReaction,
   type EffectActor,
   type ReactionId,
@@ -12,7 +13,7 @@ import {
 } from "../shared/effects.js";
 
 type Entry = RoomEffects & {
-  nextBotAt: number;
+  recentBots: Map<string, number>;
   reactionTimes: Map<string, number[]>;
   pendingBot?: ReturnType<typeof setTimeout>;
 };
@@ -31,7 +32,7 @@ export class TableEffects {
       room,
       reactionReadyAt: 0,
       soundReadyAt: 0,
-      nextBotAt: 0,
+      recentBots: new Map(),
       reactionTimes: new Map(),
     };
     this.rooms.set(room, fresh);
@@ -105,15 +106,16 @@ export class TableEffects {
     if (!candidates.length) return false;
     const entry = this.entry(room);
     const now = this.now();
-    if (
-      entry.nextBotAt > now ||
-      entry.reactionReadyAt > now ||
-      this.random() >= 0.45
-    )
-      return false;
-    const choice = candidates[Math.floor(this.random() * candidates.length)];
+    if (entry.reactionReadyAt > now) return false;
+    const choice = selectBotReaction(
+      candidates,
+      entry.recentBots,
+      now,
+      this.random,
+    );
+    if (!choice) return false;
     if (!this.react(room, choice.actor, choice.reaction, delay)) return false;
-    entry.nextBotAt = now + 12000;
+    entry.recentBots.set(choice.actor.id, now);
     return true;
   }
   afterRepeatedReactions(
@@ -133,7 +135,7 @@ export class TableEffects {
       now,
     ];
     entry.reactionTimes.set(guest, recent);
-    if (recent.length < 3 || entry.pendingBot || entry.nextBotAt > now) return;
+    if (recent.length < 3 || entry.pendingBot) return;
     entry.reactionTimes.delete(guest);
     entry.pendingBot = setTimeout(
       () => {

@@ -44,7 +44,40 @@ export type SoundCatalog = {
     duration: number;
   }[];
 };
-export type BotReaction = { actor: EffectActor; reaction: ReactionId };
+export type BotReaction = {
+  actor: EffectActor;
+  reaction: ReactionId;
+  alternatives?: ReactionId[];
+  observer?: boolean;
+};
+const BOT_REACTION_REST_MS = 7000;
+
+export function selectBotReaction(
+  candidates: BotReaction[],
+  recent: ReadonlyMap<string, number>,
+  now: number,
+  random = Math.random,
+) {
+  const available = candidates.filter(
+    ({ actor }) =>
+      now - (recent.get(actor.id) ?? -Infinity) >= BOT_REACTION_REST_MS,
+  );
+  if (!available.length || random() >= 0.82) return;
+  const oldest = Math.min(
+    ...available.map(({ actor }) => recent.get(actor.id) ?? -Infinity),
+  );
+  const waiting = available.filter(
+    ({ actor }) => (recent.get(actor.id) ?? -Infinity) === oldest,
+  );
+  const direct = waiting.filter((candidate) => !candidate.observer);
+  const pool = direct.length ? direct : waiting;
+  const choice = pool[Math.floor(random() * pool.length)];
+  const reactions = [choice.reaction, ...(choice.alternatives ?? [])];
+  return {
+    actor: choice.actor,
+    reaction: reactions[Math.floor(random() * reactions.length)],
+  };
+}
 
 export function effectActor(seat: Seat): EffectActor {
   return { id: seat.id, name: seat.name, color: seat.color };
@@ -76,9 +109,37 @@ export function botReactionCandidates(
   if (after.lastMove?.captured) {
     const actor = before.seats[before.turn];
     if (isBot(actor))
-      choices.push({ actor: effectActor(actor), reaction: "celebrate" });
+      choices.push({
+        actor: effectActor(actor),
+        reaction: "celebrate",
+        alternatives: ["laugh", "wave"],
+      });
     for (const victim of capturedBots(before, after))
-      choices.push({ actor: effectActor(victim), reaction: "angry" });
+      choices.push({
+        actor: effectActor(victim),
+        reaction: "angry",
+        alternatives: ["surprised", "plead"],
+      });
+    for (const seat of before.seats.filter(isBot)) {
+      if (choices.some(({ actor }) => actor.id === seat.id)) continue;
+      choices.push({
+        actor: effectActor(seat),
+        reaction: "surprised",
+        alternatives: ["laugh", "wave"],
+        observer: true,
+      });
+    }
+  } else if (
+    after.lastMove &&
+    (after.lastMove.from < 0 || after.lastMove.to === 56)
+  ) {
+    const actor = before.seats[before.turn];
+    if (isBot(actor))
+      choices.push({
+        actor: effectActor(actor),
+        reaction: "celebrate",
+        alternatives: ["wave", "surprised"],
+      });
   } else if (
     before.phase === "roll" &&
     after.phase === "move" &&
@@ -90,7 +151,7 @@ export function botReactionCandidates(
         threatened.set(victim.id, effectActor(victim));
     }
     for (const actor of threatened.values())
-      choices.push({ actor, reaction: "plead" });
+      choices.push({ actor, reaction: "plead", alternatives: ["surprised"] });
   }
   return choices;
 }

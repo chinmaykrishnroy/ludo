@@ -1,7 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { once } from "node:events";
-import { mkdtempSync, rmdirSync, unlinkSync, writeFileSync } from "node:fs";
+import {
+  mkdtempSync,
+  rmSync,
+  rmdirSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { RoomEffects } from "../shared/effects.js";
@@ -1208,7 +1214,7 @@ test("table effects stay in the room, enforce overlap limits, and stream only th
       "EFFECT_BUSY",
     );
     assert.equal(received?.reaction?.reaction, "celebrate");
-    const path = `${h.url}/api/soundboard/ding/${received!.sound!.id}`;
+    const path = `${h.url}/api/soundboard/${received!.sound!.id}`;
     const clip = await fetch(path, {
       headers: { Cookie: b.cookie, Range: "bytes=0-2" },
     });
@@ -1229,6 +1235,21 @@ test("table effects stay in the room, enforce overlap limits, and stream only th
       (await fetch(path, { headers: { Cookie: b.cookie } })).status,
       404,
     );
+    unlinkSync(join(directory, "ding.mp3"));
+    assert.deepEqual(
+      (await h.call(a.socket, "room:sound-catalog", { room })).soundCatalog,
+      { categories: [], clips: [] },
+    );
+    const unavailable = await h.call(a.socket, "room:sound", {
+      room,
+      sound: "ding",
+    });
+    assert.equal(unavailable.code, "SOUND_UNAVAILABLE");
+    assert.deepEqual(unavailable.soundCatalog?.clips, []);
+    assert.equal(
+      (await fetch(path, { headers: { Cookie: a.cookie } })).status,
+      404,
+    );
     assert((await h.call(a.socket, "room:leave")).ok);
     assert.equal(
       (await fetch(path, { headers: { Cookie: a.cookie } })).status,
@@ -1236,7 +1257,7 @@ test("table effects stay in the room, enforce overlap limits, and stream only th
     );
   } finally {
     await h.close();
-    unlinkSync(join(directory, "ding.mp3"));
+    rmSync(join(directory, "ding.mp3"), { force: true });
     unlinkSync(join(directory, "catalog.json"));
     rmdirSync(directory);
   }

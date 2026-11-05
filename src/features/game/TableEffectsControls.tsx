@@ -152,7 +152,7 @@ export function TableEffectsControls({
     if (open) return setOpen(false);
     if (!room) return;
     setOpen(true);
-    if (catalog || busy) return;
+    if (busy) return;
     const id = ++request.current;
     setBusy(true);
     setLoadError("");
@@ -173,6 +173,13 @@ export function TableEffectsControls({
     const result = await send("room:sound", { room, sound: id });
     if (request.current !== sequence) return;
     setBusy(false);
+    if (result.code === "SOUND_UNAVAILABLE" && result.soundCatalog) {
+      const refreshed = result.soundCatalog;
+      setCatalog(refreshed);
+      if (!refreshed.categories.some((entry) => entry.id === category))
+        setCategory(refreshed.categories[0]?.id ?? "");
+      return;
+    }
     if (!result.ok && result.code !== "EFFECT_BUSY")
       notify(result.error ?? "Could not play this sound.");
   }

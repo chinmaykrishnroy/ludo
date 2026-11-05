@@ -30,7 +30,29 @@ const maxClipBytes = 512 * 1024;
 const maxLibraryBytes = 12 * 1024 * 1024;
 export function loadSoundboard(directory: string, familyMode: boolean) {
   const catalog: SoundCatalog = { categories: [], clips: [] };
-  const files = new Map<string, { bytes: Buffer; gain: number }>();
+  const files = new Map<
+    string,
+    { path: string; bytes: Buffer; gain: number }
+  >();
+  function available(id: string) {
+    const file = files.get(id);
+    if (!file) return;
+    try {
+      const stat = lstatSync(file.path);
+      if (stat.isFile() && stat.size === file.bytes.length) return file;
+    } catch {
+      // A clip removed while the server is running disappears from the menu.
+    }
+  }
+  function availableCatalog(): SoundCatalog {
+    const clips = catalog.clips.filter((clip) => available(clip.id));
+    return {
+      clips,
+      categories: catalog.categories.filter((category) =>
+        clips.some((clip) => clip.categories.includes(category.id)),
+      ),
+    };
+  }
   let data: z.infer<typeof manifest>;
   try {
     const file = join(directory, "catalog.json");
@@ -43,7 +65,7 @@ export function loadSoundboard(directory: string, familyMode: boolean) {
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT")
       console.warn("Soundboard catalog could not be loaded.");
-    return { catalog, files };
+    return { catalog, available, availableCatalog };
   }
   const categories = new Map(
     data.categories.map((category) => [
@@ -84,7 +106,7 @@ export function loadSoundboard(directory: string, familyMode: boolean) {
       const mean = clip.measuredMeanDbfs;
       const gain =
         mean == null ? 0.22 : Math.min(0.5, 10 ** ((-24 - mean) / 20));
-      files.set(clip.id, { bytes, gain });
+      files.set(clip.id, { path, bytes, gain });
       catalog.clips.push({
         id: clip.id,
         label: clip.label,
@@ -99,5 +121,5 @@ export function loadSoundboard(directory: string, familyMode: boolean) {
   catalog.categories = [...categories.values()].filter((category) =>
     catalog.clips.some((clip) => clip.categories.includes(category.id)),
   );
-  return { catalog, files };
+  return { catalog, available, availableCatalog };
 }
