@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { io } from "socket.io-client";
-import { probeLiveVoice } from "./probe-live-voice.mjs";
 const image = process.argv[2],
   arch = process.argv[3],
   name = "ludo-image-smoke-" + randomUUID().slice(0, 8),
@@ -125,11 +124,23 @@ try {
     playerName: "Beta",
   });
   assert(joined.ok, joined.error);
-  assert.equal(
-    (await (await fetch(url + "/api/config")).json()).liveVoiceEnabled,
-    true,
+  const recorded = Buffer.from([0x1a, 0x45, 0xdf, 0xa3, ...Array(20).fill(0)]);
+  const voice = await call(a.socket, "voice:send", {
+    room: createdRoom.room.code,
+    audio: recorded,
+    mime: "audio/webm",
+    duration: 1,
+  });
+  assert(voice.ok, voice.error);
+  const voiceId = a.state.voices.at(-1).id;
+  const clip = await fetch(`${url}/api/voice/${voiceId}`, {
+    headers: { Cookie: b.cookie, Range: "bytes=0-3" },
+  });
+  assert.equal(clip.status, 206);
+  assert.deepEqual(
+    Buffer.from(await clip.arrayBuffer()),
+    recorded.subarray(0, 4),
   );
-  const liveVoice = await probeLiveVoice(url, a.cookie, b.cookie);
   await pause(500);
   let startRes = await call(a.socket, "room:start");
   for (let i = 0; i < 25 && !startRes.ok; i++) {
@@ -178,9 +189,8 @@ try {
       ok: true,
       image,
       architecture,
-      liveVoice,
       scope:
-        "Real image HTTP/PWA assets, live Opus WebSocket relay, multiplayer roll, persisted restart/reconnect and compiled AI worker",
+        "Real image HTTP/PWA assets, room voice upload and range retrieval, multiplayer roll, persisted restart/reconnect and compiled AI worker",
     }),
   );
 } catch (error) {

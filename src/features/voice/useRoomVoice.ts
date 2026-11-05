@@ -4,8 +4,12 @@ import { VOICE_MAX_SECONDS } from "../../../shared/voice";
 import { browserStorage } from "../../storage";
 import { createVoiceRecording, type VoiceRecording } from "./voiceRecording";
 import { VoicePlayback } from "./voicePlayback";
-import { LiveVoiceClient } from "./liveVoice";
-import type { LiveState } from "../../../shared/liveVoice";
+
+const clip = (voice: Voice) => ({
+  id: voice.id,
+  speaker: voice.senderId ?? voice.color,
+});
+
 export function useRoomVoice({
   room,
   send,
@@ -27,218 +31,152 @@ export function useRoomVoice({
     [auto, setAuto] = useState(
       () => browserStorage.getItem("ludo-voice-auto") !== "off",
     ),
-    [playing, setPlaying] = useState<string | null>(null),
+    [playing, setPlaying] = useState<string[]>([]),
     [needsPlayback, setNeedsPlayback] = useState(false),
     [muted, setMuted] = useState(
       () => browserStorage.getItem("ludo-room-muted") === "on",
-    ),
-    [preferLive, setPreferLive] = useState(
-      () => browserStorage.getItem("ludo-voice-mode") !== "note",
-    ),
-    [liveState, setLiveState] = useState<LiveState>({
-      connected: false,
-      available: false,
-      speaking: null,
-      blocked: false,
-      supported: null,
-      transmitting: false,
-    }),
-    [talkingLive, setTalkingLive] = useState(false);
-  const live = useRef<LiveVoiceClient | null>(null),
-    liveCapture =
-      useRef<Awaited<ReturnType<LiveVoiceClient["begin"]>>>(undefined),
-    liveResult = useRef<Promise<boolean> | undefined>(undefined),
-    latest = useRef({ muted, onMutedVoice });
-  latest.current = { muted, onMutedVoice };
-  useEffect(() => {
-    if (!room?.code) return;
-    const client = (live.current = new LiveVoiceClient(
-      setLiveState,
-      (speaker) => {
-        latest.current.onMutedVoice({
-          id: `live:${speaker.id}`,
-          senderId: speaker.id,
-          name: speaker.name,
-          color: speaker.color,
-          mime: "audio/opus",
-          duration: 0,
-          at: Date.now(),
-        });
-      },
-    ));
-    client.setMuted(latest.current.muted);
-    const unlock = () => {
-      void client.unlock();
-    };
-    const visibility = () => client.visibility();
-    void client.unlock();
-    document.addEventListener("pointerdown", unlock, { capture: true });
-    document.addEventListener("keydown", unlock, { capture: true });
-    document.addEventListener("click", unlock, { capture: true });
-    document.addEventListener("touchstart", unlock, {
-      capture: true,
-      passive: true,
-    });
-    document.addEventListener("visibilitychange", visibility);
-    return () => {
-      document.removeEventListener("pointerdown", unlock, { capture: true });
-      document.removeEventListener("keydown", unlock, { capture: true });
-      document.removeEventListener("click", unlock, { capture: true });
-      document.removeEventListener("touchstart", unlock, { capture: true });
-      document.removeEventListener("visibilitychange", visibility);
-      client.close();
-      if (live.current === client) live.current = null;
-      setLiveState({
-        connected: false,
-        available: false,
-        speaking: null,
-        blocked: false,
-        supported: null,
-        transmitting: false,
-      });
-    };
-  }, [room?.code]);
+    );
   const playback = useRef<VoicePlayback | null>(null);
   if (!playback.current)
     playback.current = new VoicePlayback(
-      (id, blocked) => {
-        setPlaying(id);
+      (ids, blocked) => {
+        setPlaying(ids);
         setNeedsPlayback(blocked);
       },
       () => notify("This voice message could not be played."),
     );
+
   const recorder = useRef<VoiceRecording | null>(null),
     held = useRef(false),
     mounted = useRef(true),
-    stream = useRef<MediaStream | null>(null),
-    started = useRef(0),
     cancelled = useRef(false),
-    seen = useRef(new Set<string>());
-  const microphoneReady = useRef(false),
-    permissionPending = useRef(false);
-  const roomCode = useRef(room?.code);
+    seen = useRef(new Set<string>()),
+    microphoneReady = useRef(false),
+    permissionPending = useRef(false),
+    roomCode = useRef(room?.code);
   roomCode.current = room?.code;
-  function cleanup() {
-    stream.current?.getTracks().forEach((t) => t.stop());
-    stream.current = null;
-  }
+
   function stop(cancel = false) {
     held.current = false;
     cancelled.current ||= cancel;
-    const r = recorder.current;
-    if (liveCapture.current)
-      liveResult.current = liveCapture.current.stop(cancel);
-    r?.stop(cancel);
-    cleanup();
-    setRecording(false);
-    if (r) setPending(true);
+    if (recorder.current) {
+      recorder.current.stop(cancel);
+      setRecording(false);
+      setPending(true);
+    }
   }
-  function pausePlayback() {
-    playback.current!.clear();
-  }
-  useEffect(() => {
-    const cancelOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && held.current) {
-        event.preventDefault();
-        stop(true);
-      }
-    };
-    const cancelWhenHidden = () => {
-      if (document.hidden && held.current) stop(true);
-    };
-    const releasedWhilePending = () => {
-      if (permissionPending.current) held.current = false;
-    };
-    const blurred = () => {
-      if (held.current) stop(true);
-    };
-    document.addEventListener("keydown", cancelOnEscape);
-    document.addEventListener("visibilitychange", cancelWhenHidden);
-    window.addEventListener("pointerup", releasedWhilePending);
-    window.addEventListener("blur", blurred);
-    return () => {
-      document.removeEventListener("keydown", cancelOnEscape);
-      document.removeEventListener("visibilitychange", cancelWhenHidden);
-      window.removeEventListener("pointerup", releasedWhilePending);
-      window.removeEventListener("blur", blurred);
-    };
-  }, []);
+
   useEffect(() => {
     mounted.current = true;
+    const cancel = () => {
+      if (held.current) stop(true);
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && held.current) {
+        event.preventDefault();
+        cancel();
+      }
+    };
+    const visibility = () => {
+      if (document.hidden) cancel();
+    };
+    document.addEventListener("keydown", escape);
+    document.addEventListener("visibilitychange", visibility);
+    window.addEventListener("blur", cancel);
     return () => {
       mounted.current = false;
       held.current = false;
       cancelled.current = true;
       recorder.current?.stop(true);
-      cleanup();
-      pausePlayback();
+      playback.current!.clear();
+      document.removeEventListener("keydown", escape);
+      document.removeEventListener("visibilitychange", visibility);
+      window.removeEventListener("blur", cancel);
     };
   }, []);
+
   useEffect(() => {
-    seen.current = new Set(room?.voices.map((v) => v.id) ?? []);
-    pausePlayback();
-    setPlaying(null);
+    seen.current = new Set(room?.voices.map((voice) => voice.id) ?? []);
+    playback.current!.clear();
     return () => {
       cancelled.current = true;
       held.current = false;
       recorder.current?.stop(true);
-      cleanup();
     };
   }, [room?.code]);
+
   useEffect(() => {
-    if (!recording) return;
-    const t = setInterval(
+    if (!room?.code || muted || !auto) return;
+    // Some mobile browsers only allow audio elements started from a user gesture.
+    const unlock = () => {
+      playback.current!.resume();
+      document.removeEventListener("click", unlock, true);
+      document.removeEventListener("keydown", unlock, true);
+    };
+    document.addEventListener("click", unlock, true);
+    document.addEventListener("keydown", unlock, true);
+    return () => {
+      document.removeEventListener("click", unlock, true);
+      document.removeEventListener("keydown", unlock, true);
+    };
+  }, [room?.code, muted, auto]);
+
+  useEffect(() => {
+    const capture = recorder.current;
+    if (!recording || !capture) return;
+    const timer = setInterval(
       () =>
         setSeconds(
           Math.min(
             VOICE_MAX_SECONDS,
-            Math.floor((Date.now() - started.current) / 1000),
+            Math.floor((Date.now() - capture.startedAt) / 1000),
           ),
         ),
       200,
     );
-    // Stop the original live stream at the cap even if the cloned recorder's
-    // final dataavailable/onstop is delayed by a browser codec.
-    const deadline = setTimeout(
-      () => stop(),
-      Math.max(0, VOICE_MAX_SECONDS * 1000 - (Date.now() - started.current)),
-    );
-    return () => {
-      clearInterval(t);
-      clearTimeout(deadline);
-    };
+    return () => clearInterval(timer);
   }, [recording]);
+
   useEffect(() => {
-    playback.current!.available(new Set(room?.voices.map((v) => v.id) ?? []));
-    const fresh: string[] = [];
-    for (const v of room?.voices ?? []) {
-      if (!seen.current.has(v.id)) {
-        seen.current.add(v.id);
-        if (auto && !muted && v.senderId !== me) fresh.push(v.id);
-        if (muted && v.senderId !== me) onMutedVoice(v);
-      }
-    }
-    playback.current!.enqueue(fresh);
-  }, [room?.voices, auto, muted]);
+    const voices = room?.voices ?? [];
+    playback.current!.available(new Set(voices.map((voice) => voice.id)));
+    const fresh = voices.filter((voice) => !seen.current.has(voice.id));
+    seen.current = new Set(voices.map((voice) => voice.id));
+    if (auto && !muted) playback.current!.enqueue(fresh.map(clip));
+    if (muted)
+      for (const voice of fresh) if (voice.senderId !== me) onMutedVoice(voice);
+  }, [room?.voices, auto, muted, me, onMutedVoice]);
+
   async function begin() {
     if (permissionPending.current || recorder.current) return;
     if (!room) {
       onOnline();
       return;
     }
+    playback.current!.resume();
     held.current = true;
     cancelled.current = false;
     setPending(true);
     permissionPending.current = true;
     const initialRoom = room.code;
-    const unlocked = live.current?.unlock();
+    const stillHere = () =>
+      mounted.current && roomCode.current === initialRoom && !cancelled.current;
     try {
       if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder)
         throw new Error(
           "Voice recording needs a supported browser on HTTPS or localhost.",
         );
+      const mime = [
+        "audio/webm;codecs=opus",
+        "audio/mp4",
+        "audio/ogg;codecs=opus",
+      ].find((format) => MediaRecorder.isTypeSupported(format));
+      if (!mime)
+        throw new Error(
+          "Your browser does not support a compatible recording format.",
+        );
       let wasGranted = microphoneReady.current;
-      if (!wasGranted && navigator.permissions?.query)
+      if (!wasGranted && navigator.permissions?.query) {
         try {
           wasGranted =
             (
@@ -247,161 +185,90 @@ export function useRoomVoice({
               })
             ).state === "granted";
         } catch {
-          /* Safari can request directly without Permissions API support. */
+          /* Safari can request directly without the Permissions API. */
         }
-      const s = await navigator.mediaDevices.getUserMedia({
+      }
+      if (!stillHere()) return;
+      const stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true },
       });
       microphoneReady.current = true;
-      if (!wasGranted) {
-        s.getTracks().forEach((t) => t.stop());
+      if (!wasGranted || !held.current || !stillHere()) {
+        stream.getTracks().forEach((track) => track.stop());
         held.current = false;
-        if (mounted.current) notify("Microphone ready. Hold again to record.");
+        if (!wasGranted && stillHere())
+          notify("Microphone ready. Hold again to record.");
         return;
       }
-      if (
-        !held.current ||
-        !mounted.current ||
-        roomCode.current !== initialRoom
-      ) {
-        s.getTracks().forEach((t) => t.stop());
-        return;
-      }
-      stream.current = s;
-      const mime = [
-        "audio/webm;codecs=opus",
-        "audio/mp4",
-        "audio/ogg;codecs=opus",
-      ].find((m) => MediaRecorder.isTypeSupported(m));
-      if (!mime)
-        throw new Error(
-          "Your browser does not support a compatible recording format.",
-        );
-      // The existing recorder owns a clone so finalization cannot stop live capture.
-      // It is uploaded only when the live stream was unavailable or interrupted.
-      liveCapture.current = undefined;
-      liveResult.current = undefined;
-      if (preferLive) {
-        await unlocked;
-        if (held.current && mounted.current && roomCode.current === initialRoom)
-          liveCapture.current = await live.current?.begin(s);
-      }
-      if (
-        !held.current ||
-        !mounted.current ||
-        roomCode.current !== initialRoom
-      ) {
-        void liveCapture.current?.stop(true);
-        cleanup();
-        return;
-      }
-      const capture = createVoiceRecording(s.clone(), mime);
+      const capture = createVoiceRecording(stream, mime);
       recorder.current = capture;
-      setTalkingLive(!!liveCapture.current);
-      started.current = capture.startedAt;
       setSeconds(0);
       setRecording(true);
       void capture.finished.then(async (result) => {
-        if (recorder.current !== capture) return;
         held.current = false;
         if (mounted.current) {
           setRecording(false);
           setPending(true);
         }
         try {
-          if (
-            cancelled.current ||
-            !mounted.current ||
-            roomCode.current !== initialRoom ||
-            result.kind === "cancelled"
-          )
-            return;
+          if (!stillHere() || result.kind === "cancelled") return;
           if (result.kind === "error") {
             notify(result.message);
             return;
           }
-          const streamed = await (liveResult.current ??
-            liveCapture.current?.stop());
-          cleanup();
-          if (
-            cancelled.current ||
-            !mounted.current ||
-            roomCode.current !== initialRoom
-          )
-            return;
-          if (streamed) return;
-          const bytes = await result.blob.arrayBuffer();
-          if (
-            cancelled.current ||
-            !mounted.current ||
-            roomCode.current !== initialRoom
-          )
-            return;
+          const audio = await result.blob.arrayBuffer();
+          if (!stillHere()) return;
           const reply = await send("voice:send", {
-            audio: bytes,
+            room: initialRoom,
+            audio,
             mime: mime.split(";")[0],
             duration: result.duration,
           });
           if (!reply.ok) throw new Error(reply.error);
-          notify("Voice message sent to the table.");
         } catch (error) {
-          if (mounted.current)
+          if (stillHere())
             notify(
               error instanceof Error
                 ? error.message
                 : "Could not send voice message.",
             );
         } finally {
-          if (recorder.current === capture) recorder.current = null;
-          void liveCapture.current?.stop(true);
-          liveCapture.current = undefined;
-          liveResult.current = undefined;
-          cleanup();
-          if (mounted.current) {
-            setTalkingLive(false);
-            setPending(false);
-            setRecording(false);
-          }
+          recorder.current = null;
+          if (mounted.current) setPending(false);
         }
       });
-    } catch (e) {
-      void liveCapture.current?.stop(true);
-      cleanup();
-      recorder.current = null;
+    } catch (error) {
+      if (stillHere())
+        notify(
+          error instanceof Error
+            ? error.message
+            : "Microphone access was denied.",
+        );
       held.current = false;
-      notify(e instanceof Error ? e.message : "Microphone access was denied.");
     } finally {
       permissionPending.current = false;
       if (mounted.current) setPending(false);
     }
   }
+
   function togglePlay(id: string) {
-    playback.current!.toggle(id);
+    const message = room?.voices.find((voice) => voice.id === id);
+    if (message) playback.current!.toggle(clip(message));
+  }
+  function toggleAuto() {
+    if (auto) playback.current!.clear();
+    setAuto(!auto);
   }
   useEffect(() => {
     browserStorage.setItem("ludo-voice-auto", auto ? "on" : "off");
   }, [auto]);
-  function toggleAuto() {
-    setAuto(!auto);
-    if (auto) {
-      pausePlayback();
-      setPlaying(null);
-    }
-  }
   useEffect(() => {
     playback.current!.setMuted(muted);
-    live.current?.setMuted(muted);
     browserStorage.setItem("ludo-room-muted", muted ? "on" : "off");
   }, [muted]);
-  function toggleMuted() {
-    const next = !muted;
+  function setSpeakerMuted(next: boolean) {
     playback.current!.setMuted(next);
-    live.current?.setMuted(next);
     setMuted(next);
-    if (!next) {
-      playback.current!.resume();
-      void live.current?.unlock();
-    }
   }
   return {
     recording,
@@ -414,26 +281,13 @@ export function useRoomVoice({
     playing,
     muted,
     needsPlayback,
-    preferLive,
-    talkingLive: talkingLive && liveState.transmitting,
-    liveState,
-    toggleLive: () => {
-      if (recording || pending) return;
-      const next = !preferLive;
-      setPreferLive(next);
-      browserStorage.setItem("ludo-voice-mode", next ? "live" : "note");
-      void live.current?.unlock();
+    toggleMuted: () => {
+      setSpeakerMuted(!muted);
+      if (muted) playback.current!.resume();
     },
-    enableLive: () => {
-      void live.current?.unlock();
-    },
-    toggleMuted,
     unmuteAndPlay: (id: string) => {
-      playback.current!.setMuted(false);
-      setMuted(false);
-      live.current?.setMuted(false);
-      void live.current?.unlock();
-      if (!id.startsWith("live:")) playback.current!.toggle(id);
+      setSpeakerMuted(false);
+      togglePlay(id);
     },
     resumePlayback: () => playback.current!.resume(),
     toggleAuto,

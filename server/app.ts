@@ -1,6 +1,5 @@
 import { AdmissionController } from "./admission.js";
 import { PressureSampler } from "./pressure-sampler.js";
-import { LiveVoiceRelay } from "./voice/index.js";
 import {
   guestChannel,
   memberIds,
@@ -30,6 +29,7 @@ import {
   PublicError,
 } from "./security.js";
 import {
+  COLORS,
   seat,
   newGame,
   roll,
@@ -85,7 +85,6 @@ export type ApplicationOptions = {
   minimumFreeBytes?: number;
   binaryTimeoutMs?: number;
   chatIdleSeconds?: number;
-  liveVoiceEnabled?: boolean;
 };
 export function createApplication(options: ApplicationOptions = {}) {
   const aiBudget = {
@@ -236,7 +235,6 @@ export function createApplication(options: ApplicationOptions = {}) {
       for (const id of memberIds(old))
         if (playerRooms.get(id) === code) playerRooms.delete(id);
     rooms.delete(code);
-    liveVoice.reconcile(code);
     transitions.delete(code);
   }
   const engineIps = new Map<string, Set<string>>();
@@ -317,6 +315,33 @@ export function createApplication(options: ApplicationOptions = {}) {
     for (const delivery of deliveries)
       io.to(guestChannel(delivery.id)).emit("room:state", delivery.room);
   }
+  function departure(room: Room, id: string) {
+    const remaining = structuredClone(room);
+    remaining.seats[remaining.seats.findIndex((s) => s?.id === id)] = null;
+    if (memberIds(remaining).length < 2) return { code: room.code };
+    remaining.game =
+      room.game && room.game.phase !== "finished"
+        ? depart(room.game, id)
+        : null;
+    if (remaining.game) remaining.seats = structuredClone(remaining.game.seats);
+    remaining.updatedAt = remaining.lastHumanAt = Date.now();
+    transfer(remaining);
+    return { code: room.code, remaining };
+  }
+  function publishDeparture(old: Room, departedBy: string, remaining?: Room) {
+    ai.cancel(old.code);
+    for (const id of memberIds(old)) {
+      if (remaining && memberIds(remaining).includes(id)) continue;
+      offlineSince.delete(id);
+      io.in(guestChannel(id)).socketsLeave(old.code);
+      io.to(guestChannel(id)).emit("room:left", {
+        code: old.code,
+        closed: !remaining && id !== departedBy,
+      });
+    }
+    if (remaining) indexRoom(remaining);
+    else eraseRoom(old.code);
+  }
   function commit(
     input: Room,
     config: {
@@ -325,6 +350,7 @@ export function createApplication(options: ApplicationOptions = {}) {
       voice?: VoiceWrite;
       gif?: { id: string; data: Buffer; mime?: string };
       archive?: boolean;
+      switching?: { from: Room; id: string };
     } = {},
   ) {
     const commitStarted = performance.now();
@@ -351,9 +377,26 @@ export function createApplication(options: ApplicationOptions = {}) {
         room: view(draft, id, undefined, actionReadyAt),
       })),
     );
+    const leaving =
+      config.switching && departure(config.switching.from, config.switching.id);
+    const previousDeliveries =
+      leaving?.remaining &&
+      memberIds(leaving.remaining).map((id) => ({
+        id,
+        room: view(leaving.remaining!, id),
+      }));
     monitor.measure("persist", () =>
-      store.save(draft, config.voice, config.gif),
+      store.save(draft, config.voice, config.gif, leaving),
     );
+    if (config.switching && leaving) {
+      publishDeparture(
+        config.switching.from,
+        config.switching.id,
+        leaving.remaining,
+      );
+      for (const delivery of previousDeliveries ?? [])
+        io.to(guestChannel(delivery.id)).emit("room:state", delivery.room);
+    }
     if (
       old?.game?.revision !== draft.game?.revision ||
       old?.game?.seats[old.game.turn]?.id !==
@@ -362,7 +405,6 @@ export function createApplication(options: ApplicationOptions = {}) {
       ai.cancel(draft.code);
     monitor.success();
     indexRoom(structuredClone(draft));
-    liveVoice.reconcile(draft.code);
     if (config.delay !== undefined) transitions.set(draft.code, actionReadyAt);
     // Revocation precedes delivery. Guest channels include all tabs, not just the caller.
     for (const id of oldIds)
@@ -448,47 +490,11 @@ export function createApplication(options: ApplicationOptions = {}) {
     store.touchSession(id);
     return id;
   }
-  const liveBlocks = new Map<string, Set<string>>();
-  const liveVoice = new LiveVoiceRelay(http, {
-    enabled:
-      options.liveVoiceEnabled ?? process.env.LIVE_VOICE_ENABLED !== "false",
-    maxConnections: options.maxConnections ?? 1000,
-    maxPerGuest: options.maxGuestConnections ?? 4,
-    maxPerIp: options.maxIpConnections ?? 80,
-    address: proxy.address,
-    authenticate: (req) => {
-      if (closing || !originAllowed(req.headers.origin, req.headers.host))
-        throw new PublicError("Origin denied");
-      const id = sessionFor(req.headers.cookie, proxy.address(req));
-      const room = activeRoom(id);
-      if (!room || !guestSockets.has(id))
-        throw new PublicError("Join a room first");
-      liveBlocks.set(id, new Set(store.blockedSubjects(id)));
-      return { id, room: room.code };
-    },
-    member: (id, code) => {
-      if (closing || !guestSockets.has(id)) return;
-      const room = activeRoom(id);
-      const s =
-        room?.code === code ? room.seats.find((s) => s?.id === id) : undefined;
-      return s ? { id: s.id, name: s.name, color: s.color } : undefined;
-    },
-    members: (code) => {
-      const room = rooms.get(code);
-      return room ? memberIds(room).filter((id) => guestSockets.has(id)) : [];
-    },
-    blocked: (listener, sender) =>
-      liveBlocks.get(listener)?.has(sender) ?? false,
-    capacity: () => !closing && monitor.storageHealthy && admission.allow(),
-    failure: (error) => failure("live_voice", error),
-  });
   function release(socketId: string, id: string, ip: string) {
     guestSockets.get(id)?.delete(socketId);
     if (!guestSockets.get(id)?.size) guestSockets.delete(id);
     ipSockets.get(ip)?.delete(socketId);
     if (!ipSockets.get(ip)?.size) ipSockets.delete(ip);
-    liveVoice.reconcile(activeRoom(id)?.code);
-    if (!guestSockets.has(id)) liveBlocks.delete(id);
   }
   io.use((socket, next) => {
     try {
@@ -572,7 +578,6 @@ export function createApplication(options: ApplicationOptions = {}) {
       publicRoomsEnabled: publicEnabled,
       defaultBotDifficulty,
       voiceMaxSeconds: VOICE_MAX_SECONDS,
-      liveVoiceEnabled: liveVoice.snapshot().enabled,
       chatIdleSeconds: options.chatIdleSeconds ?? CHAT_IDLE_SECONDS,
       voiceRetentionHours: store.voiceRetentionMs / 3600000,
       unfinishedRoomRetentionDays: 30,
@@ -601,7 +606,6 @@ export function createApplication(options: ApplicationOptions = {}) {
       ...monitor.snapshot(),
       connections: io.engine.clientsCount,
       rateBudgets: budgets.snapshot(),
-      liveVoice: liveVoice.snapshot(),
       admission: admission.snapshot(),
       ai: {
         ...ai.stats,
@@ -649,7 +653,7 @@ export function createApplication(options: ApplicationOptions = {}) {
     res
       .type("text/plain")
       .send(
-        `ludo_ready ${h.ok ? 1 : 0}\nludo_rooms ${rooms.size}\nludo_connections ${io.engine.clientsCount}\nludo_storage_errors_total ${monitor.storageErrors}\nludo_rejected_total ${monitor.rejected}\nludo_actions_total ${monitor.actions}\nludo_memory_rss_bytes ${h.memory.rss}\nludo_event_loop_p95_ms ${h.eventLoopP95Ms}\nludo_disk_free_bytes ${h.disk.freeBytes}\nludo_voice_bytes ${h.database.voiceBytes}\nludo_live_voice_connections ${h.liveVoice.connections}\nludo_live_voice_speakers ${h.liveVoice.speakers}\nludo_live_voice_frames_total ${h.liveVoice.frames}\nludo_live_voice_bytes_out_total ${h.liveVoice.bytesOut}\nludo_live_voice_fallbacks_total ${h.liveVoice.fallbacks}\n`,
+        `ludo_ready ${h.ok ? 1 : 0}\nludo_rooms ${rooms.size}\nludo_connections ${io.engine.clientsCount}\nludo_storage_errors_total ${monitor.storageErrors}\nludo_rejected_total ${monitor.rejected}\nludo_actions_total ${monitor.actions}\nludo_memory_rss_bytes ${h.memory.rss}\nludo_event_loop_p95_ms ${h.eventLoopP95Ms}\nludo_disk_free_bytes ${h.disk.freeBytes}\nludo_voice_bytes ${h.database.voiceBytes}\n`,
       );
   });
   app.get("/api/session", (req, res) => {
@@ -853,6 +857,7 @@ export function createApplication(options: ApplicationOptions = {}) {
           const categories: Record<string, [number, number, number]> = {
             "room:create": [3, 20, 600000],
             "room:join": [20, 100, 60000],
+            "room:swap": [30, 180, 60000],
             "chat:send": [60, 300, 60000],
             "chat:typing": [12, 80, 10000],
             "voice:send": [30, 180, 60000],
@@ -959,14 +964,16 @@ export function createApplication(options: ApplicationOptions = {}) {
           botDifficulty: z.number().int().min(0).max(10).optional(),
         })
         .parse(data);
-      if (activeRoom(id))
-        throw new PublicError("Leave your current room first.");
+      const from = activeRoom(id);
       if (input.public && !publicEnabled)
         throw new PublicError(
           "Public rooms are not open yet. Private rooms are available.",
         );
       requireCapacity();
-      if (rooms.size >= (options.maxRooms ?? 500))
+      if (
+        rooms.size - (from && memberIds(from).length <= 2 ? 1 : 0) >=
+        (options.maxRooms ?? 500)
+      )
         throw new PublicError("All tables are busy. Please try again later.");
       let code: string;
       do {
@@ -981,6 +988,7 @@ export function createApplication(options: ApplicationOptions = {}) {
         name: input.name,
         public: input.public,
         host: id,
+        joinOrder: [id],
         seats: [seat(id, input.playerName, 0), null, null, null],
         game: null,
         voices: [],
@@ -998,13 +1006,14 @@ export function createApplication(options: ApplicationOptions = {}) {
           input.botDifficulty ?? defaultBotDifficulty,
         );
       const blocks = new Set(store.blockedSubjects(id)),
-        committed = commit(r);
+        committed = commit(r, { switching: from ? { from, id } : undefined });
       return { ok: true, room: view(committed, id, blocks), me: id };
     });
     handle("room:join", (data) => {
       const input = z.object({ code: roomCode, playerName: label }).parse(data);
-      if (activeRoom(id))
-        throw new PublicError("Leave your current room first.");
+      const from = activeRoom(id);
+      if (from?.code === input.code)
+        return { ok: true, room: view(from, id), me: id };
       const saved = rooms.get(input.code);
       if (!saved)
         throw new PublicError(
@@ -1020,8 +1029,30 @@ export function createApplication(options: ApplicationOptions = {}) {
       r.seats[index] = seat(id, input.playerName, index);
       transfer(r);
       const blocks = new Set(store.blockedSubjects(id)),
-        committed = commit(r);
+        committed = commit(r, { switching: from ? { from, id } : undefined });
       return { ok: true, room: view(committed, id, blocks), me: id };
+    });
+    handle("room:swap", (data) => {
+      const { from, to, player } = z
+        .object({
+          from: z.number().int().min(0).max(3),
+          to: z.number().int().min(0).max(3),
+          player: z.string().max(100),
+        })
+        .parse(data);
+      const r = requireRoom();
+      requireHost(r);
+      if (r.game && r.game.phase !== "finished")
+        throw new PublicError("Change colours between games.");
+      if (from === to || r.seats[from]?.id !== player)
+        throw new PublicError("The seats changed. Try again.");
+      transfer(r);
+      [r.seats[from], r.seats[to]] = [r.seats[to], r.seats[from]];
+      r.seats = r.seats.map((s, i) =>
+        s ? { ...s, color: COLORS[i], tokens: [-1, -1, -1, -1] } : null,
+      );
+      r.game = null;
+      commit(r);
     });
     handle("room:difficulty", (data) => {
       const input = z
@@ -1076,12 +1107,10 @@ export function createApplication(options: ApplicationOptions = {}) {
       requireHost(r);
       if (r.game && r.game.phase !== "finished")
         throw new PublicError("A game is already in progress.");
-      if (r.seats.some((s) => s && !s.bot && !s.connected))
+      if (memberIds(r).length < 2)
         throw new PublicError(
-          "Wait for disconnected players to return or leave.",
+          "At least two people are needed to start an online game.",
         );
-      if (r.seats.filter(Boolean).length < 2)
-        throw new PublicError("At least two players are needed.");
       requireCapacity();
       r.game = newGame(
         r.seats.map((s) => (s ? { ...s, tokens: [-1, -1, -1, -1] } : null)),
@@ -1161,9 +1190,12 @@ export function createApplication(options: ApplicationOptions = {}) {
       }
     });
     handle("chat:typing", (data) => {
-      const input = z.object({ active: z.boolean() }).parse(data),
+      const input = z
+          .object({ active: z.boolean(), room: roomCode.optional() })
+          .parse(data),
         r = requireRoom(),
         p = r.seats.find((s) => s?.id === id)!;
+      if (input.room && input.room !== r.code) return;
       for (const recipient of memberIds(r)) {
         if (!store.blocked(recipient, id))
           io.to(guestChannel(recipient)).emit("chat:typing", {
@@ -1179,6 +1211,7 @@ export function createApplication(options: ApplicationOptions = {}) {
       const input = z
           .object({
             text: z.string().max(180),
+            room: roomCode.optional(),
             replyTo: z.string().uuid().optional(),
             gif: z.instanceof(Buffer).optional(),
             photo: z.instanceof(Buffer).optional(),
@@ -1196,6 +1229,11 @@ export function createApplication(options: ApplicationOptions = {}) {
           .parse(data),
         r = requireRoom(),
         p = r.seats.find((s) => s?.id === id)!;
+      if (input.room && input.room !== r.code)
+        throw new PublicError(
+          "The message belongs to another room.",
+          "ROOM_CHANGED",
+        );
       if (!input.text.trim() && !input.gif && !input.photo)
         throw new PublicError("Write a message or choose an attachment.");
       if (input.gif && input.photo)
@@ -1292,6 +1330,7 @@ export function createApplication(options: ApplicationOptions = {}) {
       const input = z
           .object({
             audio: z.instanceof(Buffer),
+            room: roomCode.optional(),
             mime: z.enum(["audio/webm", "audio/ogg", "audio/mp4"]),
             duration: z
               .number()
@@ -1300,6 +1339,11 @@ export function createApplication(options: ApplicationOptions = {}) {
           })
           .parse(data),
         r = requireRoom();
+      if (input.room && input.room !== r.code)
+        throw new PublicError(
+          "The recording belongs to another room.",
+          "ROOM_CHANGED",
+        );
       if (input.audio.length < 16)
         throw new PublicError(
           "No audio was captured. Hold the button a little longer and try again.",
@@ -1349,18 +1393,13 @@ export function createApplication(options: ApplicationOptions = {}) {
       });
     });
     handle("room:leave", () => {
-      const r = requireRoom(),
-        index = r.seats.findIndex((s) => s?.id === id);
-      if (r.game && r.game.phase !== "finished") {
-        r.seats[index] = null;
-        r.game = depart(r.game, id);
-        if (r.game) r.seats = structuredClone(r.game.seats);
-      } else {
-        r.seats[index] = null;
-        r.game = null;
+      const r = requireRoom();
+      const { remaining } = departure(r, id);
+      if (remaining) commit(remaining);
+      else {
+        store.delete(r.code);
+        publishDeparture(r, id);
       }
-      transfer(r);
-      commit(r);
       offlineSince.delete(id);
     });
     const target = (data: unknown) => {
@@ -1383,13 +1422,6 @@ export function createApplication(options: ApplicationOptions = {}) {
     handle("moderation:block", (data) => {
       const { input, r } = target(data);
       store.block(id, input.player);
-      liveBlocks.set(id, new Set(store.blockedSubjects(id)));
-      if (liveBlocks.has(input.player))
-        liveBlocks.set(
-          input.player,
-          new Set(store.blockedSubjects(input.player)),
-        );
-      liveVoice.reconcile(r.code);
       emitRoom(r);
     });
     socket.once("disconnect", () => {
@@ -1427,13 +1459,22 @@ export function createApplication(options: ApplicationOptions = {}) {
       try {
         let r = structuredClone(saved),
           changed = false;
-        if (!memberIds(r).length) {
+        const members = memberIds(r);
+        if (
+          !members.length ||
+          (!r.game && members.length < 2 && now - r.createdAt > 15 * 60000)
+        ) {
           store.delete(r.code);
+          for (const id of members) {
+            offlineSince.delete(id);
+            io.in(guestChannel(id)).socketsLeave(r.code);
+            io.to(guestChannel(id)).emit("room:closed", { code: r.code });
+          }
           eraseRoom(r.code);
           monitor.success();
           continue;
         }
-        const attended = memberIds(r).some((id) => guestSockets.has(id));
+        const attended = members.some((id) => guestSockets.has(id));
         if (!attended && now - r.lastHumanAt > 15 * 60000) {
           r.archived = true;
           commit(r, { activity: false, archive: true });
@@ -1504,7 +1545,7 @@ export function createApplication(options: ApplicationOptions = {}) {
           if (r)
             for (const id of memberIds(r)) {
               io.in(guestChannel(id)).socketsLeave(code);
-              io.to(guestChannel(id)).emit("room:closed");
+              io.to(guestChannel(id)).emit("room:closed", { code });
             }
           eraseRoom(code);
         }
@@ -1553,12 +1594,10 @@ export function createApplication(options: ApplicationOptions = {}) {
     store,
     monitor,
     ai,
-    liveVoice,
     playerRooms,
     beginShutdown: () => {
       closing = true;
       monitor.closing = true;
-      liveVoice.close();
       void ai.close();
     },
     close: () =>
@@ -1566,7 +1605,6 @@ export function createApplication(options: ApplicationOptions = {}) {
         closing = true;
         monitor.closing = true;
         clearInterval(tick);
-        liveVoice.close();
         pressure?.close();
         await ai.close();
         await new Promise<void>((resolve) => {

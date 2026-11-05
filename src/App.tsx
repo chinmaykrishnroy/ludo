@@ -11,6 +11,8 @@ import {
   Question,
   GearSix,
   ArrowRight,
+  ArrowUp,
+  ArrowDown,
   Plus,
   GlobeHemisphereWest,
   LockSimple,
@@ -44,6 +46,7 @@ import {
   PALETTE,
 } from "./features/game";
 import { RoomChat, RoomTools, useRoomChat } from "./features/chat";
+import { ChatPreviews } from "./features/chat/ChatPreviews";
 import { VoicePanel, useRoomVoice } from "./features/voice";
 import Home, { type ClubStats } from "./Home";
 import type { Typing, Voice } from "../shared/protocol";
@@ -350,19 +353,28 @@ export default function App() {
             },
           );
           s.on("room:state", (r: Room) => {
+            activeRoomCode.current = r.code;
             setRoom(r);
             setSetup(!r.game);
           });
           s.on("chat:typing", (event: Typing) =>
             setTypingEvent({ ...event, at: Date.now() }),
           );
-          s.on("room:closed", () => {
-            setRoom(null);
-            notify("That room expired. A new table is ready whenever you are.");
-          });
-          s.on("room:left", () => {
+          const clearRoom = ({ code }: { code: string }) => {
+            if (activeRoomCode.current !== code) return false;
+            activeRoomCode.current = undefined;
             setRoom(null);
             setSetup(true);
+            return true;
+          };
+          s.on("room:closed", (event: { code: string }) => {
+            if (event && clearRoom(event)) notify("This room expired.");
+          });
+          s.on("room:left", (event: { code: string; closed?: boolean }) => {
+            if (clearRoom(event) && event.closed)
+              notify(
+                "This room closed because fewer than two players remained.",
+              );
           });
           s.connect();
         })
@@ -650,16 +662,19 @@ export default function App() {
     if (!r.ok) notify(r.error ?? "Could not start.");
   }
   async function leave() {
+    const code = room?.code;
     const r = await send("room:leave", {});
     if (r.ok) {
-      setRoom(null);
+      if (activeRoomCode.current && activeRoomCode.current !== code) return;
       setModal(null);
       feedback.reset();
     } else notify(r.error ?? "Could not leave.");
   }
 
   const host = room?.host === me;
-  const occupied = game.seats.filter(Boolean).length;
+  const humans =
+    room?.seats.filter((seat) => seat && !seat.id.startsWith("bot:")).length ??
+    0;
   useEffect(() => {
     const openMenu = (event: KeyboardEvent) => {
       if (
@@ -868,6 +883,7 @@ export default function App() {
           </header>
           {room ? (
             <section className="lobby-card">
+              {!chat.open && <ChatPreviews messages={chat.previews} />}
               <div className="lobby-title">
                 <h1>{room.name}</h1>
                 <span className="room-visibility">
@@ -902,7 +918,9 @@ export default function App() {
                           : p?.bot
                             ? `Bot · Level ${p.botDifficulty ?? room.botDifficulty ?? 10}`
                             : p
-                              ? "Player"
+                              ? p.connected
+                                ? "Player"
+                                : "Offline"
                               : "Open to a friend"}
                       </small>
                       {p?.id.startsWith("bot:") && (
@@ -929,35 +947,71 @@ export default function App() {
                         />
                       )}
                     </span>
-                    {host &&
-                    (!room.game || finished) &&
-                    (!p || p.id.startsWith("bot:")) ? (
-                      <button
-                        className="secondary"
-                        aria-label={`${p ? "Remove" : "Add"} Bot in ${COLORS[i]} seat`}
-                        onClick={async () => {
-                          const r = await send("room:configure", {
-                            seat: i,
-                            bot: !p,
-                          });
-                          if (!r.ok) notify(r.error!);
-                        }}
-                      >
-                        {p ? (
-                          <>
-                            <X />
-                            Remove Bot
-                          </>
-                        ) : (
-                          <>
-                            <Plus />
-                            Add Bot
-                          </>
-                        )}
-                      </button>
-                    ) : p?.id === me ? (
-                      <span className="you-label">YOU</span>
-                    ) : null}
+                    <div className="seat-actions">
+                      {p && host && (!room.game || finished) && (
+                        <div className="seat-order">
+                          {([-1, 1] as const).map((step) => (
+                            <button
+                              type="button"
+                              className="square-button"
+                              key={step}
+                              aria-label={`Move ${p.name} ${step < 0 ? "up" : "down"}`}
+                              disabled={
+                                !connected ||
+                                i + step < 0 ||
+                                i + step >= COLORS.length
+                              }
+                              onClick={async () => {
+                                const result = await send("room:swap", {
+                                  from: i,
+                                  to: i + step,
+                                  player: p.id,
+                                });
+                                if (!result.ok)
+                                  notify(
+                                    result.error ?? "Could not change seats.",
+                                  );
+                              }}
+                            >
+                              {step < 0 ? (
+                                <ArrowUp weight="bold" />
+                              ) : (
+                                <ArrowDown weight="bold" />
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {host &&
+                      (!room.game || finished) &&
+                      (!p || p.id.startsWith("bot:")) ? (
+                        <button
+                          className="secondary"
+                          aria-label={`${p ? "Remove" : "Add"} Bot in ${COLORS[i]} seat`}
+                          onClick={async () => {
+                            const r = await send("room:configure", {
+                              seat: i,
+                              bot: !p,
+                            });
+                            if (!r.ok) notify(r.error!);
+                          }}
+                        >
+                          {p ? (
+                            <>
+                              <X />
+                              Remove Bot
+                            </>
+                          ) : (
+                            <>
+                              <Plus />
+                              Add Bot
+                            </>
+                          )}
+                        </button>
+                      ) : p?.id === me ? (
+                        <span className="you-label">YOU</span>
+                      ) : null}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -975,6 +1029,14 @@ export default function App() {
                     notify(r.error ?? "Unable to change bot difficulty.");
                 }}
               />
+              <div className="lobby-voice">
+                <VoicePanel
+                  compact
+                  room={room}
+                  voice={voice}
+                  onOnline={() => setModal("rooms")}
+                />
+              </div>
               <div className="lobby-actions">
                 <button className="secondary" onClick={() => setModal("leave")}>
                   <SignOut />
@@ -985,7 +1047,7 @@ export default function App() {
                   disabled={
                     (!room.game || finished) &&
                     (!host ||
-                      occupied < 2 ||
+                      humans < 2 ||
                       !connected ||
                       admission?.newRoomsAvailable === false)
                   }
@@ -1002,6 +1064,17 @@ export default function App() {
                       : "WAITING FOR HOST"}
                 </button>
               </div>
+              {host && !room.game && humans < 2 && (
+                <p className="lobby-waiting">
+                  Invite one more player to start.
+                </p>
+              )}
+              <button
+                className="text-button lobby-switch"
+                onClick={() => setModal("rooms")}
+              >
+                Join another room <ArrowRight />
+              </button>
               {(!room.game || finished) &&
                 admission?.newRoomsAvailable === false && (
                   <p role="status" className="admission-notice">
@@ -1042,6 +1115,14 @@ export default function App() {
               >
                 <Copy />
                 {copied ? "INVITE COPIED" : "COPY ROOM INVITE"}
+              </button>
+            )}
+            {room && (
+              <button
+                className="secondary full"
+                onClick={() => setModal("rooms")}
+              >
+                <ArrowRight /> JOIN ANOTHER ROOM
               </button>
             )}
             <button
@@ -1118,6 +1199,7 @@ export default function App() {
           setName={setName}
           online={connected}
           publicEnabled={publicRoomsEnabled}
+          joiningFromRoom={!!room}
           botDifficulty={botDifficulty}
           setBotDifficulty={changeDifficulty}
           admission={admission}

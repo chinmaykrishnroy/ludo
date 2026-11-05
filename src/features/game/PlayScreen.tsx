@@ -7,6 +7,7 @@ import type { VoiceController } from "../../useRoomVoice";
 import { RoomTools } from "../../RoomChat";
 import type { ChatController } from "../../useRoomChat";
 import VoicePanel from "../../VoicePanel";
+import { ChatPreviews } from "../chat/ChatPreviews";
 import { soleLegalMove, type Game } from "../../../shared/game";
 import type { Room } from "../../../shared/protocol";
 
@@ -65,6 +66,20 @@ export default function PlayScreen({
     mine = current.id === me && !current.bot,
     sharedDevice = !room && game.seats.filter((s) => s && !s.bot).length > 1,
     finished = game.phase === "finished";
+  const speaking = room?.seats.reduce(
+    (mask, seat, index) =>
+      seat &&
+      room.voices.some(
+        (clip) =>
+          voice.playing.includes(clip.id) &&
+          (clip.senderId
+            ? clip.senderId === seat.id
+            : clip.color === seat.color),
+      )
+        ? mask | (1 << index)
+        : mask,
+    0,
+  );
   return (
     <div className="game-stage">
       <header className="game-header">
@@ -86,7 +101,9 @@ export default function PlayScreen({
             me={me}
             onMove={onMove}
             busy={inputBusy || (!connected && !!room)}
+            speaking={speaking}
           />
+          {!chat.open && <ChatPreviews messages={chat.previews} />}
           <button
             className="board-menu"
             aria-label="Open game menu"
@@ -96,7 +113,7 @@ export default function PlayScreen({
             <DotsThree weight="bold" />
           </button>
         </div>
-        <div className="play-controls">
+        <div className={`play-controls ${room ? "with-room-voice" : ""}`}>
           <button
             className={`big-dice-button ${mine ? "your-roll" : ""}`}
             style={

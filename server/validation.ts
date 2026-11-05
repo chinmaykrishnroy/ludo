@@ -5,6 +5,7 @@ import { VOICE_MAX_SECONDS } from "../shared/voice.js";
 const timestamp = z.number().finite().nonnegative();
 export const roomSchema = z
   .object({
+    joinOrder: z.array(z.string().min(1).max(100)).max(4).optional(),
     botDifficulty: z.number().int().min(0).max(10).optional(),
     archived: z.boolean().optional(),
     code: z.string().regex(/^[A-Z2-9]{6}$/),

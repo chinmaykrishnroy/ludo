@@ -1,6 +1,6 @@
 {
   "name": "ludo-club",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "private": true,
   "type": "module",
   "engines": {
@@ -13,7 +13,6 @@
     "test": "tsx --test tests/*.test.ts",
     "check": "npm run test && npm run build",
     "test:load": "tsx scripts/load-smoke.ts",
-    "test:voice-load": "tsx scripts/live-voice-load.ts",
     "format": "prettier --write src server shared tests scripts *.ts *.json docs README.md",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

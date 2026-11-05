@@ -26,12 +26,24 @@ export function createRoomView(
   };
 }
 
-/** Transfers room host authority to the first connected human player if the current host is missing/disconnected */
+/** Keep join order independent of seat colours. Older rooms use their saved seat order. */
+export function humanJoinOrder(room: Room): string[] {
+  const members = memberIds(room);
+  return [...new Set([...(room.joinOrder ?? []), ...members])].filter((id) =>
+    members.includes(id),
+  );
+}
+
 export function transferHostAuthority(room: Room): void {
-  if (!room.seats.some((s) => s?.id === room.host && !s.bot && s.connected)) {
-    const host = room.seats.find((s) => s && !s.bot && s.connected);
-    if (host) room.host = host.id;
-  }
+  room.joinOrder = humanJoinOrder(room);
+  const online = room.joinOrder.filter((id) =>
+    room.seats.some((seat) => seat?.id === id && seat.connected),
+  );
+  if (!online.includes(room.host))
+    room.host =
+      online[0] ??
+      (room.joinOrder.includes(room.host) ? room.host : room.joinOrder[0]) ??
+      room.host;
 }
 
 /** Room state manager that tracks active rooms and player-to-room mappings */

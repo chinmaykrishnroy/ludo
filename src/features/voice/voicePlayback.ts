@@ -1,7 +1,7 @@
 import { VOICE_MAX_SECONDS } from "../../../shared/voice";
 
 /** Reuse the element a listener unlocks on iOS; never lose a blocked recording. */
-export class VoicePlayback {
+class PlaybackChannel {
   private audio: HTMLAudioElement | null = null;
   private queue: string[] = [];
   private current: string | null = null;
@@ -15,6 +15,9 @@ export class VoicePlayback {
     private error: () => void,
     private create = () => new Audio(),
   ) {}
+  get occupied() {
+    return !!this.current || this.queue.length > 0;
+  }
   private element() {
     return (this.audio ??= this.create());
   }
@@ -24,6 +27,9 @@ export class VoicePlayback {
     if (this.audio) {
       this.audio.onended = null;
       this.audio.onerror = null;
+      this.audio.onpause = null;
+      this.audio.onwaiting = null;
+      this.audio.onplaying = null;
       this.audio.pause();
     }
     this.current = null;
@@ -64,11 +70,14 @@ export class VoicePlayback {
   toggle(id: string) {
     if (this.muted) return;
     if (this.current === id) {
-      this.clear();
+      this.next();
       return;
     }
     this.pause();
-    this.queue = [id];
+    this.queue = [id, ...this.queue.filter((queued) => queued !== id)].slice(
+      0,
+      20,
+    );
     this.blocked = false;
     this.next();
   }
@@ -104,7 +113,12 @@ export class VoicePlayback {
       generation = this.generation;
     this.current = id;
     a.src = `/api/voice/${id}`;
-    this.change(id, false);
+    this.change(null, false);
+    const playing = (value: string | null) => {
+      if (generation === this.generation) this.change(value, false);
+    };
+    a.onpause = a.onwaiting = () => playing(null);
+    a.onplaying = () => playing(id);
     a.onended = () => {
       if (generation === this.generation) this.next();
     };
@@ -114,15 +128,22 @@ export class VoicePlayback {
         this.next();
       }
     };
+    this.timer = setTimeout(() => {
+      this.error();
+      this.next();
+    }, 12000);
     // Called synchronously by manual playback, inside the trusted tap gesture.
     void a
       .play()
       .then(() => {
-        if (generation === this.generation)
+        if (generation === this.generation) {
+          playing(id);
+          clearTimeout(this.timer);
           this.timer = setTimeout(
             () => this.next(),
             (VOICE_MAX_SECONDS + 0.5) * 1000,
           );
+        }
       })
       .catch((error: unknown) => {
         if (generation !== this.generation) return;
@@ -136,5 +157,75 @@ export class VoicePlayback {
         this.blocked = true;
         this.change(null, true);
       });
+  }
+}
+
+type Clip = { id: string; speaker: string };
+
+/** One reusable audio element per simultaneous speaker, with a queue per speaker. */
+export class VoicePlayback {
+  private muted = false;
+  private slots: {
+    speaker: string | undefined;
+    playing: string | null;
+    blocked: boolean;
+    channel: PlaybackChannel;
+  }[];
+
+  constructor(
+    change: (playing: string[], blocked: boolean) => void,
+    error: () => void,
+    create?: () => HTMLAudioElement,
+  ) {
+    this.slots = Array.from({ length: 4 }, (_, index) => ({
+      speaker: undefined,
+      playing: null,
+      blocked: false,
+      channel: new PlaybackChannel(
+        (playing, blocked) => {
+          const slot = this.slots[index];
+          slot.playing = playing;
+          slot.blocked = blocked;
+          change(
+            this.slots.flatMap((s) => (s.playing ? [s.playing] : [])),
+            this.slots.some((s) => s.blocked),
+          );
+        },
+        error,
+        create,
+      ),
+    }));
+  }
+
+  private channel(speaker: string) {
+    if (this.muted) return;
+    const slot =
+      this.slots.find((s) => s.speaker === speaker) ??
+      this.slots.find((s) => !s.channel.occupied);
+    if (!slot) return;
+    slot.speaker = speaker;
+    return slot.channel;
+  }
+  enqueue(clips: Clip[]) {
+    for (const clip of clips) this.channel(clip.speaker)?.enqueue([clip.id]);
+  }
+  toggle(clip: Clip) {
+    this.channel(clip.speaker)?.toggle(clip.id);
+  }
+  resume() {
+    if (!this.muted) for (const slot of this.slots) slot.channel.resume();
+  }
+  clear() {
+    for (const slot of this.slots) {
+      slot.channel.clear();
+      slot.speaker = undefined;
+    }
+  }
+  setMuted(muted: boolean) {
+    this.muted = muted;
+    for (const slot of this.slots) slot.channel.setMuted(muted);
+  }
+  available(ids: Set<string>) {
+    for (const slot of this.slots) slot.channel.available(ids);
   }
 }

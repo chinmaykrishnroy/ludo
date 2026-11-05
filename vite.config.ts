@@ -4,9 +4,6 @@ export default defineConfig({
   plugins: [react()],
   server: { host: "127.0.0.1", allowedHosts: ["localhost", "127.0.0.1"] },
   build: {
-    // AudioWorklet modules must remain same-origin files under the production CSP.
-    assetsInlineLimit: (path) =>
-      path.endsWith("liveVoice.worklet.js") ? false : undefined,
     sourcemap: false,
     rollupOptions: {
       output: {

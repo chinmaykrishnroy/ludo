@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Room, Typing } from "../../../shared/protocol";
+import type { Chat, Room, Typing } from "../../../shared/protocol";
 
 export function useRoomChat(
   room: Room | null,
@@ -9,13 +9,20 @@ export function useRoomChat(
 ) {
   const [open, setOpen] = useState(false),
     [unread, setUnread] = useState(0),
+    [previews, setPreviews] = useState<Chat[]>([]),
     [typing, setTyping] = useState<(Typing & { at: number })[]>([]);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined),
     opened = useRef(false),
     picking = useRef(false),
+    previewTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>()),
     seen = useRef(new Set<string>()),
     idle = useRef(idleSeconds);
   idle.current = idleSeconds;
+  const clearPreviews = useCallback(() => {
+    for (const timer of previewTimers.current.values()) clearTimeout(timer);
+    previewTimers.current.clear();
+    setPreviews([]);
+  }, []);
   const close = useCallback(() => {
     picking.current = false;
     opened.current = false;
@@ -31,8 +38,9 @@ export function useRoomChat(
     opened.current = true;
     setOpen(true);
     setUnread(0);
+    clearPreviews();
     activity();
-  }, [activity]);
+  }, [activity, clearPreviews]);
   const pauseForPicker = useCallback(() => {
     picking.current = true;
     clearTimeout(timer.current);
@@ -46,18 +54,41 @@ export function useRoomChat(
     close();
     setUnread(0);
     setTyping([]);
+    clearPreviews();
     seen.current = new Set(
       [...(room?.chat ?? []), ...(room?.voices ?? [])].map((m) => m.id),
     );
-    return () => clearTimeout(timer.current);
-  }, [room?.code, close]);
+    return () => {
+      clearTimeout(timer.current);
+      for (const preview of previewTimers.current.values())
+        clearTimeout(preview);
+      previewTimers.current.clear();
+    };
+  }, [room?.code, close, clearPreviews]);
   useEffect(() => {
     const messages = [...(room?.chat ?? []), ...(room?.voices ?? [])],
-      fresh = messages.filter((m) => !seen.current.has(m.id));
+      fresh = messages.filter((m) => !seen.current.has(m.id)),
+      freshText = (room?.chat ?? []).filter(
+        (m) => !seen.current.has(m.id) && m.senderId !== me,
+      );
     seen.current = new Set(messages.map((m) => m.id));
     if (fresh.length && opened.current) activity();
     else if (fresh.length)
       setUnread((n) => n + fresh.filter((m) => m.senderId !== me).length);
+    if (!opened.current && freshText.length) {
+      setPreviews((current) => [...current, ...freshText].slice(-3));
+      for (const message of freshText) {
+        previewTimers.current.set(
+          message.id,
+          setTimeout(() => {
+            previewTimers.current.delete(message.id);
+            setPreviews((current) =>
+              current.filter((m) => m.id !== message.id),
+            );
+          }, 3000),
+        );
+      }
+    }
   }, [room?.chat, room?.voices, me, activity]);
   useEffect(() => {
     if (
@@ -83,6 +114,7 @@ export function useRoomChat(
   return {
     open,
     unread,
+    previews,
     typing,
     show,
     close,

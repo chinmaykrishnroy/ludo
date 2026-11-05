@@ -198,7 +198,8 @@ test("real multiplayer: private/public rooms, authority, optional bots, chat, au
       pub.room!.code,
     );
     assert.equal((await call(b.s, "room:leave")).ok, true);
-    assert.equal(service.rooms.get(code)!.game!.seats[1], null);
+    assert.equal(service.rooms.has(code), false);
+    assert.equal(service.store.hasRoom(code), false);
   } finally {
     clients.forEach((s) => s.disconnect());
     await service.close();
@@ -272,7 +273,19 @@ test("archived seats and tokens survive a full server restart until explicit dep
         public: false,
         bots: 1,
       })) as Reply;
-    await client.socket.timeout(2000).emitWithAck("room:start", {});
+    const peer = await openClient(url);
+    assert(
+      (
+        await peer.socket.timeout(2000).emitWithAck("room:join", {
+          code: created.room!.code,
+          playerName: "Bob",
+        })
+      ).ok,
+    );
+    peer.socket.disconnect();
+    assert(
+      (await client.socket.timeout(2000).emitWithAck("room:start", {})).ok,
+    );
     const room = service.rooms.get(created.room!.code)!;
     room.game!.seats[0]!.tokens = [9, 0, -1, -1];
     room.game!.revision = 42;
@@ -433,6 +446,15 @@ test("pressure admission refuses new rooms and starts before persistence while e
     });
     assert(waiting.ok);
     const newcomer = await connect();
+    const waitingPeer = await connect();
+    assert(
+      (
+        await call(waitingPeer.socket, "room:join", {
+          code: waiting.room!.code,
+          playerName: "Eve",
+        })
+      ).ok,
+    );
     let writes = 0;
     const save = service.store.save.bind(service.store);
     service.store.save = (...args: Parameters<Store["save"]>) => {

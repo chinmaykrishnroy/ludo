@@ -129,11 +129,13 @@ export const Board = memo(function Board({
   me,
   onMove,
   busy,
+  speaking = 0,
 }: {
   game: Game;
   me: string;
   onMove: (n: number) => void;
   busy: boolean;
+  speaking?: number;
 }) {
   const moves = legalMoves(game),
     current = game.seats[game.turn]!;
@@ -158,6 +160,21 @@ export const Board = memo(function Board({
                 height="192"
                 fill={PALETTE[color]}
               />
+              {!!(speaking & (1 << i)) && (
+                <rect
+                  className="board-home-glow"
+                  data-speaking-colour={color}
+                  x={x + 5}
+                  y={y + 5}
+                  width="182"
+                  height="182"
+                  rx="3"
+                  fill="none"
+                  stroke="#fffce9"
+                  strokeWidth="7"
+                  aria-hidden="true"
+                />
+              )}
               <rect
                 x={x + 30}
                 y={y + 30}

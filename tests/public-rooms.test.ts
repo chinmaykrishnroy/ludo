@@ -99,6 +99,8 @@ test("public rooms list/join correctly, hide private/started games, preserve per
     assert(
       (await call(visitor, "moderation:block", { player: publicRoom.me })).ok,
     );
+    assert((await call(host, "room:configure", { seat: 3, bot: false })).ok);
+    assert((await call(other, "room:join", { code, playerName: "Other" })).ok);
     assert((await call(visitor, "room:leave")).ok);
     assert.equal((await call(visitor, "rooms:list")).rooms!.length, 0);
     assert.equal(

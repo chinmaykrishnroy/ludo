@@ -28,6 +28,7 @@ export interface RoomBrowserProps {
   botDifficulty: number;
   setBotDifficulty: (value: number) => void;
   admission?: AdmissionStatus;
+  joiningFromRoom?: boolean;
 }
 
 export const RoomBrowser = memo(function RoomBrowser({
@@ -41,9 +42,12 @@ export const RoomBrowser = memo(function RoomBrowser({
   botDifficulty,
   setBotDifficulty,
   admission,
+  joiningFromRoom,
 }: RoomBrowserProps) {
   const [tab, setTab] = useState<"create" | "join" | "public">(
-      new URLSearchParams(location.search).has("room") ? "join" : "create",
+      joiningFromRoom || new URLSearchParams(location.search).has("room")
+        ? "join"
+        : "create",
     ),
     [title, setTitle] = useState("The good company"),
     [isPublic, setPublic] = useState(false),

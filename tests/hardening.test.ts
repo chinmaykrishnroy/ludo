@@ -267,7 +267,17 @@ test("archived reconnect respects room capacity without losing the saved game", 
       public: false,
       bots: 1,
     });
-    await h.call(a.socket, "room:start");
+    const guest = await h.client();
+    assert(
+      (
+        await h.call(guest.socket, "room:join", {
+          code: created.room!.code,
+          playerName: "Guest",
+        })
+      ).ok,
+    );
+    guest.socket.disconnect();
+    assert((await h.call(a.socket, "room:start")).ok);
     const saved = structuredClone(h.service.rooms.get(created.room!.code)!);
     saved.archived = true;
     h.service.store.save(saved);
@@ -342,6 +352,11 @@ test("leaving evicts every tab of the same guest before private updates", async 
       }),
       code = r.room!.code;
     await h.call(b.socket, "room:join", { code, playerName: "Bob" });
+    const guest = await h.client();
+    assert(
+      (await h.call(guest.socket, "room:join", { code, playerName: "Guest" }))
+        .ok,
+    );
     const tab = await h.client(a.cookie);
     await h.call(a.socket, "room:leave");
     assert.equal(
@@ -368,7 +383,17 @@ test("late rolls and moves are rejected at the handler boundary before the timer
         public: false,
         bots: 1,
       });
-    await h.call(a.socket, "room:start");
+    const guest = await h.client();
+    assert(
+      (
+        await h.call(guest.socket, "room:join", {
+          code: created.room!.code,
+          playerName: "Guest",
+        })
+      ).ok,
+    );
+    guest.socket.disconnect();
+    assert((await h.call(a.socket, "room:start")).ok);
     const code = created.room!.code;
     let r = h.service.rooms.get(code)!;
     r.game!.seats[0]!.tokens = [0, 40, -1, -1];
@@ -408,7 +433,17 @@ test("an outdated action after a turn change reports a stale board rather than f
         public: false,
         bots: 1,
       });
-    await h.call(a.socket, "room:start");
+    const guest = await h.client();
+    assert(
+      (
+        await h.call(guest.socket, "room:join", {
+          code: created.room!.code,
+          playerName: "Guest",
+        })
+      ).ok,
+    );
+    guest.socket.disconnect();
+    assert((await h.call(a.socket, "room:start")).ok);
     const room = h.service.rooms.get(created.room!.code)!;
     room.game = roll(room.game!, 2);
     room.seats = structuredClone(room.game.seats);
@@ -435,7 +470,17 @@ test("server automatically plays a sole legal human move after the roll animatio
         public: false,
         bots: 1,
       });
-    await h.call(a.socket, "room:start");
+    const guest = await h.client();
+    assert(
+      (
+        await h.call(guest.socket, "room:join", {
+          code: created.room!.code,
+          playerName: "Guest",
+        })
+      ).ok,
+    );
+    guest.socket.disconnect();
+    assert((await h.call(a.socket, "room:start")).ok);
     let r = h.service.rooms.get(created.room!.code)!;
     r.game!.seats[0]!.tokens = [2, 56, 56, 56];
     r.game = roll(r.game!, 3);
@@ -479,7 +524,17 @@ test("simultaneous actions from two tabs advance a revision only once", async ()
       bots: 1,
     });
     const tab = await h.client(a.cookie);
-    await h.call(a.socket, "room:start");
+    const guest = await h.client();
+    assert(
+      (
+        await h.call(guest.socket, "room:join", {
+          code: created.room!.code,
+          playerName: "Guest",
+        })
+      ).ok,
+    );
+    guest.socket.disconnect();
+    assert((await h.call(a.socket, "room:start")).ok);
     await delay(950);
     const replies = await Promise.all([
       h.call(a.socket, "game:roll", { revision: 0 }),
@@ -516,7 +571,17 @@ test("stale worker decisions cannot overwrite a newer room revision", async () =
         public: false,
         bots: 1,
       });
-    await h.call(a.socket, "room:start");
+    const guest = await h.client();
+    assert(
+      (
+        await h.call(guest.socket, "room:join", {
+          code: created.room!.code,
+          playerName: "Guest",
+        })
+      ).ok,
+    );
+    guest.socket.disconnect();
+    assert((await h.call(a.socket, "room:start")).ok);
     const r = h.service.rooms.get(created.room!.code)!;
     r.game!.turn = 1;
     r.game = roll(r.game!, 6);
@@ -559,7 +624,17 @@ test("a temporarily disconnected human uses the simple fallback even at expert r
         bots: 1,
         botDifficulty: 10,
       });
-    await h.call(a.socket, "room:start");
+    const guest = await h.client();
+    assert(
+      (
+        await h.call(guest.socket, "room:join", {
+          code: created.room!.code,
+          playerName: "Guest",
+        })
+      ).ok,
+    );
+    guest.socket.disconnect();
+    assert((await h.call(a.socket, "room:start")).ok);
     const r = h.service.rooms.get(created.room!.code)!;
     r.game!.seats[0]!.tokens = [20, 5, -1, -1];
     r.game!.seats[0]!.bot = true;
@@ -724,7 +799,17 @@ test("a storage failure in the background timer is contained and recovers", asyn
         public: false,
         bots: 1,
       });
-    await h.call(a.socket, "room:start");
+    const guest = await h.client();
+    assert(
+      (
+        await h.call(guest.socket, "room:join", {
+          code: created.room!.code,
+          playerName: "Guest",
+        })
+      ).ok,
+    );
+    guest.socket.disconnect();
+    assert((await h.call(a.socket, "room:start")).ok);
     const r = h.service.rooms.get(created.room!.code)!;
     r.game!.deadline = Date.now() - 1;
     r.game!.seats[0]!.tokens[0] = 0;
@@ -888,7 +973,16 @@ test("explicit quit removes the seat and all its tokens instead of replacing it 
       code: created.room!.code,
       playerName: "Bob",
     });
-    await h.call(a.socket, "room:start");
+    const third = await h.client();
+    assert(
+      (
+        await h.call(third.socket, "room:join", {
+          code: created.room!.code,
+          playerName: "Carol",
+        })
+      ).ok,
+    );
+    assert((await h.call(a.socket, "room:start")).ok);
     const original = h.service.rooms.get(created.room!.code)!;
     original.game!.seats[0]!.tokens = [5, 12, 26, 56];
     original.seats = structuredClone(original.game!.seats);
@@ -900,6 +994,132 @@ test("explicit quit removes the seat and all its tokens instead of replacing it 
     assert.notEqual(remaining.game!.turn, 0);
     assert.equal(h.service.store.findByPlayer(created.me!), undefined);
     assert.equal(h.service.store.load()[0].game!.seats[0], null);
+  } finally {
+    await h.close();
+  }
+});
+
+test("a room switch is atomic across tabs and closes a room left with one human", async () => {
+  const h = await harness({ tickMs: 60000 });
+  try {
+    const a = await h.client(),
+      b = await h.client(),
+      c = await h.client();
+    const create = (s: Socket, playerName: string) =>
+      h.call(s, "room:create", {
+        name: playerName,
+        playerName,
+        bots: 1,
+        public: false,
+      });
+    const old = (await create(a.socket, "Alice")).room!.code;
+    const next = (await create(c.socket, "Carol")).room!.code;
+    assert(
+      (await h.call(b.socket, "room:join", { code: old, playerName: "Bob" }))
+        .ok,
+    );
+    const tab = await h.client(a.cookie);
+    assert((await h.call(a.socket, "chat:send", { text: "Old room" })).ok);
+    assert(
+      !(
+        await h.call(a.socket, "room:join", {
+          code: "ZZZZZZ",
+          playerName: "Alice",
+        })
+      ).ok,
+    );
+    h.service.store.db.exec(
+      `CREATE TEMP TRIGGER reject_switch BEFORE UPDATE ON rooms WHEN NEW.code = '${next}' BEGIN SELECT RAISE(ABORT, 'injected switch failure'); END`,
+    );
+    const join = () =>
+      h.call(a.socket, "room:join", { code: next, playerName: "Alice" });
+    assert.equal((await join()).code, "STORAGE_UNAVAILABLE");
+    assert.equal(
+      h.service.store.load().find((room) => room.code === old)!.chat[0].text,
+      "Old room",
+    );
+    assert.equal(h.service.rooms.get(old)!.chat.length, 1);
+    h.service.store.db.exec("DROP TRIGGER reject_switch");
+    let kicked: unknown, switchedTo: string | undefined;
+    b.socket.once("room:left", (event) => {
+      kicked = event;
+    });
+    tab.socket.once("room:state", (room: NonNullable<Reply["room"]>) => {
+      switchedTo = room.code;
+    });
+    const reply = await join();
+    await Promise.all([
+      h.call(b.socket, "clock:sync"),
+      h.call(tab.socket, "clock:sync"),
+    ]);
+    assert(reply.ok, reply.error);
+    assert.deepEqual(kicked, { code: old, closed: true });
+    assert.equal(switchedTo, next);
+    assert.equal(h.service.store.hasRoom(old), false);
+    assert.equal(
+      h.service.io.sockets.sockets.get(tab.socket.id!)!.rooms.has(old),
+      false,
+    );
+    assert.equal(
+      (await h.call(a.socket, "chat:send", { room: old, text: "Stale draft" }))
+        .code,
+      "ROOM_CHANGED",
+    );
+    assert((await join()).ok);
+  } finally {
+    await h.close();
+  }
+});
+
+test("seat swaps preserve organiser succession and offline humans can start and reconnect", async () => {
+  const h = await harness();
+  try {
+    const a = await h.client(),
+      b = await h.client(),
+      c = await h.client();
+    const created = await h.call(a.socket, "room:create", {
+      name: "Colours",
+      playerName: "Alice",
+      bots: 1,
+      public: false,
+    });
+    const code = created.room!.code;
+    assert(!(await h.call(a.socket, "room:start")).ok);
+    const bob = await h.call(b.socket, "room:join", {
+      code,
+      playerName: "Bob",
+    });
+    const carol = await h.call(c.socket, "room:join", {
+      code,
+      playerName: "Carol",
+    });
+    assert(
+      !(await h.call(b.socket, "room:swap", { from: 2, to: 3, player: bob.me }))
+        .ok,
+    );
+    assert(
+      (await h.call(a.socket, "room:swap", { from: 2, to: 3, player: bob.me }))
+        .ok,
+    );
+    assert.equal(h.service.rooms.get(code)!.seats[3]!.id, bob.me);
+    assert.equal(h.service.rooms.get(code)!.seats[3]!.color, "blue");
+    a.socket.disconnect();
+    await delay();
+    assert.equal(h.service.rooms.get(code)!.host, bob.me);
+    assert((await h.call(b.socket, "room:start")).ok);
+    assert.equal(h.service.rooms.get(code)!.game!.seats[0]!.connected, false);
+    assert(
+      !(
+        await h.call(b.socket, "room:swap", {
+          from: 2,
+          to: 3,
+          player: carol.me,
+        })
+      ).ok,
+    );
+    await h.client(a.cookie);
+    assert.equal(h.service.rooms.get(code)!.game!.seats[0]!.connected, true);
+    assert.equal(h.service.rooms.get(code)!.host, bob.me);
   } finally {
     await h.close();
   }

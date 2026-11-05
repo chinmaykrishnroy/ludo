@@ -1,3 +1,4 @@
+import { addOfflineGuest } from "./room-guest";
 import { test, expect } from "@playwright/test";
 import { newGame, seat } from "../shared/game";
 
@@ -136,6 +137,7 @@ test("dice responds to the tap while the authoritative result is delayed", async
     .getByRole("button", { name: /^Create room$/ })
     .last()
     .click();
+  await addOfflineGuest(page);
   await page.getByRole("button", { name: "START GAME", exact: true }).click();
   const button = page.getByRole("button", { name: "Roll dice", exact: true });
   await expect(button).toBeEnabled();
@@ -256,7 +258,12 @@ test("disconnect cues stop on reconnect, respect reduced motion, and confirmed q
       }),
     ).toBeVisible();
     await other.getByRole("button", { name: /^CONFIRM/ }).click();
-    await expect(page.locator(".token.yellow")).toHaveCount(0);
+    await expect(
+      page.getByText(
+        "This room closed because fewer than two players remained.",
+      ),
+    ).toBeVisible();
+    await expect(page.locator(".board")).toHaveCount(0);
   } finally {
     await peer.close();
   }

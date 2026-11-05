@@ -1,3 +1,4 @@
+import { addOfflineGuest } from "./room-guest";
 import { test, expect } from "@playwright/test";
 
 // These tests intercept API/socket responses. An active worker can bypass page
@@ -37,6 +38,7 @@ test("load notice pauses new-room and match controls and reopens after recovery"
   available = true;
   await expect(create).toBeEnabled({ timeout: 8000 });
   await create.click();
+  await addOfflineGuest(page);
   available = false;
   await expect(
     page.getByRole("button", { name: "START GAME", exact: true }),
@@ -115,6 +117,7 @@ test("React crash offers reload and reconnects to the retained game", async ({
     .click();
   const code = await page.locator(".invite-strip strong").innerText();
   corruptNext = true;
+  await addOfflineGuest(page);
   await page.getByRole("button", { name: "START GAME", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Something went wrong." }),

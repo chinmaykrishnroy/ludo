@@ -178,12 +178,12 @@ export default function RoomChat({
     if (!active || Date.now() - lastTyping.current > 1800) {
       if (active) lastTyping.current = Date.now();
       else lastTyping.current = 0;
-      void send("chat:typing", { active });
+      void send("chat:typing", { active, room: room.code });
     }
     clearTimeout(typingTimer.current);
     if (active)
       typingTimer.current = setTimeout(() => {
-        void send("chat:typing", { active: false });
+        void send("chat:typing", { active: false, room: room.code });
       }, 2500);
   }
   useEffect(() => {
@@ -194,6 +194,32 @@ export default function RoomChat({
     const close = openDialog(dialog.current!);
     input.current?.focus({ preventScroll: true });
     return close;
+  }, [chat.open]);
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    const sheet = dialog.current;
+    if (!chat.open || !viewport || !sheet) return;
+    const fit = () => {
+      // The keyboard can shrink only the visual viewport on Android.
+      if (viewport.scale !== 1) return;
+      sheet.style.setProperty("--chat-view-height", `${viewport.height}px`);
+      sheet.style.setProperty(
+        "--chat-view-center",
+        `${viewport.offsetTop + viewport.height / 2}px`,
+      );
+      const list = feed.current;
+      if (document.activeElement === input.current && list)
+        list.scrollTop = list.scrollHeight;
+    };
+    fit();
+    viewport.addEventListener("resize", fit);
+    viewport.addEventListener("scroll", fit);
+    return () => {
+      viewport.removeEventListener("resize", fit);
+      viewport.removeEventListener("scroll", fit);
+      sheet.style.removeProperty("--chat-view-height");
+      sheet.style.removeProperty("--chat-view-center");
+    };
   }, [chat.open]);
   useEffect(() => {
     const inputs = [pick.current, camera.current];
@@ -319,6 +345,7 @@ export default function RoomChat({
       const gif = attachment ? await attachment.arrayBuffer() : undefined;
       if (!alive.current || currentRoom.current !== code) return;
       const result = await send("chat:send", {
+        room: code,
         text: draft,
         ...(reply ? { replyTo: reply } : {}),
         mentions: mentions.map(({ playerId, start, end }) => ({
@@ -459,14 +486,14 @@ export default function RoomChat({
                 {kind === "voice" ? (
                   <button
                     className="chat-voice chat-bubble"
-                    aria-label={`${voice.playing === message.id ? "Pause" : "Play"} voice message from ${message.name}`}
+                    aria-label={`${voice.playing.includes(message.id) ? "Pause" : "Play"} voice message from ${message.name}`}
                     disabled={voice.muted}
                     onClick={() => {
                       voice.togglePlay(message.id);
                       chat.activity();
                     }}
                   >
-                    {voice.playing === message.id ? (
+                    {voice.playing.includes(message.id) ? (
                       <Pause weight="fill" />
                     ) : (
                       <Play weight="fill" />

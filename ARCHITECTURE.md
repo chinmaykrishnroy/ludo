@@ -5,9 +5,10 @@
 ## Overview
 
 Ludo Club is a real-time multiplayer Ludo game built on:
+
 - **Frontend**: React 19 + TypeScript + Vite PWA
 - **Backend**: Node.js 24 + Socket.IO + SQLite (via native Node `node:sqlite`)
-- **Voice**: WebRTC-style WebSocket relay (live voice) + MediaRecorder (voice notes)
+- **Voice**: MediaRecorder with room-scoped uploads and parallel playback
 - **AI**: Shared game engine + MCTS-based bot in a Worker thread
 
 ---
@@ -21,7 +22,7 @@ Ludo Club is a real-time multiplayer Ludo game built on:
 │   │   ├── lobby/              # Room browser, create/join room flows
 │   │   ├── game/               # Board, dice, PlayScreen, game hooks
 │   │   ├── chat/               # RoomChat, useRoomChat, chat UI
-│   │   └── voice/              # VoicePanel, liveVoice, recording, playback
+│   │   └── voice/              # VoicePanel, recording, playback
 │   ├── store/                  # Global state hooks (appearance, install, admission)
 │   ├── lib/                    # Shared utilities (error reporting, formatting, dialog)
 │   ├── workers/                # Web Workers (AI worker)
@@ -32,7 +33,6 @@ Ludo Club is a real-time multiplayer Ludo game built on:
 ├── server/                     # Backend source (Node.js + Socket.IO)
 │   ├── rooms/                  # Room lifecycle: create, join, leave, host transfer
 │   ├── game/                   # Game action handlers: roll, move, bot scheduling
-│   ├── voice/                  # Live voice relay, voice note routes
 │   ├── metrics/                # Observability: structured logs, metrics, health
 │   ├── ai/                     # AI scheduler + worker
 │   ├── app.ts                  # Application factory (orchestration shell)
@@ -43,7 +43,6 @@ Ludo Club is a real-time multiplayer Ludo game built on:
 │   ├── monitor.ts              # Performance monitor
 │   ├── admission.ts            # Capacity admission controller
 │   ├── pressure-sampler.ts     # Server pressure metrics
-│   ├── live-voice.ts           # Live voice relay (WebSocket)
 │   ├── backups.ts              # Backup management
 │   └── index.ts                # Server entrypoint
 │
@@ -55,7 +54,6 @@ Ludo Club is a real-time multiplayer Ludo game built on:
 │   ├── chat.ts                 # Chat constants
 │   ├── bot.ts                  # Bot constants
 │   ├── photo.ts                # Photo utilities
-│   ├── liveVoice.ts            # Live voice shared constants
 │   └── ai/                     # AI evaluation, tactics, search (MCTS)
 │
 ├── tests/                      # Unit + integration tests (Node test runner)
@@ -70,21 +68,21 @@ Ludo Club is a real-time multiplayer Ludo game built on:
 
 ### Frontend Features
 
-| Feature | Location | Responsibility |
-|---------|----------|---------------|
+| Feature   | Location              | Responsibility                                                   |
+| --------- | --------------------- | ---------------------------------------------------------------- |
 | **Lobby** | `src/features/lobby/` | Room browser (public tables), create room dialog, join with code |
-| **Game** | `src/features/game/` | Board rendering, dice, legal move highlighting, PlayScreen |
-| **Chat** | `src/features/chat/` | Room chat panel, GIF picker, message list, chat hook |
-| **Voice** | `src/features/voice/` | Voice notes panel, live voice, recording, playback |
+| **Game**  | `src/features/game/`  | Board rendering, dice, legal move highlighting, PlayScreen       |
+| **Chat**  | `src/features/chat/`  | Room chat panel, GIF picker, message list, chat hook             |
+| **Voice** | `src/features/voice/` | Voice notes panel, recording, playback                           |
 
 ### Backend Modules
 
-| Module | Location | Responsibility |
-|--------|----------|---------------|
-| **Rooms** | `server/rooms/` | Room create/join/leave, host transfer, seat management |
-| **Game** | `server/game/` | Roll, move, bot scheduling, game state transitions |
-| **Voice** | `server/voice/` | Live voice relay, voice note upload/serve routes |
-| **Metrics** | `server/metrics/` | Structured logging, counters, health endpoints |
+| Module      | Location          | Responsibility                                         |
+| ----------- | ----------------- | ------------------------------------------------------ |
+| **Rooms**   | `server/rooms/`   | Room create/join/leave, host transfer, seat management |
+| **Game**    | `server/game/`    | Roll, move, bot scheduling, game state transitions     |
+| **Voice**   | `server/app.ts`   | Member-scoped voice upload and retrieval               |
+| **Metrics** | `server/metrics/` | Structured logging, counters, health endpoints         |
 
 ---
 
@@ -131,11 +129,11 @@ App.tsx                           app.ts
 
 ## Testing Strategy
 
-| Layer | Tool | Location | Coverage |
-|-------|------|----------|---------|
-| Unit | Node `--test` + tsx | `tests/` | Game engine, room logic, AI, security |
-| Integration | Node `--test` + tsx | `tests/` | Socket events, room lifecycle, reconnect |
-| E2E | Playwright | `e2e/` | Full user flows (create, join, chat, voice) |
+| Layer       | Tool                | Location | Coverage                                    |
+| ----------- | ------------------- | -------- | ------------------------------------------- |
+| Unit        | Node `--test` + tsx | `tests/` | Game engine, room logic, AI, security       |
+| Integration | Node `--test` + tsx | `tests/` | Socket events, room lifecycle, reconnect    |
+| E2E         | Playwright          | `e2e/`   | Full user flows (create, join, chat, voice) |
 
 Run all: `npm run check` (tests + build)
 Run browser: `npm run test:browser`

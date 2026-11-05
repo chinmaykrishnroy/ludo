@@ -253,81 +253,92 @@ export class Store {
     room: Room,
     voice?: VoiceWrite,
     gif?: { id: string; data: Buffer; mime?: string },
+    departure?: { code: string; remaining?: Room },
   ) {
     const valid = roomSchema.parse(room);
     this.transaction(() => {
-      const previous = this.db
-        .prepare("SELECT body FROM rooms WHERE code=?")
-        .get(valid.code) as { body: string } | undefined;
-      const old = previous ? this.decode(previous.body) : undefined;
-      this.writeRoom(valid);
-      const images = new Set(
-        valid.chat.flatMap((m) => [
-          ...(m.gif ? [m.gif.id] : []),
-          ...(m.photo ? [m.photo.id] : []),
-        ]),
-      );
-      for (const row of this.db
-        .prepare("SELECT id FROM chat_media WHERE room=?")
-        .all(valid.code) as { id: string }[])
-        if (!images.has(row.id))
-          this.db.prepare("DELETE FROM chat_media WHERE id=?").run(row.id);
-      if (gif) {
-        const bytes = (
-          this.db
-            .prepare(
-              "SELECT COALESCE(SUM(length(data)),0) AS size FROM chat_media",
-            )
-            .get() as { size: number }
-        ).size;
-        if (bytes + gif.data.length > 64 * 1024 * 1024)
-          throw new PublicError(
-            "Attachment storage is full. Send a text message instead.",
-            "CHAT_CAPACITY",
-          );
-        this.db
-          .prepare("INSERT INTO chat_media(id,room,data,mime) VALUES(?,?,?,?)")
-          .run(gif.id, valid.code, gif.data, gif.mime ?? "image/gif");
-      }
-      const keep = valid.voices.map((v) => v.id);
-      for (const row of this.db
-        .prepare("SELECT id FROM voices WHERE room=?")
-        .all(valid.code) as { id: string }[])
-        if (!keep.includes(row.id))
-          this.db.prepare("DELETE FROM voices WHERE id=?").run(row.id);
-      if (voice) {
-        const bytes = (
-          this.db
-            .prepare("SELECT COALESCE(SUM(length(data)),0) AS size FROM voices")
-            .get() as { size: number }
-        ).size;
-        if (bytes + voice.data.length > this.maxVoiceBytes)
-          throw new PublicError(
-            "Voice storage is full. Please try again later.",
-            "VOICE_CAPACITY",
-          );
-        this.db
-          .prepare("INSERT INTO voices VALUES(?,?,?,?,?)")
-          .run(voice.id, valid.code, voice.mime, voice.data, voice.at);
-      }
-      const count = (key: string) =>
+      if (departure?.remaining)
+        this.persistRoom(roomSchema.parse(departure.remaining));
+      else if (departure) this.deleteRoom(departure.code);
+      this.persistRoom(valid, voice, gif);
+    });
+  }
+  private persistRoom(
+    valid: Room,
+    voice?: VoiceWrite,
+    gif?: { id: string; data: Buffer; mime?: string },
+  ) {
+    const previous = this.db
+      .prepare("SELECT body FROM rooms WHERE code=?")
+      .get(valid.code) as { body: string } | undefined;
+    const old = previous ? this.decode(previous.body) : undefined;
+    this.writeRoom(valid);
+    const images = new Set(
+      valid.chat.flatMap((m) => [
+        ...(m.gif ? [m.gif.id] : []),
+        ...(m.photo ? [m.photo.id] : []),
+      ]),
+    );
+    for (const row of this.db
+      .prepare("SELECT id FROM chat_media WHERE room=?")
+      .all(valid.code) as { id: string }[])
+      if (!images.has(row.id))
+        this.db.prepare("DELETE FROM chat_media WHERE id=?").run(row.id);
+    if (gif) {
+      const bytes = (
         this.db
           .prepare(
-            "INSERT INTO stats VALUES(?,1) ON CONFLICT(key) DO UPDATE SET value=value+1",
+            "SELECT COALESCE(SUM(length(data)),0) AS size FROM chat_media",
           )
-          .run(key);
-      if (!old) count("rooms_created");
-      if (
-        valid.game &&
-        (!old?.game ||
-          (old.game.phase === "finished" && valid.game.revision === 0))
-      )
-        count("games_started");
-      if (valid.game?.phase === "finished" && old?.game?.phase !== "finished")
-        count("games_finished");
-      if (valid.game && old?.game && isDiceRoll(old.game, valid.game))
-        count("dice_rolls");
-    });
+          .get() as { size: number }
+      ).size;
+      if (bytes + gif.data.length > 64 * 1024 * 1024)
+        throw new PublicError(
+          "Attachment storage is full. Send a text message instead.",
+          "CHAT_CAPACITY",
+        );
+      this.db
+        .prepare("INSERT INTO chat_media(id,room,data,mime) VALUES(?,?,?,?)")
+        .run(gif.id, valid.code, gif.data, gif.mime ?? "image/gif");
+    }
+    const keep = valid.voices.map((v) => v.id);
+    for (const row of this.db
+      .prepare("SELECT id FROM voices WHERE room=?")
+      .all(valid.code) as { id: string }[])
+      if (!keep.includes(row.id))
+        this.db.prepare("DELETE FROM voices WHERE id=?").run(row.id);
+    if (voice) {
+      const bytes = (
+        this.db
+          .prepare("SELECT COALESCE(SUM(length(data)),0) AS size FROM voices")
+          .get() as { size: number }
+      ).size;
+      if (bytes + voice.data.length > this.maxVoiceBytes)
+        throw new PublicError(
+          "Voice storage is full. Please try again later.",
+          "VOICE_CAPACITY",
+        );
+      this.db
+        .prepare("INSERT INTO voices VALUES(?,?,?,?,?)")
+        .run(voice.id, valid.code, voice.mime, voice.data, voice.at);
+    }
+    const count = (key: string) =>
+      this.db
+        .prepare(
+          "INSERT INTO stats VALUES(?,1) ON CONFLICT(key) DO UPDATE SET value=value+1",
+        )
+        .run(key);
+    if (!old) count("rooms_created");
+    if (
+      valid.game &&
+      (!old?.game ||
+        (old.game.phase === "finished" && valid.game.revision === 0))
+    )
+      count("games_started");
+    if (valid.game?.phase === "finished" && old?.game?.phase !== "finished")
+      count("games_finished");
+    if (valid.game && old?.game && isDiceRoll(old.game, valid.game))
+      count("dice_rolls");
   }
   findByPlayer(player: string): Room | undefined {
     const row = this.db
@@ -343,10 +354,11 @@ export class Store {
     return !!this.db.prepare("SELECT 1 FROM rooms WHERE code=?").get(code);
   }
   delete(code: string) {
-    this.transaction(() => {
-      this.db.prepare("DELETE FROM rooms WHERE code=?").run(code);
-      this.db.prepare("DELETE FROM quarantine WHERE code=?").run(code);
-    });
+    this.transaction(() => this.deleteRoom(code));
+  }
+  private deleteRoom(code: string) {
+    this.db.prepare("DELETE FROM rooms WHERE code=?").run(code);
+    this.db.prepare("DELETE FROM quarantine WHERE code=?").run(code);
   }
   putVoice(id: string, room: string, mime: string, data: Buffer) {
     this.transaction(() =>

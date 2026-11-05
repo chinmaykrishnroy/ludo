@@ -1,3 +1,4 @@
+import { addOfflineGuest } from "./room-guest";
 import { test, expect } from "@playwright/test";
 import { newGame, seat } from "../shared/game";
 const key = "ludo-local-game-v1";
@@ -168,6 +169,7 @@ test("voice preference survives menu replacement and refresh; microphone is requ
     .getByRole("button", { name: /^Create room$/ })
     .last()
     .click();
+  await addOfflineGuest(page);
   await page.getByRole("button", { name: "START GAME", exact: true }).click();
   await page.getByRole("button", { name: "Open game menu" }).click();
   await page
@@ -263,6 +265,7 @@ test("voice capture sends and cancels, or explains an unavailable browser encode
     .getByRole("button", { name: /^Create room$/ })
     .last()
     .click();
+  await addOfflineGuest(page);
   await page.getByRole("button", { name: "START GAME", exact: true }).click();
   await page.getByRole("button", { name: "Open game menu" }).click();
   await page
@@ -296,9 +299,6 @@ test("voice capture sends and cancels, or explains an unavailable browser encode
   await expect(page.locator(".record-button")).toHaveClass(/is-recording/);
   await page.waitForTimeout(600);
   await page.mouse.up();
-  await expect(
-    page.getByText("Voice message sent to the table."),
-  ).toBeVisible();
   await expect(page.locator(".voice-message")).toHaveCount(1);
   await page.getByRole("button", { name: /^Play voice message from/ }).click();
   await expect(

@@ -1,3 +1,4 @@
+import { addOfflineGuest } from "./room-guest";
 import AxeBuilder from "@axe-core/playwright";
 import { test, expect } from "@playwright/test";
 for (const theme of ["light", "dark"] as const) {
@@ -48,6 +49,7 @@ for (const theme of ["light", "dark"] as const) {
       .last()
       .click();
     await scan();
+    await addOfflineGuest(page);
     await page.getByRole("button", { name: "START GAME", exact: true }).click();
     await scan();
     await page

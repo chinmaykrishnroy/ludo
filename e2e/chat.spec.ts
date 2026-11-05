@@ -51,6 +51,120 @@ async function roomWithPeer(page: Page) {
   };
 }
 
+test("incoming text and GIF previews stack above the mobile board and expire independently", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 800 });
+  const peer = await roomWithPeer(page);
+  try {
+    const longWord = "long".repeat(38);
+    expect((await peer.send("chat:send", { text: longWord })).ok).toBe(true);
+    const preview = page.locator(".play-board .chat-preview");
+    await expect(preview.first()).toHaveText(`Bob: ${longWord}`);
+    const box = (await preview.first().boundingBox())!;
+    expect(box.width).toBeLessThan(375);
+    expect(box.height).toBeGreaterThan(40);
+    await page.waitForTimeout(1200);
+    expect((await peer.send("chat:send", { text: "", gif })).ok).toBe(true);
+    await expect(preview).toHaveCount(2);
+    await expect(preview.last()).toHaveText("Bob: sent a GIF");
+    await expect(preview).toHaveCount(1, { timeout: 4000 });
+    await expect(preview.first()).toHaveText("Bob: sent a GIF");
+    await expect(preview).toHaveCount(0, { timeout: 4000 });
+  } finally {
+    await peer.close();
+  }
+});
+
+test("chat composer fits above a keyboard that only shrinks the visual viewport", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 820 });
+  await page.addInitScript(() => {
+    const viewport = window.visualViewport!;
+    Object.defineProperty(viewport, "height", {
+      configurable: true,
+      get: () => Number(document.documentElement.dataset.keyboardHeight ?? 820),
+    });
+    Object.defineProperty(viewport, "offsetTop", {
+      configurable: true,
+      get: () => 0,
+    });
+    Object.defineProperty(viewport, "scale", {
+      configurable: true,
+      get: () => 1,
+    });
+  });
+  const peer = await roomWithPeer(page);
+  try {
+    await page
+      .getByRole("button", { name: "Open room chat", exact: true })
+      .click();
+    const composer = page.getByRole("textbox", { name: "Message to room" });
+    await composer.fill("Keyboard test");
+    await page.evaluate(() => {
+      document.documentElement.dataset.keyboardHeight = "480";
+      window.visualViewport!.dispatchEvent(new Event("resize"));
+    });
+    await expect
+      .poll(async () => {
+        const rect = (await composer.boundingBox())!;
+        return rect.y + rect.height;
+      })
+      .toBeLessThan(480);
+    await expect(composer).toBeFocused();
+    await expect(composer).toHaveValue("Keyboard test");
+  } finally {
+    await peer.close();
+  }
+});
+
+test("a played clip lights the sender's home and dice and mic take equal space", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 360, height: 800 });
+  // Exercise the playback UI without relying on the runner's audio codecs.
+  await page.addInitScript(() => {
+    Object.defineProperty(HTMLMediaElement.prototype, "src", {
+      configurable: true,
+      set() {},
+    });
+    HTMLMediaElement.prototype.play = async () => {};
+    HTMLMediaElement.prototype.pause = () => {};
+  });
+  const peer = await roomWithPeer(page);
+  try {
+    const roll = page.getByRole("button", { name: "Roll dice", exact: true });
+    const mic = page.getByRole("button", {
+      name: "Hold to record a voice message",
+      exact: true,
+    });
+    const [diceBox, micBox] = await Promise.all([
+      roll.boundingBox(),
+      mic.boundingBox(),
+    ]);
+    expect(Math.abs(diceBox!.width - micBox!.width)).toBeLessThan(1);
+    expect(diceBox!.height).toBe(micBox!.height);
+    expect(
+      (
+        await peer.send("voice:send", {
+          audio: Buffer.from([0x1a, 0x45, 0xdf, 0xa3, ...Array(20).fill(0)]),
+          mime: "audio/webm",
+          duration: 1,
+        })
+      ).ok,
+    ).toBe(true);
+    const home = page.locator('[data-speaking-colour="green"]');
+    await expect(home).toBeVisible();
+    await page
+      .getByRole("button", { name: "Mute speakers", exact: true })
+      .click();
+    await expect(home).toHaveCount(0);
+  } finally {
+    await peer.close();
+  }
+});
+
 test("chat has unread counts, typing, coloured mentions, emoji, GIFs and navigable replies", async ({
   page,
 }) => {
@@ -287,6 +401,7 @@ test("blocked audio has a visible tap action and speaker mute stops manual and a
     );
     const original = HTMLMediaElement.prototype.play;
     HTMLMediaElement.prototype.play = function () {
+      if (!this.src.includes("/api/voice/")) return Promise.resolve();
       if (!Reflect.get(window, "voiceAttempted")) {
         Reflect.set(window, "voiceAttempted", true);
         allowed = false;

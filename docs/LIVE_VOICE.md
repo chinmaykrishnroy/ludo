@@ -1,4 +1,6 @@
-# Live push-to-talk
+# Historical live push-to-talk design
+
+Versions 0.1.11 through 0.1.15 used this design. Version 0.1.16 returned to recorded hold-to-speak.
 
 The default hold-to-speak action attempts live room audio, falling back to the existing recorded-message architecture. This feature is independent of dice/game deadlines and has no effect on game rules. It requires no Coturn, peer-to-peer connectivity, new public ports or third-party media provider.
 

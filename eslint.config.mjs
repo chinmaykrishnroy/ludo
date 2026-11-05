@@ -17,7 +17,6 @@ export default [
       "**/temp-artifact/**",
       "**/test-results/**",
       "**/playwright-report/**",
-      "src/liveVoice.worklet.js",
     ],
   },
   // Base JS config
