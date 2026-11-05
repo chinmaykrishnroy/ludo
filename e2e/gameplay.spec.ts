@@ -129,6 +129,7 @@ test("rapid dice taps send one online action and do not show a misleading turn e
     .getByRole("button", { name: /^Create room$/ })
     .last()
     .click();
+  await addOfflineGuest(page);
   await page.getByRole("button", { name: "START GAME", exact: true }).click();
   const button = page.getByRole("button", { name: "Roll dice", exact: true });
   await expect(button).toBeEnabled();
@@ -144,3 +145,4 @@ test("rapid dice taps send one online action and do not show a misleading turn e
     page.getByText("It is not your turn.", { exact: true }),
   ).toHaveCount(0);
 });
+import { addOfflineGuest } from "./room-guest";

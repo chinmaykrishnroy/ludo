@@ -280,6 +280,7 @@ test("dice keeps tumbling while waiting for authority instead of freezing and sw
     .getByRole("button", { name: "Create room", exact: true })
     .last()
     .click();
+  await addOfflineGuest(page);
   await page.getByRole("button", { name: "START GAME", exact: true }).click();
   const roll = page.getByRole("button", { name: "Roll dice", exact: true });
   await expect(roll).toBeEnabled();
@@ -427,3 +428,4 @@ test("online snapshots and the following roll cannot replay a completed move", a
     await service.close();
   }
 });
+import { addOfflineGuest } from "./room-guest";
