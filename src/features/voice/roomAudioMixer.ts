@@ -14,6 +14,7 @@ type SoundChannel = {
   gain: GainNode;
   level: number;
 };
+type AudioSession = { type: string };
 
 export class RoomAudioMixer {
   private context?: AudioContext;
@@ -22,6 +23,7 @@ export class RoomAudioMixer {
   private sounds = new Map<HTMLAudioElement, SoundChannel>();
   private timer?: ReturnType<typeof setInterval>;
   private ducked = false;
+  private captureGeneration = 0;
 
   unlock() {
     try {
@@ -41,10 +43,60 @@ export class RoomAudioMixer {
     } catch {
       // Keep native media playback on browsers that cannot start Web Audio.
     }
+    return this.context;
   }
   resume() {
-    if (this.context && this.context.state !== "running")
+    if (
+      this.context &&
+      this.context.state !== "running" &&
+      this.context.state !== "closed"
+    )
       void this.context.resume().catch(() => {});
+  }
+  beginCapture() {
+    const generation = ++this.captureGeneration;
+    const session = (navigator as Navigator & { audioSession?: AudioSession })
+      .audioSession;
+    const previous = session?.type;
+    try {
+      if (session) session.type = "play-and-record";
+    } catch {
+      // The browser can still manage the route automatically.
+    }
+    return () => {
+      if (generation !== this.captureGeneration) return;
+      if (session && previous && previous !== "play-and-record") {
+        // Safari can keep the capture route even after the microphone tracks stop.
+        try {
+          session.type = "playback";
+        } catch {
+          // Restore the original preference even if the route reset was rejected.
+        }
+        try {
+          session.type = previous;
+        } catch {
+          // Context recovery below is independent of the Audio Session API.
+        }
+      }
+      const context = this.context;
+      if (!context || context.state === "closed") return;
+      if (
+        (session && context.state === "running") ||
+        String(context.state) === "interrupted"
+      ) {
+        // Restart the output while preserving the nodes attached to media elements.
+        void context
+          .suspend()
+          .catch(() => {})
+          .then(() => {
+            if (
+              this.context === context &&
+              this.captureGeneration === generation
+            )
+              void context.resume().catch(() => {});
+          });
+      } else this.resume();
+    };
   }
   prepareVoice(element: HTMLAudioElement) {
     const context = this.context;

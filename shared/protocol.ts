@@ -61,6 +61,7 @@ export type Reply = {
   ok: boolean;
   error?: string;
   room?: Room;
+  roomMissing?: boolean;
   me?: string;
   rooms?: PublicRoom[];
   roomPage?: { page: number; pageSize: number; total: number; pages: number };

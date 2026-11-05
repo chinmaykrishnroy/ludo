@@ -224,12 +224,41 @@ test("voice capture sends and cancels, or explains an unavailable browser encode
   await page.addInitScript((nativeFake) => {
     let audioContext: AudioContext | undefined;
     let calls = 0;
+    let type = "auto",
+      route = "playback",
+      recovered = false,
+      recordingSession = false;
     Object.defineProperty(window, "testMicCalls", { get: () => calls });
     Object.defineProperty(window, "testAudioContextState", {
       get: () => audioContext?.state,
     });
+    if (
+      typeof AudioContext !== "undefined" &&
+      typeof MediaRecorder !== "undefined"
+    ) {
+      Object.defineProperty(navigator, "audioSession", {
+        value: {
+          get type() {
+            return type;
+          },
+          set type(next: string) {
+            type = next;
+            if (next === "playback") route = "playback";
+          },
+        },
+      });
+      Object.defineProperty(window, "testAudioRoute", {
+        get: () => ({ type, route, recovered, recordingSession }),
+      });
+      const resume = AudioContext.prototype.resume;
+      AudioContext.prototype.resume = function () {
+        if (calls && route === "playback" && this !== audioContext)
+          recovered = true;
+        return resume.call(this);
+      };
+    }
     const prime = () => {
-      if (nativeFake) return;
+      if (nativeFake || typeof AudioContext === "undefined") return;
       audioContext ??= new AudioContext();
       void audioContext.resume();
     };
@@ -256,6 +285,9 @@ test("voice capture sends and cancels, or explains an unavailable browser encode
       value: {
         getUserMedia: async () => {
           calls++;
+          route = "recording";
+          recovered = false;
+          recordingSession = type === "play-and-record";
           if (nativeFake) return getFakeMicrophone!({ audio: true });
           const context = audioContext ?? new AudioContext();
           const destination = context.createMediaStreamDestination(),
@@ -313,6 +345,15 @@ test("voice capture sends and cancels, or explains an unavailable browser encode
   await page.waitForTimeout(1200);
   await page.mouse.up();
   await expect(page.locator(".voice-message")).toHaveCount(1);
+  const playbackRoute = {
+    type: "auto",
+    route: "playback",
+    recovered: true,
+    recordingSession: true,
+  };
+  const audioRoute = () =>
+    page.evaluate(() => Reflect.get(window, "testAudioRoute"));
+  await expect.poll(audioRoute).toEqual(playbackRoute);
   await page.getByRole("button", { name: /^Play voice message from/ }).click();
   await expect
     .poll(() => page.evaluate(() => Reflect.get(window, "testVoicePlayed")))
@@ -330,5 +371,6 @@ test("voice capture sends and cancels, or explains an unavailable browser encode
   await page.keyboard.press("Escape");
   await page.mouse.up();
   await expect(page.locator(".record-button")).not.toHaveClass(/is-recording/);
+  await expect.poll(audioRoute).toEqual(playbackRoute);
   await expect(page.locator(".voice-message")).toHaveCount(1);
 });

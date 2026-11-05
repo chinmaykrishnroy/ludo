@@ -184,6 +184,7 @@ export function useRoomVoice({
     const initialRoom = room.code;
     const stillHere = () =>
       mounted.current && roomCode.current === initialRoom && !cancelled.current;
+    let restorePlayback: (() => void) | undefined;
     try {
       if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder)
         throw new Error(
@@ -212,6 +213,7 @@ export function useRoomVoice({
         }
       }
       if (!stillHere()) return;
+      restorePlayback = mixer.beginCapture();
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true },
       });
@@ -224,10 +226,13 @@ export function useRoomVoice({
         return;
       }
       const capture = createVoiceRecording(stream, mime);
+      const restoreAfterRecording = restorePlayback;
+      restorePlayback = undefined;
       recorder.current = capture;
       setSeconds(0);
       setRecording(true);
       void capture.finished.then(async (result) => {
+        restoreAfterRecording();
         held.current = false;
         if (mounted.current) {
           setRecording(false);
@@ -269,6 +274,7 @@ export function useRoomVoice({
         );
       held.current = false;
     } finally {
+      restorePlayback?.();
       permissionPending.current = false;
       if (mounted.current) setPending(false);
     }

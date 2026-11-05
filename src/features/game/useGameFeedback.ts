@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isDiceRoll, type Game } from "../../../shared/game";
+import type { RoomAudioMixer } from "../voice/roomAudioMixer";
 import {
   captureHaptic,
   playGameSound,
@@ -12,23 +13,27 @@ export function useGameFeedback(
   sound: boolean,
   muted: boolean,
   haptics: boolean,
+  mixer: RoomAudioMixer,
 ) {
   const previous = useRef<{ game: Game; scope: string } | undefined>(undefined),
     immediate = useRef<string | null>(null),
-    audio = useRef<AudioContext | null>(null),
     timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const options = useRef({ sound, muted, haptics });
   options.current = { sound, muted, haptics };
   const [busy, setBusy] = useState(false);
-  const play = useCallback((kind: FeedbackKind) => {
-    if (!options.current.sound || options.current.muted || document.hidden)
-      return;
-    try {
-      playGameSound((audio.current ??= new AudioContext()), kind);
-    } catch {
-      /* Optional device feedback. */
-    }
-  }, []);
+  const play = useCallback(
+    (kind: FeedbackKind) => {
+      if (!options.current.sound || options.current.muted || document.hidden)
+        return;
+      try {
+        const context = mixer.unlock();
+        if (context) playGameSound(context, kind);
+      } catch {
+        /* Optional device feedback. */
+      }
+    },
+    [mixer],
+  );
   const reset = useCallback(() => {
     clearTimeout(timer.current);
     previous.current = undefined;
@@ -80,7 +85,6 @@ export function useGameFeedback(
   useEffect(
     () => () => {
       clearTimeout(timer.current);
-      void audio.current?.close();
     },
     [],
   );

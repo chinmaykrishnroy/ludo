@@ -51,6 +51,140 @@ async function roomWithPeer(page: Page) {
   };
 }
 
+test.describe("room sound and membership recovery", () => {
+  test.use({ serviceWorkers: "block" });
+
+  test("a missed room closure frees the last player on reconnect, resume, or quit", async ({
+    page,
+    context,
+  }) => {
+    const tabs = [page, await context.newPage(), await context.newPage()];
+    const intercept = async (tab: Page) => {
+      let upgrading = false;
+      let missed = false;
+      let interrupt: (() => Promise<void>) | undefined;
+      await tab.routeWebSocket("**/socket.io/**", (ws) => {
+        const server = ws.connectToServer();
+        server.onMessage((message) => {
+          if (message === "3probe") upgrading = true;
+          if (
+            typeof message === "string" &&
+            message.startsWith('42["room:left",')
+          ) {
+            missed = true;
+            interrupt = async () => {
+              await Promise.all([
+                ws.close({ code: 1012 }),
+                server.close({ code: 1012 }),
+              ]);
+            };
+            return;
+          }
+          ws.send(message);
+        });
+      });
+      return {
+        upgrading: () => upgrading,
+        missed: () => missed,
+        reconnect: () => interrupt!(),
+      };
+    };
+    const [connection, resume, quit] = await Promise.all(tabs.map(intercept));
+    for (const tab of tabs)
+      await tab.setViewportSize({ width: 390, height: 844 });
+    const peer = await roomWithPeer(page);
+    try {
+      await Promise.all(tabs.slice(1).map((tab) => tab.goto("/")));
+      for (const tab of tabs)
+        await expect(
+          tab.getByRole("button", { name: "Soundboard" }),
+        ).toBeVisible();
+      for (const route of [connection, resume, quit])
+        await expect.poll(route.upgrading).toBe(true);
+      await tabs[2].bringToFront();
+      await tabs[2].getByRole("button", { name: "BACK", exact: true }).click();
+      expect((await peer.send("room:leave", {})).ok).toBe(true);
+      for (const route of [connection, resume, quit])
+        await expect.poll(route.missed).toBe(true);
+      await tabs[2]
+        .getByRole("button", { name: "CONFIRM", exact: true })
+        .click();
+      await tabs[1].bringToFront();
+      await tabs[1].evaluate(() => window.dispatchEvent(new Event("pageshow")));
+      await connection.reconnect();
+      for (const tab of tabs) {
+        await expect(
+          tab.getByRole("button", { name: "PLAY WITH FRIENDS", exact: true }),
+        ).toBeVisible({ timeout: 6000 });
+        await expect(
+          tab.getByText("Join a room first.", { exact: true }),
+        ).toHaveCount(0);
+      }
+    } finally {
+      await peer.close();
+    }
+  });
+
+  test("the soundboard remembers the chosen category after closing and reloading", async ({
+    page,
+  }) => {
+    const catalog = {
+      categories: [
+        { id: "laughs", label: "Laughs" },
+        { id: "quotes", label: "Meme Quotes" },
+      ],
+      clips: [
+        {
+          id: "sample-quote",
+          label: "Sample quote",
+          categories: ["quotes"],
+          duration: 2,
+        },
+      ],
+    };
+    await page.routeWebSocket("**/socket.io/**", (ws) => {
+      const server = ws.connectToServer();
+      server.onMessage((message) => {
+        if (
+          typeof message === "string" &&
+          message.startsWith("43") &&
+          message.includes('"soundCatalog":')
+        ) {
+          const start = message.indexOf("[");
+          ws.send(
+            message.slice(0, start) +
+              JSON.stringify([{ ok: true, soundCatalog: catalog }]),
+          );
+        } else ws.send(message);
+      });
+    });
+    const peer = await roomWithPeer(page);
+    try {
+      const open = page.getByRole("button", {
+        name: "Soundboard",
+        exact: true,
+      });
+      const categories = page.getByRole("combobox", { name: "Sound category" });
+      await open.click();
+      await categories.selectOption("quotes");
+      await page.getByRole("button", { name: "Close soundboard" }).click();
+      await open.click();
+      await expect(
+        page.getByRole("button", { name: "Play sound: Sample quote" }),
+      ).toBeEnabled();
+      await expect(categories).toHaveValue("quotes");
+      await page.reload();
+      await open.click();
+      await expect(categories).toHaveValue("quotes");
+      await expect(
+        page.getByRole("button", { name: "Play sound: Sample quote" }),
+      ).toBeVisible();
+    } finally {
+      await peer.close();
+    }
+  });
+});
+
 test("a reaction style can be selected by dragging and starts at the rotated home", async ({
   page,
 }) => {

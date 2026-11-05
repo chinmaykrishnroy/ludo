@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.19]
+
+- Recovered audio output on iOS Safari and WebKit by resetting the audio session route to playback and resuming the audio context after microphone tracks end.
+- Added automatic recovery and lobby cleanup for players when an active room is closed or abandoned.
+- Saved the selected soundboard category in browser preferences so it persists across views and reloads.
+
 ## [0.1.18]
 
 - Added a room soundboard with automatic voice ducking and speaker mute.

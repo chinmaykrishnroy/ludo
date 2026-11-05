@@ -29,7 +29,6 @@ export const TONES: Record<FeedbackKind, Tone[]> = {
   ],
 };
 export function playGameSound(context: AudioContext, kind: FeedbackKind) {
-  void context.resume().catch(() => {});
   for (const tone of TONES[kind]) {
     const start = context.currentTime + tone.at,
       oscillator = context.createOscillator(),

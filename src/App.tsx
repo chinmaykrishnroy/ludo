@@ -226,16 +226,27 @@ export default function App() {
   const socket = useRef<Socket | null>(null),
     commandPending = useRef(false),
     issuedAction = useRef<string | null>(null),
-    activeRoomCode = useRef(room?.code),
+    activeRoomCode = useRef<string | undefined>(undefined),
     toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null),
     mutedVoiceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
       undefined,
     );
-  activeRoomCode.current = room?.code;
   const notify = useCallback((text: string) => {
     setToast(text);
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(""), 4500);
+  }, []);
+  const clearRoom = useCallback((code?: string) => {
+    if (code && activeRoomCode.current !== code) return false;
+    activeRoomCode.current = undefined;
+    setRoom(null);
+    setRoomEffects(undefined);
+    setTypingEvent(null);
+    setSetup(true);
+    setModal((current) =>
+      current === "leave" || current === "moderation" ? null : current,
+    );
+    return true;
   }, []);
   const send = useCallback(
     async (event: string, data: unknown): Promise<Reply> => {
@@ -269,16 +280,24 @@ export default function App() {
     let clockTimer: ReturnType<typeof setInterval> | undefined;
     const syncClock = async () => {
       if (!s?.connected) return;
+      const connection = s;
+      const room = activeRoomCode.current;
       const sent = Date.now();
       try {
-        const reply = (await s
+        const reply = (await connection
           .timeout(3000)
-          .emitWithAck("clock:sync", {})) as Reply;
-        if (reply.ok && typeof reply.serverNow === "number" && !disposed)
+          .emitWithAck("clock:sync", { room })) as Reply;
+        if (disposed || connection !== s || !reply.ok) return;
+        if (typeof reply.serverNow === "number")
           setClockOffset(reply.serverNow - (sent + Date.now()) / 2);
+        if (room && reply.roomMissing && clearRoom(room))
+          notify("This room is no longer available.");
       } catch {
         /* Next heartbeat retries. */
       }
+    };
+    const resume = () => {
+      if (document.visibilityState === "visible") void syncClock();
     };
     const connect = () => {
       if (disposed || pending) return;
@@ -309,8 +328,7 @@ export default function App() {
             s?.removeAllListeners();
             s = undefined;
             socket.current = null;
-            setRoom(null);
-            setSetup(true);
+            clearRoom();
             if (retry) clearTimeout(retry);
             retry = setTimeout(connect, 250);
           };
@@ -332,8 +350,7 @@ export default function App() {
           });
           s.on("session:blocked", () => {
             notify("Online access is blocked for this guest.");
-            setRoom(null);
-            setSetup(true);
+            clearRoom();
             s?.disconnect();
             if (retry) clearTimeout(retry);
           });
@@ -366,19 +383,12 @@ export default function App() {
           s.on("chat:typing", (event: Typing) =>
             setTypingEvent({ ...event, at: Date.now() }),
           );
-          const clearRoom = ({ code }: { code: string }) => {
-            if (activeRoomCode.current !== code) return false;
-            activeRoomCode.current = undefined;
-            setRoom(null);
-            setRoomEffects(undefined);
-            setSetup(true);
-            return true;
-          };
           s.on("room:closed", (event: { code: string }) => {
-            if (event && clearRoom(event)) notify("This room expired.");
+            if (event?.code && clearRoom(event.code))
+              notify("This room expired.");
           });
           s.on("room:left", (event: { code: string; closed?: boolean }) => {
-            if (clearRoom(event) && event.closed)
+            if (event?.code && clearRoom(event.code) && event.closed)
               notify(
                 "This room closed because fewer than two players remained.",
               );
@@ -396,14 +406,18 @@ export default function App() {
     };
     connect();
     window.addEventListener("online", connect);
+    window.addEventListener("pageshow", resume);
+    document.addEventListener("visibilitychange", resume);
     return () => {
       disposed = true;
       if (retry) clearTimeout(retry);
       if (clockTimer) clearInterval(clockTimer);
       window.removeEventListener("online", connect);
+      window.removeEventListener("pageshow", resume);
+      document.removeEventListener("visibilitychange", resume);
       s?.disconnect();
     };
-  }, [notify]);
+  }, [clearRoom, notify]);
   useEffect(() => {
     if (connected)
       void fetch("/api/config")
@@ -502,6 +516,7 @@ export default function App() {
       sound,
       voice.muted,
       haptics,
+      voice.mixer,
     ),
     busy = feedback.busy;
   useEffect(() => {
@@ -670,10 +685,11 @@ export default function App() {
   }
   async function leave() {
     const code = room?.code;
-    const r = await send("room:leave", {});
+    if (!code) return;
+    const r = await send("room:leave", { room: code });
     if (r.ok) {
       if (activeRoomCode.current && activeRoomCode.current !== code) return;
-      setModal(null);
+      clearRoom(code);
       feedback.reset();
     } else notify(r.error ?? "Could not leave.");
   }
@@ -1364,7 +1380,7 @@ export default function App() {
               onClick={() =>
                 modal === "leave"
                   ? room
-                    ? void leave().then(() => setSetup(true))
+                    ? void leave()
                     : (savePractice(browserStorage, null),
                       setPracticeOpen(false),
                       setSetup(true),

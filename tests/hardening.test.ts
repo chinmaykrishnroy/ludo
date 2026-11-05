@@ -1067,6 +1067,16 @@ test("a room switch is atomic across tabs and closes a room left with one human"
     assert.equal(switchedTo, next);
     assert.equal(h.service.store.hasRoom(old), false);
     assert.equal(
+      (await h.call(b.socket, "clock:sync", { room: old })).roomMissing,
+      true,
+    );
+    assert((await h.call(b.socket, "room:leave", { room: old })).ok);
+    assert((await h.call(tab.socket, "room:leave", { room: old })).ok);
+    assert.equal(
+      (await h.call(tab.socket, "clock:sync", { room: next })).roomMissing,
+      false,
+    );
+    assert.equal(
       h.service.io.sockets.sockets.get(tab.socket.id!)!.rooms.has(old),
       false,
     );

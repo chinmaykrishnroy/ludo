@@ -74,6 +74,7 @@ const roomCode = z
     .trim()
     .toUpperCase()
     .regex(/^[A-Z2-9]{6}$/),
+  roomScope = z.object({ room: roomCode.optional() }),
   revision = z.object({ revision: z.number().int().nonnegative() });
 export type ApplicationOptions = {
   soundboardDirectory?: string;
@@ -994,7 +995,13 @@ export function createApplication(options: ApplicationOptions = {}) {
       if (r.host !== id)
         throw new PublicError("Only the room organiser can do that.");
     };
-    handle("clock:sync", () => ({ ok: true, serverNow: Date.now() }));
+    handle("clock:sync", (data) => {
+      const { room } = roomScope.parse(data ?? {});
+      const roomMissing = room
+        ? (activeRoom(id) ?? store.findByPlayer(id))?.code !== room
+        : undefined;
+      return { ok: true, serverNow: Date.now(), roomMissing };
+    });
     const tableForEffects = (code: string) => {
       const room = activeRoom(id);
       if (!room?.game || room.code !== code)
@@ -1538,8 +1545,18 @@ export function createApplication(options: ApplicationOptions = {}) {
         },
       });
     });
-    handle("room:leave", () => {
-      const r = requireRoom();
+    handle("room:leave", (data) => {
+      const { room } = roomScope.parse(data ?? {});
+      const r = activeRoom(id);
+      if (!r) {
+        const saved = store.findByPlayer(id);
+        if (saved && (!room || saved.code === room))
+          throw new PublicError(
+            "Your saved room is reconnecting. Please try again shortly.",
+          );
+        return;
+      }
+      if (room && r.code !== room) return;
       const { remaining } = departure(r, id);
       if (remaining) commit(remaining);
       else {

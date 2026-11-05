@@ -10,10 +10,13 @@ import {
   type SoundCatalog,
 } from "../../../shared/effects";
 import type { Reply } from "../../../shared/protocol";
+import { browserStorage } from "../../store/storage";
 import type { TableSoundController } from "./useTableSound";
 import { PALETTE } from "./Board";
 import { homeOrigin, type BoardRotation } from "./boardOrientation";
 import { QuickReactions } from "./QuickReactions";
+
+const SOUND_CATEGORY_KEY = "ludo-soundboard-category";
 
 export function ReactionOverlay({
   cue,
@@ -94,7 +97,13 @@ export function TableEffectsControls({
 }) {
   const [open, setOpen] = useState(false);
   const [catalog, setCatalog] = useState<SoundCatalog>();
-  const [category, setCategory] = useState("");
+  const [preferredCategory, setPreferredCategory] = useState(
+    () => browserStorage.getItem(SOUND_CATEGORY_KEY) ?? "",
+  );
+  const category =
+    catalog?.categories.find((entry) => entry.id === preferredCategory)?.id ??
+    catalog?.categories[0]?.id ??
+    "";
   const [busy, setBusy] = useState(false);
   const [loadError, setLoadError] = useState("");
   const panel = useRef<HTMLDivElement>(null);
@@ -112,7 +121,6 @@ export function TableEffectsControls({
   useEffect(() => {
     setOpen(false);
     setCatalog(undefined);
-    setCategory("");
     setLoadError("");
     setBusy(false);
     return () => {
@@ -164,7 +172,6 @@ export function TableEffectsControls({
       return;
     }
     setCatalog(reply.soundCatalog);
-    setCategory(reply.soundCatalog.categories[0]?.id ?? "");
   }
   async function choose(id: string) {
     if (busy || waitSound || muted) return;
@@ -174,10 +181,7 @@ export function TableEffectsControls({
     if (request.current !== sequence) return;
     setBusy(false);
     if (result.code === "SOUND_UNAVAILABLE" && result.soundCatalog) {
-      const refreshed = result.soundCatalog;
-      setCatalog(refreshed);
-      if (!refreshed.categories.some((entry) => entry.id === category))
-        setCategory(refreshed.categories[0]?.id ?? "");
+      setCatalog(result.soundCatalog);
       return;
     }
     if (!result.ok && result.code !== "EFFECT_BUSY")
@@ -267,7 +271,11 @@ export function TableEffectsControls({
                 <span className="sr-only">Sound category</span>
                 <select
                   value={category}
-                  onChange={(event) => setCategory(event.target.value)}
+                  onChange={(event) => {
+                    const choice = event.target.value;
+                    setPreferredCategory(choice);
+                    browserStorage.setItem(SOUND_CATEGORY_KEY, choice);
+                  }}
                 >
                   {catalog.categories.map((entry) => (
                     <option key={entry.id} value={entry.id}>
