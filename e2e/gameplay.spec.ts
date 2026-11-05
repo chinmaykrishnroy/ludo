@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { addOfflineGuest } from "./room-guest";
 import { newGame, seat, roll } from "../shared/game";
 const key = "ludo-local-game-v1";
 
@@ -145,4 +146,3 @@ test("rapid dice taps send one online action and do not show a misleading turn e
     page.getByText("It is not your turn.", { exact: true }),
   ).toHaveCount(0);
 });
-import { addOfflineGuest } from "./room-guest";

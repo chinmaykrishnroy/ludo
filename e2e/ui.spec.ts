@@ -196,7 +196,7 @@ test("safe stars share the exact cell centre at phone and desktop widths", async
   }
 });
 
-test("disconnect cues stop on reconnect, respect reduced motion, and confirmed quit removes tokens", async ({
+test("disconnect cues stop on reconnect and a confirmed quit closes a two-person room", async ({
   page,
   browser,
 }) => {
@@ -263,7 +263,7 @@ test("disconnect cues stop on reconnect, respect reduced motion, and confirmed q
         "This room closed because fewer than two players remained.",
       ),
     ).toBeVisible();
-    await expect(page.locator(".board")).toHaveCount(0);
+    await expect(page.locator(".game-stage")).toHaveCount(0);
   } finally {
     await peer.close();
   }

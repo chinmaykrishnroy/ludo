@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { addOfflineGuest } from "./room-guest";
 import { newGame, seat } from "../shared/game";
 import { createApplication } from "../server/app";
 import { AdmissionController } from "../server/admission";
@@ -428,4 +429,3 @@ test("online snapshots and the following roll cannot replay a completed move", a
     await service.close();
   }
 });
-import { addOfflineGuest } from "./room-guest";
