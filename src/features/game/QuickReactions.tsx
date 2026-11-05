@@ -21,10 +21,12 @@ type Gesture = {
 
 export function QuickReactions({
   wait,
+  coolingReaction,
   offline,
   onReact,
 }: {
   wait: number;
+  coolingReaction?: ReactionId;
   offline: boolean;
   onReact: (reaction: ReactionId, style: ReactionStyle) => void;
 }) {
@@ -111,7 +113,9 @@ export function QuickReactions({
         <button
           type="button"
           key={id}
-          title={REACTIONS[id].label + " · Hold for styles"}
+          title={
+            REACTIONS[id].label + " · Hold, drag down or right-click for styles"
+          }
           aria-label={`React: ${REACTIONS[id].label}`}
           aria-expanded={picker?.reaction === id}
           disabled={locked}
@@ -150,7 +154,12 @@ export function QuickReactions({
             setPicker(undefined);
           }}
           onLostPointerCapture={resetGesture}
-          onContextMenu={(event) => event.preventDefault()}
+          onContextMenu={(event) => {
+            event.preventDefault();
+            if (event.button !== 2 || locked) return;
+            lastTrigger.current = event.currentTarget;
+            reveal(id);
+          }}
           onKeyDown={(event) => {
             if (event.key !== "ArrowDown") return;
             event.preventDefault();
@@ -168,7 +177,7 @@ export function QuickReactions({
           <span className="reaction-button-emoji" aria-hidden="true">
             {REACTIONS[id].emoji}
           </span>
-          {wait > 0 && (
+          {wait > 0 && id === coolingReaction && (
             <span className="reaction-button-time" aria-hidden="true">
               {wait}s
             </span>

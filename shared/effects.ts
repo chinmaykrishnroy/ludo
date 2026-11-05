@@ -31,6 +31,7 @@ export type SoundCue = Cue & { sound: string; title: string; gain: number };
 export type RoomEffects = {
   room: string;
   reactionReadyAt: number;
+  coolingReaction?: ReactionId;
   soundReadyAt: number;
   reaction?: ReactionCue;
   sound?: SoundCue;

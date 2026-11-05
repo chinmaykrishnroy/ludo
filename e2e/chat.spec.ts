@@ -90,6 +90,7 @@ test("a reaction style can be selected by dragging and starts at the rotated hom
     );
     await expect(angry).toBeDisabled();
     await expect(angry.locator(".reaction-button-time")).toHaveText(/^[1-4]s$/);
+    await expect(page.locator(".reaction-button-time")).toHaveCount(1);
     await expect(angry).toBeEnabled();
     await angry.focus();
     await page.keyboard.press("ArrowDown");
@@ -98,6 +99,11 @@ test("a reaction style can be selected by dragging and starts at the rotated hom
     ).toBeFocused();
     await page.keyboard.press("Escape");
     await expect(angry).toBeFocused();
+    await angry.click({ button: "right" });
+    await expect(
+      page.getByRole("button", { name: "Float", exact: true }),
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
     await angry.hover();
     await page.mouse.down();
     const burst = page.getByRole("button", { name: "Burst", exact: true });

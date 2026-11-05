@@ -189,6 +189,9 @@ export function TableEffectsControls({
       <div className="table-effects-row" aria-label="Table effects">
         <QuickReactions
           wait={wait}
+          coolingReaction={
+            effects?.coolingReaction ?? effects?.reaction?.reaction
+          }
           offline={!!room && !connected}
           onReact={onReact}
         />

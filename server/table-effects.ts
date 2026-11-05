@@ -46,13 +46,17 @@ export class TableEffects {
     if (!entry) return;
     const { reaction, sound, reactionReadyAt, soundReadyAt } = entry;
     const now = this.now();
+    const visibleReaction =
+      reaction && visible(reaction.actor) ? reaction : undefined;
     return {
       room,
       reactionReadyAt,
       soundReadyAt,
+      coolingReaction:
+        reactionReadyAt > now ? visibleReaction?.reaction : undefined,
       reaction:
-        reaction && reaction.endsAt > now && visible(reaction.actor)
-          ? reaction
+        visibleReaction && visibleReaction.endsAt > now
+          ? visibleReaction
           : undefined,
       sound:
         sound && sound.endsAt > now && visible(sound.actor) ? sound : undefined,

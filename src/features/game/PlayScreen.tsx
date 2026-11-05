@@ -107,6 +107,7 @@ export default function PlayScreen({
         : {
             room: "local",
             reactionReadyAt: endsAt + REACTION_GAP_MS,
+            coolingReaction: reaction,
             soundReadyAt: 0,
             reaction: { id, actor, reaction, style, startsAt, endsAt },
           },
