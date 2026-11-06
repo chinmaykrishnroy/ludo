@@ -266,11 +266,12 @@ export default function PlayScreen({
         <div className={`play-controls ${room ? "with-room-voice" : ""}`}>
           <button
             className={`big-dice-button ${mine ? "your-roll" : ""}`}
+            data-turn-color={current.color}
             style={
               {
                 "--turn-colour": PALETTE[current.color],
                 background: PALETTE[current.color],
-                color: "#111111",
+                color: current.color === "yellow" ? "#11100e" : "#ffffff",
               } as React.CSSProperties
             }
             disabled={

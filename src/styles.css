@@ -1793,9 +1793,11 @@ select {
   text-overflow: ellipsis;
   text-align: left;
   font-size: 13px;
-  letter-spacing: 0;
-  font-weight: 700;
-  color: var(--ink-muted);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-weight: 800;
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 .game-stage .dice-turn i {
   display: none;
@@ -1806,26 +1808,42 @@ select {
   align-self: start;
   font-size: 18px;
   font-weight: 800;
+  letter-spacing: -0.01em;
   text-align: left;
   white-space: nowrap;
-  color: var(--ink);
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 .game-stage .dice-clock {
   grid-column: 3;
   grid-row: 1/3;
   align-self: center;
   justify-self: end;
-  background: var(--paper-glass, rgba(255, 255, 255, 0.9));
+  background: rgba(0, 0, 0, 0.32);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  color: var(--ink);
-  border: 1px solid var(--line);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: var(--radius-sm, 6px);
   padding: 5px 8px;
   font-size: 14px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+.game-stage .big-dice-button[data-turn-color="yellow"] .dice-turn {
+  color: #1e1d1a;
+  text-shadow: none;
+}
+.game-stage .big-dice-button[data-turn-color="yellow"] .dice-action {
+  color: #11100e;
+  text-shadow: none;
+}
+.game-stage .big-dice-button[data-turn-color="yellow"] .dice-clock {
+  background: rgba(0, 0, 0, 0.12);
+  border-color: rgba(0, 0, 0, 0.15);
+  color: #11100e;
+  box-shadow: none;
 }
 .game-stage .compact-voice .record-button {
   height: 88px;
@@ -1923,7 +1941,7 @@ select {
     height: 6px;
   }
   .game-stage .dice-turn {
-    font-size: 11px;
+    font-size: 12px;
     grid-column: 2/4;
   }
   .game-stage .dice-action {
@@ -1970,7 +1988,8 @@ select {
     gap: 14px;
   }
   .game-stage .dice-turn {
-    font-size: 11px;
+    font-size: 12px;
+    font-weight: 800;
   }
   .game-stage .dice-action {
     font-size: 14px;
@@ -3446,7 +3465,7 @@ dialog .app-error-notice {
   }
   .game-stage .with-room-voice .dice-turn {
     grid-column: 2;
-    font-size: 10px;
+    font-size: 11.5px;
   }
 }
 
