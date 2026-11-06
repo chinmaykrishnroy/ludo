@@ -311,16 +311,11 @@ select {
 }
 .dice-pips i.visible {
   opacity: 1;
-  background: radial-gradient(circle at 35% 35%, #33302c 0%, #11100e 85%);
+  background: #18181b;
+  border-radius: 50%;
   box-shadow:
-    inset 0 1.5px 2px rgba(0, 0, 0, 0.8),
-    0 0.8px 1px rgba(255, 255, 255, 0.5);
-}
-.face-1 .dice-pips i.visible {
-  background: radial-gradient(circle at 35% 35%, #e11d48 0%, #9f1239 85%);
-  box-shadow:
-    inset 0 1.5px 2px rgba(0, 0, 0, 0.6),
-    0 0.8px 1px rgba(255, 255, 255, 0.5);
+    inset 0 1px 1.5px rgba(0, 0, 0, 0.7),
+    0 0.5px 1px rgba(255, 255, 255, 0.5);
 }
 .compact-voice {
   margin: 0 !important;
@@ -3314,27 +3309,13 @@ dialog .app-error-notice {
 }
 .dice-stage {
   transition: transform 280ms cubic-bezier(0.18, 0.7, 0.25, 1);
-  filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.35))
-    drop-shadow(0 3px 5px rgba(0, 0, 0, 0.22));
-}
-@media (prefers-reduced-motion: no-preference) {
-  .dice[data-phase="ready"] .dice-stage {
-    animation: dice-idle-float 2.8s ease-in-out infinite alternate;
-  }
-}
-@keyframes dice-idle-float {
-  0% {
-    transform: scale(0.97) translateY(0);
-  }
-  100% {
-    transform: scale(1.02) translateY(-2px);
-  }
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.25));
 }
 .dice[data-phase="rolling"] .dice-stage {
   transform: scale(0.78);
 }
 .dice-cube {
-  transform: translateZ(calc(var(--dice-depth) * -1)) rotateZ(-6deg);
+  transform: translateZ(calc(var(--dice-depth) * -1));
 }
 .dice-face,
 .dice-idle {
@@ -3342,13 +3323,13 @@ dialog .app-error-notice {
   inset: 0;
   display: grid;
   place-items: center;
-  background: linear-gradient(145deg, #ffffff 0%, #faf7f0 55%, #ede6d6 100%);
-  border: 1.5px solid rgba(25, 25, 25, 0.75);
-  border-radius: 9px;
+  background: #ffffff;
+  border: 1.5px solid rgba(0, 0, 0, 0.12);
+  border-radius: 12px;
   box-shadow:
-    inset 0 1px 2px rgba(255, 255, 255, 0.95),
-    inset 0 -2px 4px rgba(0, 0, 0, 0.12),
-    0 1px 3px rgba(0, 0, 0, 0.15);
+    inset 0 1px 2px rgba(255, 255, 255, 0.9),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.08),
+    0 3px 8px rgba(0, 0, 0, 0.16);
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
 }
@@ -3606,24 +3587,27 @@ dialog .app-error-notice {
 .table-effects-row {
   grid-column: 1 / -1;
   display: flex;
-  justify-content: center;
+  justify-content: stretch;
   align-items: center;
   gap: 10px;
   min-width: 0;
+  width: 100%;
   height: 44px;
 }
 .reaction-buttons {
   position: relative;
+  width: 100%;
   display: grid;
-  grid-template-columns: repeat(7, minmax(26px, 36px));
+  grid-template-columns: repeat(7, 1fr);
   gap: 4px;
   background: var(--paper-glass, rgba(255, 255, 255, 0.8));
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--line);
-  border-radius: var(--radius-pill, 9999px);
-  padding: 3px 8px;
+  border-radius: var(--radius-md, 14px);
+  padding: 4px 8px;
   box-shadow: var(--shadow-ambient);
+  box-sizing: border-box;
 }
 .reaction-buttons > button {
   position: relative;
@@ -3631,11 +3615,14 @@ dialog .app-error-notice {
   user-select: none;
   -webkit-touch-callout: none;
   min-width: 0;
+  width: 100%;
   min-height: 36px;
   height: 36px;
   padding: 2px 4px;
   border: 0;
-  border-radius: 50%;
+  border-radius: var(--radius-sm, 8px);
+  display: grid;
+  place-items: center;
   background: transparent;
   color: var(--ink);
   box-shadow: none;
@@ -4163,8 +4150,9 @@ dialog .app-error-notice {
     gap: 4px;
   }
   .reaction-buttons {
-    grid-template-columns: repeat(6, minmax(27px, 35px));
-    gap: 3px;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    padding: 3px 4px;
   }
   .effect-tool span {
     display: none;
@@ -4238,7 +4226,7 @@ dialog .app-error-notice {
 .reaction-button-custom {
   display: grid !important;
   place-items: center;
-  border-radius: 50% !important;
+  border-radius: var(--radius-sm, 8px) !important;
   background: rgba(255, 255, 255, 0.08) !important;
   border: 1px dashed rgba(255, 255, 255, 0.25) !important;
   color: var(--yellow) !important;

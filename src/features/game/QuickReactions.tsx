@@ -253,7 +253,7 @@ export function QuickReactions({
           ref={options}
           className={`reaction-picker ${picker.above ? "reaction-picker-above" : ""}`}
           role="group"
-          aria-label={`${REACTIONS[picker.reaction].label} reaction styles`}
+          aria-label={`${REACTIONS[picker.reaction as keyof typeof REACTIONS]?.label ?? picker.reaction} reaction styles`}
         >
           {REACTION_STYLES.map((style) => {
             const Icon = icons[style];
@@ -301,6 +301,7 @@ export function QuickReactions({
                 type="button"
                 key={emoji}
                 title={`React with ${emoji}`}
+                aria-label={`React with ${emoji}`}
                 onClick={() => sendCustom(emoji, customStyle)}
               >
                 {emoji}

@@ -96,12 +96,19 @@ export default function PlayScreen({
     actor: EffectActor,
     reaction: ReactionId,
     delay = 0,
-    style = DEFAULT_REACTION_STYLE[reaction],
+    style?: ReactionStyle,
   ) {
     const timestamp = Date.now();
     const startsAt = timestamp + delay;
     const endsAt = startsAt + REACTION_MS;
     const id = String(++localCueId.current);
+    const finalStyle =
+      style ??
+      (reaction in DEFAULT_REACTION_STYLE
+        ? DEFAULT_REACTION_STYLE[
+            reaction as keyof typeof DEFAULT_REACTION_STYLE
+          ]
+        : "burst");
     setLocalEffects((current) =>
       (current?.reactionReadyAt ?? 0) > timestamp
         ? current
@@ -110,7 +117,14 @@ export default function PlayScreen({
             reactionReadyAt: endsAt + REACTION_GAP_MS,
             coolingReaction: reaction,
             soundReadyAt: 0,
-            reaction: { id, actor, reaction, style, startsAt, endsAt },
+            reaction: {
+              id,
+              actor,
+              reaction,
+              style: finalStyle,
+              startsAt,
+              endsAt,
+            },
           },
     );
   }

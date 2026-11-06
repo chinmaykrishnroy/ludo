@@ -16,8 +16,8 @@ const ORIENTATION: Record<number, [number, number]> = {
   5: [90, 0],
   6: [0, 180],
 };
-const pose = (x: number, y: number, z = -6) =>
-  `translateZ(calc(var(--dice-depth) * -1)) rotateZ(${z}deg) rotateX(${x}deg) rotateY(${y}deg)`;
+const pose = (x: number, y: number, z = 0) =>
+  `translateZ(calc(var(--dice-depth) * -1)) rotateX(${x}deg) rotateY(${y}deg) rotateZ(${z}deg)`;
 type Phase = "ready" | "rolling" | "landing" | "settled";
 export default memo(function Dice({
   value,
@@ -65,7 +65,7 @@ export default memo(function Dice({
     if (value === null) {
       setPhase("ready");
       orientation.current = ORIENTATION[1];
-      element.style.transform = pose(14, -20, -4);
+      element.style.transform = pose(0, 0, 0);
       return;
     }
     const [x, y] = ORIENTATION[value];
