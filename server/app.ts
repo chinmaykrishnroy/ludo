@@ -14,7 +14,6 @@ import { loadSoundboard } from "./soundboard.js";
 import {
   botReactionCandidates,
   effectActor,
-  REACTION_IDS,
   REACTION_STYLES,
   type RoomEffects,
 } from "../shared/effects.js";
@@ -376,7 +375,16 @@ export function createApplication(options: ApplicationOptions = {}) {
         : before.game
           ? botReactionCandidates(before.game, after.game)
           : [];
-      if (effects.bot(after.code, candidates, delay) || left.length)
+      if (
+        effects.bot(
+          after.code,
+          candidates,
+          delay,
+          soundboard.catalog,
+          soundboard.available,
+        ) ||
+        left.length
+      )
         publishEffects(after);
     } catch (error) {
       failure("room_effects", error);
@@ -1015,7 +1023,7 @@ export function createApplication(options: ApplicationOptions = {}) {
       const input = z
         .object({
           room: roomCode,
-          reaction: z.enum(REACTION_IDS),
+          reaction: z.string().min(1).max(32),
           style: z.enum(REACTION_STYLES).optional(),
         })
         .parse(data);

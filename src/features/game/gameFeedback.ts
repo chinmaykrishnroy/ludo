@@ -1,4 +1,5 @@
-export type FeedbackKind = "roll" | "move" | "capture" | "finish";
+export type FeedbackKind =
+  "roll" | "move" | "capture" | "finish" | "botCheer" | "botGroan" | "botTaunt";
 export type Tone = {
   at: number;
   from: number;
@@ -26,6 +27,47 @@ export const TONES: Record<FeedbackKind, Tone[]> = {
   finish: [
     { at: 0, from: 660, to: 790, duration: 0.1, gain: 0.014, type: "sine" },
     { at: 0.09, from: 880, to: 990, duration: 0.13, gain: 0.012, type: "sine" },
+  ],
+  botCheer: [
+    {
+      at: 0,
+      from: 523,
+      to: 659,
+      duration: 0.06,
+      gain: 0.015,
+      type: "triangle",
+    },
+    {
+      at: 0.06,
+      from: 659,
+      to: 784,
+      duration: 0.06,
+      gain: 0.015,
+      type: "triangle",
+    },
+    {
+      at: 0.12,
+      from: 784,
+      to: 1046,
+      duration: 0.11,
+      gain: 0.016,
+      type: "sine",
+    },
+  ],
+  botGroan: [
+    {
+      at: 0,
+      from: 440,
+      to: 349,
+      duration: 0.09,
+      gain: 0.015,
+      type: "sawtooth",
+    },
+    { at: 0.09, from: 349, to: 220, duration: 0.13, gain: 0.014, type: "sine" },
+  ],
+  botTaunt: [
+    { at: 0, from: 587, to: 659, duration: 0.08, gain: 0.014, type: "sine" },
+    { at: 0.09, from: 880, to: 784, duration: 0.12, gain: 0.015, type: "sine" },
   ],
 };
 export function playGameSound(context: AudioContext, kind: FeedbackKind) {

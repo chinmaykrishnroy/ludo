@@ -65,7 +65,7 @@ export default memo(function Dice({
     if (value === null) {
       setPhase("ready");
       orientation.current = ORIENTATION[1];
-      element.style.transform = pose(0, 0);
+      element.style.transform = pose(14, -20, -4);
       return;
     }
     const [x, y] = ORIENTATION[value];

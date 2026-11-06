@@ -24,6 +24,7 @@ import {
 } from "../../../shared/effects";
 import { ReactionOverlay, TableEffectsControls } from "./TableEffectsControls";
 import { useTableSound } from "./useTableSound";
+import { playGameSound } from "./gameFeedback";
 import { rotationForHome } from "./boardOrientation";
 
 export default function PlayScreen({
@@ -133,6 +134,34 @@ export default function PlayScreen({
     if (selected) {
       recentBots.current.set(selected.actor.id, timestamp);
       localReact(selected.actor, selected.reaction, 950);
+      if (!voice.muted) {
+        try {
+          const ctx = voice.mixer.unlock();
+          if (ctx) {
+            const r = selected.reaction;
+            if (
+              r === "celebrate" ||
+              r === "🎉" ||
+              r === "🏆" ||
+              r === "🔥" ||
+              r === "👑"
+            ) {
+              playGameSound(ctx, "botCheer");
+            } else if (
+              r === "angry" ||
+              r === "😭" ||
+              r === "💔" ||
+              r === "plead"
+            ) {
+              playGameSound(ctx, "botGroan");
+            } else {
+              playGameSound(ctx, "botTaunt");
+            }
+          }
+        } catch {
+          /* optional sound feedback */
+        }
+      }
     }
   }, [game, room, localEffects?.reactionReadyAt]);
 

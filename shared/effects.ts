@@ -8,7 +8,7 @@ export const REACTIONS = {
   wave: { emoji: "😏", label: "Bye" },
   surprised: { emoji: "😮", label: "Surprised" },
 } as const;
-export type ReactionId = keyof typeof REACTIONS;
+export type ReactionId = keyof typeof REACTIONS | (string & {});
 export const REACTION_IDS = Object.keys(REACTIONS) as ReactionId[];
 export const REACTION_STYLES = ["pop", "burst", "float", "ripple"] as const;
 export type ReactionStyle = (typeof REACTION_STYLES)[number];
@@ -50,6 +50,7 @@ export type BotReaction = {
   reaction: ReactionId;
   alternatives?: ReactionId[];
   observer?: boolean;
+  soundCategory?: string;
 };
 const BOT_REACTION_REST_MS = 7000;
 
@@ -77,6 +78,7 @@ export function selectBotReaction(
   return {
     actor: choice.actor,
     reaction: reactions[Math.floor(random() * reactions.length)],
+    soundCategory: choice.soundCategory,
   };
 }
 
