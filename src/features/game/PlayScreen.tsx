@@ -20,6 +20,7 @@ import {
   type EffectActor,
   type ReactionId,
   type ReactionStyle,
+  type ReactionCue,
   type RoomEffects,
 } from "../../../shared/effects";
 import { ReactionOverlay, TableEffectsControls } from "./TableEffectsControls";

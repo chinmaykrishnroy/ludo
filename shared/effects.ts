@@ -8,11 +8,12 @@ export const REACTIONS = {
   wave: { emoji: "😏", label: "Bye" },
   surprised: { emoji: "😮", label: "Surprised" },
 } as const;
-export type ReactionId = keyof typeof REACTIONS | (string & {});
-export const REACTION_IDS = Object.keys(REACTIONS) as ReactionId[];
+export type BaseReactionId = keyof typeof REACTIONS;
+export type ReactionId = BaseReactionId | (string & {});
+export const REACTION_IDS = Object.keys(REACTIONS) as BaseReactionId[];
 export const REACTION_STYLES = ["pop", "burst", "float", "ripple"] as const;
 export type ReactionStyle = (typeof REACTION_STYLES)[number];
-export const DEFAULT_REACTION_STYLE: Record<ReactionId, ReactionStyle> = {
+export const DEFAULT_REACTION_STYLE: Record<string, ReactionStyle> = {
   laugh: "float",
   angry: "pop",
   celebrate: "burst",

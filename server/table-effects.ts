@@ -8,6 +8,7 @@ import {
   type EffectActor,
   type ReactionId,
   type ReactionStyle,
+  type ReactionCue,
   type RoomEffects,
   type SoundCue,
 } from "../shared/effects.js";

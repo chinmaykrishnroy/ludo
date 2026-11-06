@@ -375,16 +375,7 @@ export function createApplication(options: ApplicationOptions = {}) {
         : before.game
           ? botReactionCandidates(before.game, after.game)
           : [];
-      if (
-        effects.bot(
-          after.code,
-          candidates,
-          delay,
-          soundboard.catalog,
-          soundboard.available,
-        ) ||
-        left.length
-      )
+      if (effects.bot(after.code, candidates, delay) || left.length)
         publishEffects(after);
     } catch (error) {
       failure("room_effects", error);
