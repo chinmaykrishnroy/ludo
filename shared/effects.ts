@@ -34,7 +34,9 @@ export type RoomEffects = {
   coolingReaction?: ReactionId;
   soundReadyAt: number;
   reaction?: ReactionCue;
+  reactions?: ReactionCue[];
   sound?: SoundCue;
+  cooldowns?: Record<string, number>;
 };
 export type SoundCatalog = {
   categories: { id: string; label: string }[];

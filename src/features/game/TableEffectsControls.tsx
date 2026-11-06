@@ -94,6 +94,7 @@ export function ReactionOverlay({
 
 export function TableEffectsControls({
   room,
+  actorId,
   effects,
   now,
   connected,
@@ -104,6 +105,7 @@ export function TableEffectsControls({
   notify,
 }: {
   room?: string;
+  actorId?: string;
   effects?: RoomEffects;
   now: number;
   connected: boolean;
@@ -127,10 +129,11 @@ export function TableEffectsControls({
   const panel = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const request = useRef(0);
-  const wait = Math.max(
-    0,
-    Math.ceil(((effects?.reactionReadyAt ?? 0) - now) / 1000),
-  );
+  const actorReadyAt =
+    actorId && effects?.cooldowns
+      ? (effects.cooldowns[actorId] ?? 0)
+      : (effects?.reactionReadyAt ?? 0);
+  const wait = Math.max(0, Math.ceil((actorReadyAt - now) / 1000));
   const waitSound = Math.max(
     0,
     Math.ceil(((effects?.soundReadyAt ?? 0) - now) / 1000),

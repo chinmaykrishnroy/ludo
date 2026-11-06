@@ -34,6 +34,7 @@ export type Room = {
   joinOrder?: string[];
   actionReadyAt?: number;
   botDifficulty?: number;
+  finishMode?: "first" | "all";
   archived?: boolean;
   code: string;
   name: string;

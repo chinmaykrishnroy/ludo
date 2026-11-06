@@ -72,6 +72,7 @@ function practice(
   bots = 3,
   difficulty = 10,
   levels: number[] = [],
+  finishMode: "first" | "all" = "first",
 ) {
   const seats = [seat(LOCAL_ID, name, 0), null, null, null];
   const indexes = bots === 1 ? [2] : bots === 2 ? [1, 2] : [1, 2, 3];
@@ -83,9 +84,13 @@ function practice(
       true,
       levels[j] ?? difficulty,
     );
-  return newGame(seats, Date.now(), difficulty);
+  return newGame(seats, Date.now(), difficulty, finishMode);
 }
-function passAndPlay(name: string, count: number) {
+function passAndPlay(
+  name: string,
+  count: number,
+  finishMode: "first" | "all" = "first",
+) {
   const arranged: (ReturnType<typeof seat> | null)[] = [null, null, null, null];
   for (let i = 0; i < count; i++) {
     const index = count === 2 && i === 1 ? 2 : i;
@@ -95,7 +100,7 @@ function passAndPlay(name: string, count: number) {
       index,
     );
   }
-  return newGame(arranged);
+  return newGame(arranged, Date.now(), 10, finishMode);
 }
 function randomDice() {
   const a = new Uint32Array(1);
@@ -220,6 +225,9 @@ export default function App() {
     ),
     [botCount, setBotCount] = useState(3),
     [localMode, setLocalMode] = useState("computer"),
+    [offlineFinishMode, setOfflineFinishMode] = useState<"first" | "all">(
+      "first",
+    ),
     [humanCount, setHumanCount] = useState(4),
     [setup, setSetup] = useState(!initialPractice),
     [copied, setCopied] = useState(false);
@@ -791,13 +799,35 @@ export default function App() {
           ))}
         </details>
       )}
+      <label className="field-label">
+        Finish rule
+        <select
+          value={offlineFinishMode}
+          onChange={(e) =>
+            setOfflineFinishMode(e.target.value as "first" | "all")
+          }
+        >
+          <option value="first">
+            Quick Finish — 1st to bring all tokens home wins
+          </option>
+          <option value="all">
+            Play Till End — 1st, 2nd, and 3rd place podium
+          </option>
+        </select>
+      </label>
       <button
         className="primary full"
         onClick={() => {
           setLocal(
             localMode === "pass"
-              ? passAndPlay(name, humanCount)
-              : practice(name, botCount, botDifficulty, offlineBotLevels),
+              ? passAndPlay(name, humanCount, offlineFinishMode)
+              : practice(
+                  name,
+                  botCount,
+                  botDifficulty,
+                  offlineBotLevels,
+                  offlineFinishMode,
+                ),
           );
           setPracticeOpen(true);
           feedback.reset();
@@ -1055,6 +1085,25 @@ export default function App() {
                     notify(r.error ?? "Unable to change bot difficulty.");
                 }}
               />
+              <label className="field-label" style={{ marginTop: 12 }}>
+                Finish rule
+                <select
+                  value={room.finishMode ?? "first"}
+                  disabled={!host || (!!room.game && !finished) || !connected}
+                  onChange={async (e) => {
+                    const finishMode = e.target.value as "first" | "all";
+                    const r = await send("room:mode", { finishMode });
+                    if (!r.ok) notify(r.error ?? "Unable to change game mode.");
+                  }}
+                >
+                  <option value="first">
+                    Quick Finish — 1st to bring all tokens home wins
+                  </option>
+                  <option value="all">
+                    Play Till End — 1st, 2nd, and 3rd place podium
+                  </option>
+                </select>
+              </label>
               <div className="lobby-voice">
                 <VoicePanel
                   compact
@@ -1416,6 +1465,32 @@ export default function App() {
           <div className="finish-trophy">
             <Trophy weight="fill" />
           </div>
+          {game.rankings && game.rankings.length > 1 && (
+            <div className="finish-podium" aria-label="Final podium">
+              {game.rankings.map((pid, rank) => {
+                const s = game.seats.find((st) => st?.id === pid);
+                if (!s) return null;
+                const medal =
+                  rank === 0
+                    ? "🥇 1st"
+                    : rank === 1
+                      ? "🥈 2nd"
+                      : rank === 2
+                        ? "🥉 3rd"
+                        : "4th";
+                return (
+                  <div key={pid} className="podium-row">
+                    <span className="podium-rank">{medal}</span>
+                    <span
+                      className="podium-color"
+                      style={{ background: PALETTE[s.color] }}
+                    />
+                    <strong className="podium-name">{s.name}</strong>
+                  </div>
+                );
+              })}
+            </div>
+          )}
           <button
             className="primary full"
             disabled={!!room && !host}
@@ -1427,8 +1502,15 @@ export default function App() {
                       ? passAndPlay(
                           name,
                           local.seats.filter((s) => s && !s.bot).length,
+                          offlineFinishMode,
                         )
-                      : practice(name, botCount),
+                      : practice(
+                          name,
+                          botCount,
+                          botDifficulty,
+                          offlineBotLevels,
+                          offlineFinishMode,
+                        ),
                   )
             }
           >

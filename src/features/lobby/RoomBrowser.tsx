@@ -51,6 +51,7 @@ export const RoomBrowser = memo(function RoomBrowser({
     ),
     [title, setTitle] = useState("The good company"),
     [isPublic, setPublic] = useState(false),
+    [finishMode, setFinishMode] = useState<"first" | "all">("first"),
     [bots, setBots] = useState(0),
     [code, setCode] = useState(
       new URLSearchParams(location.search).get("room") ?? "",
@@ -148,6 +149,7 @@ export const RoomBrowser = memo(function RoomBrowser({
               public: isPublic,
               bots,
               botDifficulty,
+              finishMode,
             });
             setBusy(false);
             if (r.ok) onClose();
@@ -186,6 +188,20 @@ export const RoomBrowser = memo(function RoomBrowser({
               {isPublic && <Check />}
             </button>
           </div>
+          <label className="field-label">
+            Finish rule
+            <select
+              value={finishMode}
+              onChange={(e) => setFinishMode(e.target.value as "first" | "all")}
+            >
+              <option value="first">
+                Quick Finish — 1st to bring all tokens home wins
+              </option>
+              <option value="all">
+                Play Till End — 1st, 2nd, and 3rd place podium
+              </option>
+            </select>
+          </label>
           <label className="field-label">
             Computer players to start
             <select

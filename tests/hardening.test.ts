@@ -1213,6 +1213,11 @@ test("table effects stay in the room, enforce overlap limits, and stream only th
       (await h.call(a.socket, "room:reaction", { room, reaction: "celebrate" }))
         .ok,
     );
+    // Concurrent reaction from player b is permitted (per-actor cooldown)
+    assert(
+      (await h.call(b.socket, "room:reaction", { room, reaction: "angry" })).ok,
+    );
+    // Repeated reaction while b is on cooldown is rejected
     assert.equal(
       (await h.call(b.socket, "room:reaction", { room, reaction: "angry" }))
         .code,
@@ -1223,7 +1228,8 @@ test("table effects stay in the room, enforce overlap limits, and stream only th
       (await h.call(b.socket, "room:sound", { room, sound: "ding" })).code,
       "EFFECT_BUSY",
     );
-    assert.equal(received?.reaction?.reaction, "celebrate");
+    assert(received?.reactions?.some((r) => r.reaction === "celebrate"));
+    assert(received?.reactions?.some((r) => r.reaction === "angry"));
     const path = `${h.url}/api/soundboard/${received!.sound!.id}`;
     const clip = await fetch(path, {
       headers: { Cookie: b.cookie, Range: "bytes=0-2" },

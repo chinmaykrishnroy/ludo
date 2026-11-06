@@ -1123,6 +1123,7 @@ export function createApplication(options: ApplicationOptions = {}) {
           public: z.boolean(),
           bots: z.number().int().min(0).max(3),
           botDifficulty: z.number().int().min(0).max(10).optional(),
+          finishMode: z.enum(["first", "all"]).optional(),
         })
         .parse(data);
       const from = activeRoom(id);
@@ -1145,6 +1146,7 @@ export function createApplication(options: ApplicationOptions = {}) {
       } while (store.hasRoom(code));
       const r: Room = {
         botDifficulty: input.botDifficulty ?? defaultBotDifficulty,
+        finishMode: input.finishMode ?? "first",
         code,
         name: input.name,
         public: input.public,
@@ -1263,7 +1265,20 @@ export function createApplication(options: ApplicationOptions = {}) {
         : null;
       commit(r);
     });
-    handle("room:start", () => {
+    handle("room:mode", (data) => {
+      const input = z
+        .object({ finishMode: z.enum(["first", "all"]) })
+        .parse(data);
+      const r = requireRoom();
+      requireHost(r);
+      r.finishMode = input.finishMode;
+      commit(r);
+    });
+    handle("room:start", (data) => {
+      const input = z
+        .object({ finishMode: z.enum(["first", "all"]).optional() })
+        .optional()
+        .parse(data);
       const r = requireRoom();
       requireHost(r);
       if (r.game && r.game.phase !== "finished")
@@ -1273,10 +1288,13 @@ export function createApplication(options: ApplicationOptions = {}) {
           "At least two people are needed to start an online game.",
         );
       requireCapacity();
+      const finishMode = input?.finishMode ?? r.finishMode ?? "first";
+      r.finishMode = finishMode;
       r.game = newGame(
         r.seats.map((s) => (s ? { ...s, tokens: [-1, -1, -1, -1] } : null)),
         Date.now(),
         r.botDifficulty ?? defaultBotDifficulty,
+        finishMode,
       );
       commit(r, { delay: 900 });
     });

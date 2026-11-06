@@ -14,6 +14,8 @@ export type Seat = {
 };
 export type Game = {
   botDifficulty?: number;
+  finishMode?: "first" | "all";
+  rankings?: string[];
   seats: (Seat | null)[];
   turn: number;
   dice: number | null;
@@ -180,6 +182,7 @@ export function newGame(
   seats: (Seat | null)[],
   now = Date.now(),
   botDifficulty = 10,
+  finishMode: "first" | "all" = "first",
 ): Game {
   if (
     !Number.isInteger(botDifficulty) ||
@@ -192,6 +195,8 @@ export function newGame(
   const turn = seats.findIndex(Boolean);
   return {
     botDifficulty,
+    finishMode,
+    rankings: [],
     seats: seats.map((s) =>
       s
         ? {
@@ -239,7 +244,10 @@ function next(g: Game, bonus: boolean, now: number) {
   if (!bonus) {
     do {
       g.turn = (g.turn + 1) % 4;
-    } while (!g.seats[g.turn]);
+    } while (
+      !g.seats[g.turn] ||
+      (g.finishMode === "all" && g.seats[g.turn]!.tokens.every((t) => t === 56))
+    );
     g.sixes = 0;
   }
   g.phase = "roll";
@@ -250,6 +258,7 @@ function cloneGame(g: Game): Game {
   // simulations while preserving independent tokens and input immutability.
   return {
     ...g,
+    rankings: g.rankings ? [...g.rankings] : [],
     seats: g.seats.map((s) => (s ? { ...s, tokens: [...s.tokens] } : null)),
     lastMove: g.lastMove ? { ...g.lastMove } : null,
   };
@@ -307,9 +316,31 @@ export function move(g: Game, token: number, now = Date.now()): Game {
       ? `${p.name} brought a token home!`
       : `${p.name} moved ${n.dice} spaces.`;
   if (p.tokens.every((t) => t === 56)) {
-    n.phase = "finished";
-    n.winner = p.id;
-    n.notice = `${p.name} wins the table!`;
+    if (n.finishMode === "all") {
+      n.rankings = n.rankings ?? [];
+      if (!n.rankings.includes(p.id)) n.rankings.push(p.id);
+      const rank = n.rankings.length;
+      const rankName = rank === 1 ? "1st" : rank === 2 ? "2nd" : "3rd";
+      const activeSeats = n.seats.filter((s): s is Seat => s !== null);
+      const unfinished = activeSeats.filter(
+        (s) => !s.tokens.every((t) => t === 56),
+      );
+      if (unfinished.length <= 1) {
+        if (unfinished.length === 1 && !n.rankings.includes(unfinished[0].id)) {
+          n.rankings.push(unfinished[0].id);
+        }
+        n.phase = "finished";
+        n.winner = n.rankings[0];
+        n.notice = `${p.name} takes ${rankName}! Game complete.`;
+      } else {
+        n.notice = `${p.name} finished in ${rankName} place! Game continues.`;
+        next(n, false, now);
+      }
+    } else {
+      n.phase = "finished";
+      n.winner = p.id;
+      n.notice = `${p.name} wins the table!`;
+    }
   } else next(n, n.dice === 6 || captured > 0 || to === 56, now);
   return n;
 }

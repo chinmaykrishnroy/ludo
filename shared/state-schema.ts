@@ -21,6 +21,8 @@ export const seatsSchema = z
 export const gameSchema = z
   .object({
     botDifficulty: z.number().int().min(0).max(10).optional(),
+    finishMode: z.enum(["first", "all"]).optional(),
+    rankings: z.array(z.string()).optional(),
     seats: seatsSchema,
     turn: z.number().int().min(0).max(3),
     dice: z.number().int().min(1).max(6).nullable(),
@@ -50,13 +52,14 @@ export const gameSchema = z
       c.addIssue({ code: "custom", message: "No legal move for pending dice" });
     if (
       g.phase === "finished" &&
-      (g.seats[g.turn]?.id !== g.winner ||
-        !g.seats[g.turn]?.tokens.every((t) => t === 56))
+      !active.some((s) => s.id === g.winner && s.tokens.every((t) => t === 56))
     )
       c.addIssue({ code: "custom", message: "Invalid winner" });
     if (
       g.phase !== "finished" &&
-      (g.winner !== null || active.some((s) => s.tokens.every((t) => t === 56)))
+      (g.winner !== null ||
+        (g.finishMode !== "all" &&
+          active.some((s) => s.tokens.every((t) => t === 56))))
     )
       c.addIssue({ code: "custom", message: "Unfinished game has a winner" });
     if (

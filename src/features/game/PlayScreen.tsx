@@ -90,7 +90,13 @@ export default function PlayScreen({
     voice.recording || voice.playing.length > 0,
     voice.mixer,
   );
-  const cue = tableEffects?.reaction;
+  const cues =
+    tableEffects?.reactions && tableEffects.reactions.length > 0
+      ? tableEffects.reactions
+      : tableEffects?.reaction
+        ? [tableEffects.reaction]
+        : [];
+  const localCooldowns = useRef<Map<string, number>>(new Map());
 
   function localReact(
     actor: EffectActor,
@@ -99,6 +105,8 @@ export default function PlayScreen({
     style?: ReactionStyle,
   ) {
     const timestamp = Date.now();
+    const readyAt = localCooldowns.current.get(actor.id) ?? 0;
+    if (readyAt > timestamp) return;
     const startsAt = timestamp + delay;
     const endsAt = startsAt + REACTION_MS;
     const id = String(++localCueId.current);
@@ -109,24 +117,35 @@ export default function PlayScreen({
             reaction as keyof typeof DEFAULT_REACTION_STYLE
           ]
         : "burst");
-    setLocalEffects((current) =>
-      (current?.reactionReadyAt ?? 0) > timestamp
-        ? current
-        : {
-            room: "local",
-            reactionReadyAt: endsAt + REACTION_GAP_MS,
-            coolingReaction: reaction,
-            soundReadyAt: 0,
-            reaction: {
-              id,
-              actor,
-              reaction,
-              style: finalStyle,
-              startsAt,
-              endsAt,
-            },
-          },
-    );
+    const cue: ReactionCue = {
+      id,
+      actor,
+      reaction,
+      style: finalStyle,
+      startsAt,
+      endsAt,
+    };
+    const nextReady = endsAt + REACTION_GAP_MS;
+    localCooldowns.current.set(actor.id, nextReady);
+    setLocalEffects((current) => {
+      const active = (
+        current?.reactions ?? (current?.reaction ? [current.reaction] : [])
+      ).filter((r) => r.endsAt > timestamp && r.actor.id !== actor.id);
+      active.push(cue);
+      const cooldownsObj: Record<string, number> = {};
+      for (const [k, v] of localCooldowns.current.entries()) {
+        if (v > timestamp) cooldownsObj[k] = v;
+      }
+      return {
+        room: "local",
+        reactionReadyAt: nextReady,
+        cooldowns: cooldownsObj,
+        coolingReaction: reaction,
+        soundReadyAt: 0,
+        reaction: cue,
+        reactions: active,
+      };
+    });
   }
   useEffect(() => {
     const before = previousGame.current;
@@ -251,9 +270,11 @@ export default function PlayScreen({
             rotation={rotation}
           />
           {!chat.open && <ChatPreviews messages={chat.previews} />}
-          {cue && cue.startsAt <= serverNow && cue.endsAt > serverNow && (
-            <ReactionOverlay key={cue.id} cue={cue} rotation={rotation} />
-          )}
+          {cues
+            .filter((c) => c.startsAt <= serverNow && c.endsAt > serverNow)
+            .map((c) => (
+              <ReactionOverlay key={c.id} cue={c} rotation={rotation} />
+            ))}
           <button
             className="board-menu"
             aria-label="Open game menu"
@@ -323,6 +344,7 @@ export default function PlayScreen({
           )}
           <TableEffectsControls
             room={room?.code}
+            actorId={me}
             effects={tableEffects}
             now={serverNow}
             connected={connected}
