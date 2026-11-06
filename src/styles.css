@@ -132,13 +132,19 @@ select {
   position: absolute;
   width: 6.67%;
   height: 6.67%;
-  background: transparent;
-  border: 0;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
   padding: 0;
   transform: translate(-50%, -50%);
   opacity: 1 !important;
   cursor: default;
   transition: none;
+}
+.token:disabled {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
 }
 .token.selectable {
   cursor: pointer;
@@ -1307,7 +1313,7 @@ select {
 }
 [data-theme="dark"] .primary:disabled,
 [data-theme="dark"] .secondary:disabled,
-[data-theme="dark"] button:disabled {
+[data-theme="dark"] button:not(.token):not(.big-dice-button):disabled {
   color: #757d6e;
   background: #282b26;
   border-color: rgba(244, 241, 231, 0.1);
