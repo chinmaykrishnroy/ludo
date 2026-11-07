@@ -3,6 +3,7 @@ import { PressureSampler } from "./pressure-sampler.js";
 import {
   guestChannel,
   memberIds,
+  allParticipantIds,
   transferHostAuthority,
 } from "./rooms/index.js";
 import { actionIdempotency } from "./game/index.js";
@@ -334,12 +335,15 @@ export function createApplication(options: ApplicationOptions = {}) {
     };
   }
   function emitRoom(r: Room) {
-    const deliveries = memberIds(r).map((id) => ({ id, room: view(r, id) }));
+    const deliveries = allParticipantIds(r).map((id) => ({
+      id,
+      room: view(r, id),
+    }));
     for (const delivery of deliveries)
       io.to(guestChannel(delivery.id)).emit("room:state", delivery.room);
   }
   function publishEffects(room: Room) {
-    for (const id of memberIds(room)) {
+    for (const id of allParticipantIds(room)) {
       if (!guestSockets.has(id)) continue;
       const blocked = new Set(store.blockedSubjects(id));
       const state: RoomEffects = effects.view(
@@ -430,6 +434,15 @@ export function createApplication(options: ApplicationOptions = {}) {
     }
   }
   function departure(room: Room, id: string) {
+    if (room.spectators?.includes(id)) {
+      const remaining = structuredClone(room);
+      remaining.spectators = (remaining.spectators ?? []).filter(
+        (s) => s !== id,
+      );
+      if (remaining.spectatorNames) delete remaining.spectatorNames[id];
+      remaining.updatedAt = remaining.lastHumanAt = Date.now();
+      return { code: room.code, remaining };
+    }
     const remaining = structuredClone(room);
     remaining.seats[remaining.seats.findIndex((s) => s?.id === id)] = null;
     if (memberIds(remaining).length < 2) return { code: room.code };
@@ -444,8 +457,8 @@ export function createApplication(options: ApplicationOptions = {}) {
   }
   function publishDeparture(old: Room, departedBy: string, remaining?: Room) {
     ai.cancel(old.code);
-    for (const id of memberIds(old)) {
-      if (remaining && memberIds(remaining).includes(id)) continue;
+    for (const id of allParticipantIds(old)) {
+      if (remaining && allParticipantIds(remaining).includes(id)) continue;
       offlineSince.delete(id);
       io.in(guestChannel(id)).socketsLeave(old.code);
       io.to(guestChannel(id)).emit("room:left", {
@@ -479,8 +492,8 @@ export function createApplication(options: ApplicationOptions = {}) {
     if (Date.now() < storageRetryAt)
       throw new Error("Storage temporarily unavailable");
     const old = rooms.get(draft.code),
-      oldIds = old ? memberIds(old) : [],
-      newIds = memberIds(draft);
+      oldIds = old ? allParticipantIds(old) : [],
+      newIds = allParticipantIds(draft);
     const actionReadyAt =
       config.delay === undefined
         ? (transitions.get(draft.code) ?? 0)
@@ -1067,16 +1080,15 @@ export function createApplication(options: ApplicationOptions = {}) {
         })
         .parse(data);
       const room = tableForEffects(input.room);
-      const actor = room.seats.find((seat) => seat?.id === id)!;
-      if (
-        !effects.react(
-          room.code,
-          effectActor(actor),
-          input.reaction,
-          0,
-          input.style,
-        )
-      )
+      const actorSeat = room.seats.find((seat) => seat?.id === id);
+      const actor = actorSeat
+        ? effectActor(actorSeat)
+        : {
+            id,
+            name: room.spectatorNames?.[id] ?? "Spectator",
+            color: COLORS[3],
+          };
+      if (!effects.react(room.code, actor, input.reaction, 0, input.style))
         throw new PublicError("Wait for the current reaction.", "EFFECT_BUSY");
       publishEffects(room);
       effects.afterRepeatedReactions(
@@ -1212,23 +1224,55 @@ export function createApplication(options: ApplicationOptions = {}) {
       return { ok: true, room: view(committed, id, blocks), me: id };
     });
     handle("room:join", (data) => {
-      const input = z.object({ code: roomCode, playerName: label }).parse(data);
+      const input = z
+        .object({
+          code: roomCode,
+          playerName: label,
+          spectate: z.boolean().optional(),
+        })
+        .parse(data);
       const from = activeRoom(id);
-      if (from?.code === input.code)
+      if (from?.code === input.code) {
+        if (input.spectate && !from.spectators?.includes(id)) {
+          const r = structuredClone(from);
+          if (!r.spectators) r.spectators = [];
+          r.spectators.push(id);
+          if (!r.spectatorNames) r.spectatorNames = {};
+          r.spectatorNames[id] = input.playerName;
+          const blocks = new Set(store.blockedSubjects(id)),
+            committed = commit(r);
+          return { ok: true, room: view(committed, id, blocks), me: id };
+        }
         return { ok: true, room: view(from, id), me: id };
+      }
       const saved = rooms.get(input.code);
       if (!saved)
         throw new PublicError(
           "That room was not found. Check the six-character code.",
         );
       const r = structuredClone(saved);
-      if (r.game) throw new PublicError("This game has already started.");
       if (memberIds(r).some((other) => store.blocked(id, other)))
         throw new PublicError("This table is unavailable.");
+      if (input.spectate) {
+        if ((r.spectators?.length ?? 0) >= 1024)
+          throw new PublicError(
+            "This room has reached the maximum 1,024 spectators.",
+          );
+        if (!r.spectators) r.spectators = [];
+        if (!r.spectators.includes(id)) r.spectators.push(id);
+        if (!r.spectatorNames) r.spectatorNames = {};
+        r.spectatorNames[id] = input.playerName;
+        r.updatedAt = r.lastHumanAt = Date.now();
+        const blocks = new Set(store.blockedSubjects(id)),
+          committed = commit(r, { switching: from ? { from, id } : undefined });
+        return { ok: true, room: view(committed, id, blocks), me: id };
+      }
+      if (r.game) throw new PublicError("This game has already started.");
       let index = r.seats.findIndex((s) => !s);
       if (index < 0) index = r.seats.findIndex((s) => s?.bot);
       if (index < 0) throw new PublicError("This table is full.");
       r.seats[index] = seat(id, input.playerName, index);
+      if (r.spectators) r.spectators = r.spectators.filter((s) => s !== id);
       transfer(r);
       const blocks = new Set(store.blockedSubjects(id)),
         committed = commit(r, { switching: from ? { from, id } : undefined });
@@ -1412,15 +1456,17 @@ export function createApplication(options: ApplicationOptions = {}) {
           .object({ active: z.boolean(), room: roomCode.optional() })
           .parse(data),
         r = requireRoom(),
-        p = r.seats.find((s) => s?.id === id)!;
+        p = r.seats.find((s) => s?.id === id);
       if (input.room && input.room !== r.code) return;
-      for (const recipient of memberIds(r)) {
+      const pName = p?.name ?? r.spectatorNames?.[id] ?? "Spectator";
+      const pColor = p?.color ?? COLORS[3];
+      for (const recipient of allParticipantIds(r)) {
         if (!store.blocked(recipient, id))
           io.to(guestChannel(recipient)).emit("chat:typing", {
             room: r.code,
             playerId: id,
-            name: p.name,
-            color: p.color,
+            name: pName,
+            color: pColor,
             active: input.active,
           });
       }
@@ -1446,7 +1492,11 @@ export function createApplication(options: ApplicationOptions = {}) {
           })
           .parse(data),
         r = requireRoom(),
-        p = r.seats.find((s) => s?.id === id)!;
+        pSeat = r.seats.find((s) => s?.id === id),
+        p = pSeat ?? {
+          name: r.spectatorNames?.[id] ?? "Spectator",
+          color: COLORS[3],
+        };
       if (input.room && input.room !== r.code)
         throw new PublicError(
           "The message belongs to another room.",
@@ -1589,7 +1639,11 @@ export function createApplication(options: ApplicationOptions = {}) {
               ? b.subarray(0, 4).toString() === "OggS"
               : b.subarray(4, 8).toString() === "ftyp";
       if (!valid) throw new PublicError("This audio format could not be read.");
-      const p = r.seats.find((s) => s?.id === id)!,
+      const pSeat = r.seats.find((s) => s?.id === id),
+        p = pSeat ?? {
+          name: r.spectatorNames?.[id] ?? "Spectator",
+          color: COLORS[3],
+        },
         voice = {
           id: randomUUID(),
           senderId: id,

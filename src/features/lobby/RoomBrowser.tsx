@@ -11,6 +11,7 @@ import {
   CircleNotch,
   CaretLeft,
   CaretRight,
+  Eye,
 } from "@phosphor-icons/react";
 import { Dialog } from "../../lib/Dialog";
 import type { PublicRoom, Reply } from "../../../shared/protocol";
@@ -91,17 +92,19 @@ export const RoomBrowser = memo(function RoomBrowser({
       listRequest.current++;
     };
   }, [tab, refresh]);
-  async function join(joinCode = code) {
+  async function join(joinCode = code, spectate = false) {
     setBusy(true);
     const r = await send("room:join", {
       code: joinCode.trim().toUpperCase(),
       playerName: name,
+      spectate,
     });
     setBusy(false);
     if (r.ok) {
       onClose();
       history.replaceState(null, "", location.pathname);
-    } else notify(r.error ?? "Unable to join.");
+    } else
+      notify(r.error ?? (spectate ? "Unable to spectate." : "Unable to join."));
   }
   return (
     <Dialog title="PLAY ONLINE" onClose={onClose}>
@@ -186,7 +189,7 @@ export const RoomBrowser = memo(function RoomBrowser({
             </button>
           </div>
           <button
-            className="primary full"
+            className="primary full create-room-submit-btn"
             disabled={
               busy ||
               !online ||
@@ -209,7 +212,7 @@ export const RoomBrowser = memo(function RoomBrowser({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            void join();
+            void join(code, false);
           }}
         >
           <label className="field-label">
@@ -224,12 +227,24 @@ export const RoomBrowser = memo(function RoomBrowser({
               onChange={(e) => setCode(e.target.value.toUpperCase())}
             />
           </label>
-          <button
-            className="primary full"
-            disabled={busy || !online || !name.trim() || code.length !== 6}
-          >
-            Join the table <ArrowRight />
-          </button>
+          <div className="join-actions-group">
+            <button
+              type="submit"
+              className="primary full"
+              disabled={busy || !online || !name.trim() || code.length !== 6}
+            >
+              {busy ? <CircleNotch className="spin" /> : <ArrowRight />} Join
+              table
+            </button>
+            <button
+              type="button"
+              className="secondary full spectate-join-btn"
+              onClick={() => void join(code, true)}
+              disabled={busy || !online || !name.trim() || code.length !== 6}
+            >
+              <Eye weight="bold" /> Spectate table
+            </button>
+          </div>
         </form>
       ) : (
         <div className="public-list">
@@ -256,24 +271,37 @@ export const RoomBrowser = memo(function RoomBrowser({
                 aria-busy={loading}
               >
                 {list.map((r) => (
-                  <button
-                    key={r.code}
-                    className="public-room"
-                    disabled={busy || !online || !name.trim()}
-                    onClick={() => void join(r.code)}
-                  >
-                    <span className="room-mini">
-                      <DiceFive />
-                    </span>
-                    <span>
-                      <strong>{r.name}</strong>
-                      <small>
-                        {r.players} of 4 players · {r.bots} computer
-                        {r.bots === 1 ? "" : "s"}
-                      </small>
-                    </span>
-                    <ArrowRight />
-                  </button>
+                  <div key={r.code} className="public-table-row">
+                    <button
+                      type="button"
+                      className="public-room"
+                      disabled={busy || !online || !name.trim()}
+                      onClick={() => void join(r.code, false)}
+                    >
+                      <span className="room-mini">
+                        <DiceFive />
+                      </span>
+                      <span>
+                        <strong>{r.name}</strong>
+                        <small>
+                          {r.players} of 4 players · {r.bots} computer
+                          {r.bots === 1 ? "" : "s"}
+                        </small>
+                      </span>
+                      <ArrowRight />
+                    </button>
+                    <button
+                      type="button"
+                      className="public-spectate-action"
+                      title="Spectate this game"
+                      aria-label={`Spectate table ${r.name}`}
+                      disabled={busy || !online || !name.trim()}
+                      onClick={() => void join(r.code, true)}
+                    >
+                      <Eye weight="bold" />
+                      <span>Watch</span>
+                    </button>
+                  </div>
                 ))}
               </div>
               <nav className="room-pagination" aria-label="Public room pages">

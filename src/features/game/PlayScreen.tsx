@@ -1,4 +1,4 @@
-import { DotsThree, ArrowLeft } from "@phosphor-icons/react";
+import { DotsThree, ArrowLeft, Eye } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
 import { Board, PALETTE } from "./Board";
 import Dice from "./Dice";
@@ -169,7 +169,7 @@ export default function PlayScreen({
     if (selected) {
       recentBots.current.set(selected.actor.id, timestamp);
       localReact(selected.actor, selected.reaction, 950);
-      if (!voice.muted && selected.reaction !== "plead") {
+      if (!voice.muted) {
         setTimeout(() => {
           try {
             const ctx = voice.mixer.unlock();
@@ -183,7 +183,13 @@ export default function PlayScreen({
                 r === "👑"
               ) {
                 playGameSound(ctx, "botCheer");
-              } else if (r === "angry" || r === "😭" || r === "💔") {
+              } else if (
+                r === "angry" ||
+                r === "plead" ||
+                r === "😭" ||
+                r === "💔" ||
+                r === "🥺"
+              ) {
                 playGameSound(ctx, "botGroan");
               } else {
                 playGameSound(ctx, "botTaunt");
@@ -222,8 +228,11 @@ export default function PlayScreen({
     busy ||
     presentation.active ||
     (!!room && now + clockOffset < (room.actionReadyAt ?? 0));
+  const isSpectator = Boolean(
+    room && !room.seats.some((seat) => seat?.id === me),
+  );
   const current = presentation.actor,
-    mine = current.id === me && !current.bot,
+    mine = !isSpectator && current.id === me && !current.bot,
     sharedDevice = !room && game.seats.filter((s) => s && !s.bot).length > 1,
     finished = game.phase === "finished";
   // A shared device stays fixed so a hand-off cannot interrupt a token's move.
@@ -250,11 +259,22 @@ export default function PlayScreen({
         <button
           className="play-tool header-back"
           onClick={onBack}
-          title={room ? "Leave table" : "Pause game and return to home"}
+          title={
+            room
+              ? isSpectator
+                ? "Exit spectating"
+                : "Leave table"
+              : "Pause game and return to home"
+          }
         >
           <ArrowLeft weight="bold" />
-          {room ? "BACK" : "PAUSE"}
+          {room ? (isSpectator ? "EXIT" : "BACK") : "PAUSE"}
         </button>
+        {isSpectator && (
+          <span className="spectator-header-pill">
+            <Eye weight="bold" /> SPECTATING
+          </span>
+        )}
         <RoomTools voice={voice} chat={chat} online={!!room} />
       </header>
       <main className="play-screen">
@@ -329,17 +349,19 @@ export default function PlayScreen({
               onSettled={presentation.onSettled}
             />
             <span className="dice-action">
-              {presentation.rolling || presentation.settling
-                ? "ROLLING"
-                : presentation.result?.phase === "roll"
-                  ? "TURN OVER"
-                  : game.phase === "move" && mine
-                    ? soleLegalMove(game) !== undefined
-                      ? "AUTO MOVE"
-                      : "PICK TOKEN"
-                    : mine
-                      ? "ROLL DICE"
-                      : "WAITING"}
+              {isSpectator
+                ? "SPECTATING"
+                : presentation.rolling || presentation.settling
+                  ? "ROLLING"
+                  : presentation.result?.phase === "roll"
+                    ? "TURN OVER"
+                    : game.phase === "move" && mine
+                      ? soleLegalMove(game) !== undefined
+                        ? "AUTO MOVE"
+                        : "PICK TOKEN"
+                      : mine
+                        ? "ROLL DICE"
+                        : "WAITING"}
             </span>
           </button>
           {showVoice && (

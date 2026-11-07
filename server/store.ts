@@ -214,21 +214,24 @@ export class Store {
           .all(room.code) as { player: string }[]
       ).map((r) => r.player),
     );
-    const wanted = new Set(
-      room.seats.flatMap((s) => (s && !s.id.startsWith("bot:") ? [s.id] : [])),
-    );
+    const wanted = new Set([
+      ...room.seats.flatMap((s) =>
+        s && !s.id.startsWith("bot:") ? [s.id] : [],
+      ),
+      ...(room.spectators ?? []),
+    ]);
     for (const id of members)
       if (!wanted.has(id))
         this.db
           .prepare("DELETE FROM room_members WHERE room=? AND player=?")
           .run(room.code, id);
-    for (const s of room.seats)
-      if (s && wanted.has(s.id) && !members.has(s.id))
+    for (const id of wanted)
+      if (!members.has(id))
         this.db
           .prepare(
             "INSERT INTO room_members(player,room) VALUES(?,?) ON CONFLICT(player) DO UPDATE SET room=excluded.room",
           )
-          .run(s.id, room.code);
+          .run(id, room.code);
   }
   load(): Room[] {
     const result: Room[] = [];

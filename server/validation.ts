@@ -7,6 +7,11 @@ export const roomSchema = z
   .object({
     joinOrder: z.array(z.string().min(1).max(100)).max(4).optional(),
     botDifficulty: z.number().int().min(0).max(10).optional(),
+    finishMode: z.enum(["first", "all"]).optional(),
+    spectators: z.array(z.string().min(1).max(100)).max(1024).optional(),
+    spectatorNames: z
+      .record(z.string().min(1).max(100), z.string().max(64))
+      .optional(),
     archived: z.boolean().optional(),
     code: z.string().regex(/^[A-Z2-9]{6}$/),
     name: z.string().min(1).max(64),

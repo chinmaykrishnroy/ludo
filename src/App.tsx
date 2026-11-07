@@ -26,6 +26,8 @@ import {
   SignOut,
   Trophy,
   Pause,
+  Eye,
+  House,
 } from "@phosphor-icons/react";
 import { Dialog, reportUnexpected } from "./lib";
 import {
@@ -34,6 +36,7 @@ import {
   useInstall,
   browserStorage,
   loadPractice,
+  loadPracticeRecord,
   savePractice,
   loadDisplayName,
   rememberDisplayName,
@@ -50,6 +53,7 @@ import { RoomChat, RoomTools, useRoomChat } from "./features/chat";
 import { ChatPreviews } from "./features/chat/ChatPreviews";
 import { VoicePanel, useRoomVoice } from "./features/voice";
 import Home, { type ClubStats } from "./Home";
+import { APP_VERSION } from "./version";
 import type { Typing, Voice } from "../shared/protocol";
 import type { RoomEffects } from "../shared/effects";
 import {
@@ -189,11 +193,16 @@ export default function App() {
     [moderationTarget, setModerationTarget] = useState(""),
     [moderationReason, setModerationReason] = useState("");
   const { installed, install } = useInstall();
-  const [initialPractice] = useState(() => loadPractice(browserStorage));
+  const [initialPracticeRecord] = useState(() =>
+    loadPracticeRecord(browserStorage),
+  );
+  const initialPractice = initialPracticeRecord?.game ?? null;
   const [local, setLocal] = useState<Game>(
       () => initialPractice ?? practice(name),
     ),
-    [practiceOpen, setPracticeOpen] = useState(!!initialPractice),
+    [practiceOpen, setPracticeOpen] = useState(
+      Boolean(initialPractice && initialPractice.phase !== "finished"),
+    ),
     [room, setRoom] = useState<Room | null>(null),
     [roomEffects, setRoomEffects] = useState<RoomEffects>(),
     [mutedVoice, setMutedVoice] = useState<Voice | null>(null),
@@ -214,6 +223,7 @@ export default function App() {
       | "install"
       | "moderation"
       | "offline"
+      | "offline-choice"
       | null
     >(new URLSearchParams(location.search).has("room") ? "rooms" : null),
     [toast, setToast] = useState(""),
@@ -230,7 +240,11 @@ export default function App() {
       "first",
     ),
     [humanCount, setHumanCount] = useState(4),
-    [setup, setSetup] = useState(!initialPractice),
+    [setup, setSetup] = useState(
+      !initialPractice ||
+        initialPractice.phase === "finished" ||
+        Boolean(initialPracticeRecord?.paused),
+    ),
     [copied, setCopied] = useState(false);
   const socket = useRef<Socket | null>(null),
     commandPending = useRef(false),
@@ -529,8 +543,8 @@ export default function App() {
     ),
     busy = feedback.busy;
   useEffect(() => {
-    if (practiceOpen) savePractice(browserStorage, local);
-  }, [local, practiceOpen]);
+    if (practiceOpen && !setup) savePractice(browserStorage, local, false);
+  }, [local, practiceOpen, setup]);
   useEffect(() => {
     if (room || !practiceOpen || setup || modal || local.phase === "finished")
       return;
@@ -703,6 +717,7 @@ export default function App() {
     } else notify(r.error ?? "Could not leave.");
   }
 
+  const isSpectator = Boolean(room && !room.seats.some((s) => s?.id === me));
   const host = room?.host === me;
   const humans =
     room?.seats.filter((seat) => seat && !seat.id.startsWith("bot:")).length ??
@@ -961,15 +976,50 @@ export default function App() {
               {!chat.open && <ChatPreviews messages={chat.previews} />}
               <div className="lobby-title">
                 <h1>{room.name}</h1>
-                <span className="room-visibility-badge">
-                  {room.public ? (
-                    <GlobeHemisphereWest weight="bold" />
-                  ) : (
-                    <LockSimple weight="bold" />
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "8px",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <span className="room-visibility-badge">
+                    {room.public ? (
+                      <GlobeHemisphereWest weight="bold" />
+                    ) : (
+                      <LockSimple weight="bold" />
+                    )}
+                    <span>
+                      {room.public ? "PUBLIC TABLE" : "PRIVATE TABLE"}
+                    </span>
+                  </span>
+                  {isSpectator && (
+                    <span className="spectator-badge">
+                      <Eye weight="bold" />
+                      <span>SPECTATING</span>
+                    </span>
                   )}
-                  <span>{room.public ? "PUBLIC TABLE" : "PRIVATE TABLE"}</span>
-                </span>
+                </div>
               </div>
+              {isSpectator && room.seats.some((seat) => !seat || seat.bot) && (
+                <div className="spectator-seat-prompt">
+                  <span>An open seat is available at this table.</span>
+                  <button
+                    className="primary compact take-seat-btn"
+                    onClick={async () => {
+                      const res = await send("room:join", {
+                        code: room.code,
+                        playerName: name,
+                        spectate: false,
+                      });
+                      if (!res.ok) notify(res.error ?? "Could not take seat.");
+                    }}
+                  >
+                    Take an Open Seat <ArrowRight />
+                  </button>
+                </div>
+              )}
               <div className="invite-strip">
                 <div className="invite-code-box">
                   <span className="invite-label">ROOM CODE</span>
@@ -1219,7 +1269,13 @@ export default function App() {
             <Home
               stats={clubStats}
               onOnline={() => setModal("rooms")}
-              onOffline={() => setModal("offline")}
+              onOffline={() => {
+                if (practiceOpen && local.phase !== "finished") {
+                  setModal("offline-choice");
+                } else {
+                  setModal("offline");
+                }
+              }}
               onRules={() => setModal("rules")}
               onInstall={() =>
                 void install().then((shown) => {
@@ -1227,11 +1283,47 @@ export default function App() {
                 })
               }
               installed={installed}
-              resume={practiceOpen}
-              onResume={() => setSetup(false)}
             />
           )}
         </main>
+      )}
+      {modal === "offline-choice" && (
+        <Dialog title="OFFLINE MATCH" onClose={() => setModal(null)}>
+          <p className="dialog-intro">You have an offline match in progress.</p>
+          <div className="offline-choice-options">
+            <button
+              className="primary full offline-resume-btn"
+              onClick={() => {
+                setSetup(false);
+                setModal(null);
+              }}
+            >
+              <Play weight="fill" />
+              <div style={{ textAlign: "left", flex: 1, padding: "0 8px" }}>
+                <strong>RESUME GAME</strong>
+                <small style={{ display: "block", opacity: 0.8, fontSize: 12 }}>
+                  Pick up where you left off
+                </small>
+              </div>
+              <ArrowRight />
+            </button>
+            <button
+              className="secondary full offline-new-btn"
+              onClick={() => {
+                setModal("offline");
+              }}
+            >
+              <ArrowCounterClockwise weight="bold" />
+              <div style={{ textAlign: "left", flex: 1, padding: "0 8px" }}>
+                <strong>START NEW GAME</strong>
+                <small style={{ display: "block", opacity: 0.8, fontSize: 12 }}>
+                  Discard and configure a new table
+                </small>
+              </div>
+              <ArrowRight />
+            </button>
+          </div>
+        </Dialog>
       )}
       {modal === "menu" && (
         <Dialog title="GAME MENU" onClose={() => setModal(null)}>
@@ -1324,6 +1416,7 @@ export default function App() {
                 onOnline={() => setModal("rooms")}
               />
             )}
+            <div className="dialog-version-tag">Ludo Club v{APP_VERSION}</div>
           </div>
         </Dialog>
       )}
@@ -1482,8 +1575,10 @@ export default function App() {
           title={
             modal === "leave"
               ? room
-                ? "QUIT GAME?"
-                : "PAUSE OR QUIT?"
+                ? isSpectator
+                  ? "STOP SPECTATING?"
+                  : "LEAVE TABLE?"
+                : "PAUSE OR QUIT GAME?"
               : "START AGAIN?"
           }
           onClose={() => setModal(null)}
@@ -1491,8 +1586,10 @@ export default function App() {
           <p className="dialog-intro">
             {modal === "leave"
               ? room
-                ? "Leave this game and remove your tokens? Refreshing or closing the app keeps your seat saved."
-                : "You can pause this game and resume anytime from the home screen, or quit and clear its progress."
+                ? isSpectator
+                  ? "Leave this room and return to home?"
+                  : "Leave this game and remove your tokens? Refreshing or closing the app keeps your seat saved."
+                : "Would you like to pause and save this match to resume later, or quit and clear your progress?"
               : "This ends your current practice game."}
           </p>
           <div className="dialog-buttons">
@@ -1501,23 +1598,28 @@ export default function App() {
             </button>
             {!room && modal === "leave" && (
               <button
-                className="secondary"
+                className="primary"
                 onClick={() => {
+                  savePractice(browserStorage, local, true);
                   setSetup(true);
                   setModal(null);
                 }}
               >
+                <House weight="bold" />
                 PAUSE GAME
               </button>
             )}
             <button
-              className="primary"
+              className={
+                !room && modal === "leave" ? "secondary danger-btn" : "primary"
+              }
               onClick={() =>
                 modal === "leave"
                   ? room
                     ? void leave()
                     : (savePractice(browserStorage, null),
                       setPracticeOpen(false),
+                      setLocal(practice(name, botCount)),
                       setSetup(true),
                       setModal(null))
                   : (setLocal(practice(name, botCount)),

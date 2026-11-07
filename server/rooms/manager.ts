@@ -7,6 +7,11 @@ export const guestChannel = (id: string) => `guest:${id}`;
 export const memberIds = (r: Room): string[] =>
   r.seats.flatMap((s) => (s && !s.id.startsWith("bot:") ? [s.id] : []));
 
+/** All participant IDs in a room, including seated human players and spectators */
+export const allParticipantIds = (r: Room): string[] => [
+  ...new Set([...memberIds(r), ...(r.spectators ?? [])]),
+];
+
 /** Generates a tailored room view for a specific member, respecting muted/blocked voices and chats */
 export function createRoomView(
   room: Room,
@@ -73,14 +78,14 @@ export class RoomRegistry {
   index(room: Room): void {
     const old = this.rooms.get(room.code);
     if (old) {
-      for (const id of memberIds(old)) {
+      for (const id of allParticipantIds(old)) {
         if (this.playerRooms.get(id) === room.code) {
           this.playerRooms.delete(id);
         }
       }
     }
     this.rooms.set(room.code, room);
-    for (const id of memberIds(room)) {
+    for (const id of allParticipantIds(room)) {
       this.playerRooms.set(id, room.code);
     }
   }
@@ -88,7 +93,7 @@ export class RoomRegistry {
   erase(code: string): Room | undefined {
     const old = this.rooms.get(code);
     if (old) {
-      for (const id of memberIds(old)) {
+      for (const id of allParticipantIds(old)) {
         if (this.playerRooms.get(id) === code) {
           this.playerRooms.delete(id);
         }
