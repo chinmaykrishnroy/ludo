@@ -1,10 +1,12 @@
 import {
   ArrowUpRight,
   ArrowRight,
-  DiceFive,
   Users,
   Robot,
   DownloadSimple,
+  Lightning,
+  Microphone,
+  Sparkle,
 } from "@phosphor-icons/react";
 import { Board, PALETTE } from "./features/game/Board";
 import {
@@ -16,14 +18,20 @@ import {
   legalMoves,
   type Game,
 } from "../shared/game";
-import { useId, useState, useEffect, useRef } from "react";
+import { useId, useState, useEffect } from "react";
 import { formatCount } from "./formatCount";
+import { KineticBackground } from "./components/KineticBackground";
 
-const BOT_NAMES = ["Milo", "Sunny", "Coco", "Pip"];
+const BOT_ROSTER = [
+  { name: "Milo", color: "red" as const },
+  { name: "Sunny", color: "green" as const },
+  { name: "Coco", color: "yellow" as const },
+  { name: "Pip", color: "blue" as const },
+];
 
 function createDemoGame(): Game {
   const g = newGame(
-    COLORS.map((_, i) => seat(`demo-${i}`, BOT_NAMES[i], i, true)),
+    COLORS.map((_, i) => seat(`demo-${i}`, BOT_ROSTER[i].name, i, true)),
   );
   g.seats.forEach((s) => {
     if (!s) return;
@@ -95,9 +103,6 @@ export default function Home({
   installed: boolean;
 }) {
   const [demoGame, setDemoGame] = useState<Game>(createDemoGame);
-  const [lastCapture, setLastCapture] = useState<number | null>(null);
-  const stageRef = useRef<HTMLDivElement>(null);
-  const [tilt, setTilt] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
     let active = true;
@@ -124,7 +129,6 @@ export default function Home({
                 const nextState = move(current, t);
                 if (nextState.lastMove?.captured) {
                   bestToken = t;
-                  setLastCapture(Date.now());
                   break;
                 }
               } catch {
@@ -138,7 +142,7 @@ export default function Home({
         }
         return current;
       });
-    }, 1100);
+    }, 1200);
 
     return () => {
       active = false;
@@ -146,154 +150,156 @@ export default function Home({
     };
   }, []);
 
-  const activeColor = demoGame.seats[demoGame.turn]?.color ?? "red";
-  const currentDice = demoGame.dice ?? 6;
-
-  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!stageRef.current) return;
-    const rect = stageRef.current.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width - 0.5) * 18;
-    const y = ((e.clientY - rect.top) / rect.height - 0.5) * -18;
-    setTilt({ x, y });
-  };
-
-  const handlePointerLeave = () => {
-    setTilt({ x: 0, y: 0 });
-  };
+  const activeSeatIndex = demoGame.turn;
+  const activeColor = demoGame.seats[activeSeatIndex]?.color ?? "red";
 
   return (
     <div className="home-page">
+      {/* Interactive GPU Kinetic Particle Constellation Canvas */}
+      <KineticBackground />
+
+      {/* Atmospheric Multi-Hue Aurora Backlight */}
+      <div
+        className="home-aurora-glow"
+        aria-hidden="true"
+        style={
+          { "--active-color": PALETTE[activeColor] } as React.CSSProperties
+        }
+      />
+
       <section className="home-hero">
-        <div className="home-copy-header">
-          <span className="home-kicker">THE CLASSIC. ELEVATED.</span>
-          <h1>
-            <span>BIG MOVES.</span>
-            <span className="home-highlight">SMALL GRUDGES.</span>
-          </h1>
-          <p>
-            Bring your friends. Roll your luck.
-            <br />
-            Settle it on the board.
-          </p>
+        <div className="home-copy">
+          <div className="home-copy-header">
+            <span className="home-kicker">
+              <Sparkle weight="fill" className="kicker-sparkle" />
+              THE PRO MULTIPLAYER ARENA
+            </span>
+            <h1>
+              <span>BIG MOVES.</span>
+              <span className="home-highlight">SAVAGE GRUDGES.</span>
+            </h1>
+            <p>
+              The classic board game re-engineered for fast competitive tables,
+              live voice banter, and smart AI bots. Instant multiplayer right in
+              your browser.
+            </p>
+          </div>
+
+          {/* High-Impact Magnetic CTA Buttons */}
+          <div className="home-actions-wrapper">
+            <div className="home-actions">
+              <button className="primary home-btn-primary" onClick={onOnline}>
+                <span className="btn-label-group">
+                  <Users weight="bold" />
+                  <span>PLAY WITH FRIENDS</span>
+                </span>
+                <span className="btn-icon-circle">
+                  <ArrowUpRight weight="bold" />
+                </span>
+              </button>
+              <button
+                className="secondary home-btn-secondary"
+                onClick={onOffline}
+              >
+                <span className="btn-label-group">
+                  <Robot weight="bold" />
+                  <span>PLAY OFFLINE</span>
+                </span>
+                <span className="btn-icon-circle">
+                  <ArrowRight weight="bold" />
+                </span>
+              </button>
+            </div>
+            <div className="home-perks-row">
+              <span className="perk-pill">
+                <Lightning weight="fill" /> Zero Sign-Up
+              </span>
+              <span className="perk-pill">
+                <Microphone weight="fill" /> Spatial Voice
+              </span>
+              <span className="perk-pill">
+                <Robot weight="fill" /> 10 Bot Levels
+              </span>
+            </div>
+          </div>
         </div>
 
+        {/* Board Showcase with Active Player HUD */}
         <div className="home-stage-container" aria-hidden="true">
-          <div
-            ref={stageRef}
-            className="home-3d-stage"
-            onPointerMove={handlePointerMove}
-            onPointerLeave={handlePointerLeave}
-            style={
-              {
-                "--aura-color": PALETTE[activeColor],
-                "--tilt-x": `${tilt.x}deg`,
-                "--tilt-y": `${tilt.y}deg`,
-              } as React.CSSProperties
-            }
-          >
-            {/* Ambient colored lighting pedestal */}
-            <div className="home-ambient-glow" />
-            <div className="home-pedestal-base" />
-
-            {/* Floating atmospheric dust motes */}
-            <div className="home-motes">
-              <span className="mote mote-1" />
-              <span className="mote mote-2" />
-              <span className="mote mote-3" />
-              <span className="mote mote-4" />
-            </div>
-
-            {/* Kinetic 3D Tumbling Dice floating above the active player's yard */}
-            <div
-              className={`home-floating-die ${demoGame.phase === "roll" ? "rolling" : ""}`}
-              data-turn={activeColor}
-            >
-              <div className="die-cube">
-                <div className="die-face die-front">
-                  {Array.from({ length: currentDice }).map((_, i) => (
-                    <i key={i} className="die-pip" />
-                  ))}
+          <div className="home-board-showcase">
+            {/* Live Match Turn Badges */}
+            <div className="showcase-turn-hud">
+              {BOT_ROSTER.map((bot, idx) => (
+                <div
+                  key={bot.name}
+                  className={`showcase-hud-badge seat-${bot.color} ${activeSeatIndex === idx ? "active-turn" : ""}`}
+                >
+                  <span
+                    className="hud-color-dot"
+                    style={{ background: PALETTE[bot.color] }}
+                  />
+                  <span className="hud-bot-name">{bot.name}</span>
+                  {activeSeatIndex === idx && (
+                    <span className="hud-turn-pill">ROLLING</span>
+                  )}
                 </div>
-              </div>
+              ))}
             </div>
 
-            {/* Kinetic capture shockwave trigger */}
-            {lastCapture && Date.now() - lastCapture < 900 && (
-              <div className="home-capture-burst" key={lastCapture}>
-                <span className="burst-ring" />
-                <strong className="burst-text">💥 CAPTURED!</strong>
+            {/* Double-Bezel Concentric Enclosure */}
+            <div className="home-board-enclosure">
+              <div className="home-board-card">
+                <Board game={demoGame} me="none" onMove={() => {}} busy />
               </div>
-            )}
-
-            {/* The Floating Physical Board */}
-            <div className="home-board-card">
-              <Board game={demoGame} me="none" onMove={() => {}} busy />
             </div>
           </div>
-        </div>
-
-        <div className="home-actions-wrapper">
-          <div className="home-actions">
-            <button className="primary home-btn-primary" onClick={onOnline}>
-              <span className="btn-label-group">
-                <Users weight="bold" />
-                <span>PLAY WITH FRIENDS</span>
-              </span>
-              <span className="btn-icon-circle">
-                <ArrowUpRight weight="bold" />
-              </span>
-            </button>
-            <button
-              className="secondary home-btn-secondary"
-              onClick={onOffline}
-            >
-              <span className="btn-label-group">
-                <Robot weight="bold" />
-                <span>PLAY OFFLINE</span>
-              </span>
-              <span className="btn-icon-circle">
-                <ArrowRight weight="bold" />
-              </span>
-            </button>
-          </div>
-          <span className="home-smallprint">2–4 PLAYERS. ZERO SIGN-UP.</span>
         </div>
       </section>
 
-      <section
-        className="home-stat-section"
-        aria-label="Live online game statistics"
-      >
+      {/* Stats Bar */}
+      <section className="home-stat-section">
         <div className="home-stat-heading">
           <span>
-            <i />
-            LIVE FROM THE CLUB
+            <i /> LIVE FROM THE CLUB
           </span>
-          <small>
-            {stats
-              ? "Real games. Real rolls. Updated live."
-              : "Online stats appear when connected."}
-          </small>
+          <small>Real games. Real rolls. Updated live.</small>
         </div>
         <div className="home-stats">
-          <StatCounter value={stats?.gamesStarted} label="GAMES STARTED" />
-          <StatCounter value={stats?.diceRolls} label="DICE ROLLED" />
-          <StatCounter value={stats?.gamesFinished} label="RIVALRIES SETTLED" />
+          <div>
+            <StatCounter value={stats?.gamesStarted} label="GAMES STARTED" />
+          </div>
+          <div>
+            <StatCounter value={stats?.diceRolls} label="DICE ROLLED" />
+          </div>
+          <div>
+            <StatCounter
+              value={stats?.gamesFinished}
+              label="RIVALRIES SETTLED"
+            />
+          </div>
         </div>
       </section>
 
-      <footer className="home-footer">
-        <div>
-          <strong>SAME BOARD. YOUR KIND OF COMPANY.</strong>
-          <button className="text-button" onClick={onRules}>
-            New to the table? House rules
-            <ArrowUpRight />
-          </button>
-        </div>
+      {/* Footer Strip */}
+      <footer className="home-footer-strip">
+        <span className="home-footer-tagline">
+          SAME BOARD. YOUR KIND OF COMPANY.
+        </span>
+        <button
+          type="button"
+          className="text-button home-rules-link"
+          onClick={onRules}
+        >
+          New to the table? House rules <ArrowUpRight weight="bold" />
+        </button>
         {!installed && (
-          <button className="secondary compact" onClick={onInstall}>
-            <DownloadSimple />
-            INSTALL APP
+          <button
+            type="button"
+            className="secondary home-install-btn"
+            onClick={onInstall}
+          >
+            <DownloadSimple weight="bold" />
+            <span>INSTALL APP</span>
           </button>
         )}
       </footer>

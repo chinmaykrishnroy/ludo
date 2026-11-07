@@ -20,6 +20,7 @@ import {
   Copy,
   Check,
   Robot,
+  Users,
   Play,
   ShieldCheck,
   ArrowCounterClockwise,
@@ -776,42 +777,61 @@ export default function App() {
           onChange={(e) => setName(e.target.value)}
         />
       </label>
-      <label className="field-label">
-        Offline game
-        <select
-          value={localMode}
-          onChange={(e) => setLocalMode(e.target.value)}
-        >
-          <option value="computer">Play with computer</option>
-          <option value="pass">
-            Pass &amp; play — everyone rolls manually
-          </option>
-        </select>
-      </label>
+      <div className="field-label">
+        <span>Offline game</span>
+        <div className="segmented-control mode-segmented">
+          <button
+            type="button"
+            className={`segment-btn ${localMode === "computer" ? "active" : ""}`}
+            onClick={() => setLocalMode("computer")}
+          >
+            <Robot weight="bold" />
+            <span>Play vs Computer</span>
+          </button>
+          <button
+            type="button"
+            className={`segment-btn ${localMode === "pass" ? "active" : ""}`}
+            onClick={() => setLocalMode("pass")}
+          >
+            <Users weight="bold" />
+            <span>Pass &amp; Play</span>
+          </button>
+        </div>
+      </div>
       {localMode === "pass" ? (
-        <label className="field-label">
-          Players
-          <select
-            value={humanCount}
-            onChange={(e) => setHumanCount(Number(e.target.value))}
-          >
-            <option value={2}>2 players</option>
-            <option value={3}>3 players</option>
-            <option value={4}>4 players</option>
-          </select>
-        </label>
+        <div className="field-label">
+          <span>Players</span>
+          <div className="segmented-control count-segmented">
+            {[2, 3, 4].map((count) => (
+              <button
+                type="button"
+                key={count}
+                className={`segment-btn ${humanCount === count ? "active" : ""}`}
+                onClick={() => setHumanCount(count)}
+              >
+                <span>{count} Players</span>
+              </button>
+            ))}
+          </div>
+        </div>
       ) : (
-        <label className="field-label">
-          Computer players
-          <select
-            value={botCount}
-            onChange={(e) => setBotCount(Number(e.target.value))}
-          >
-            <option value={1}>1 computer</option>
-            <option value={2}>2 computers</option>
-            <option value={3}>3 computers</option>
-          </select>
-        </label>
+        <div className="field-label">
+          <span>Opponents</span>
+          <div className="segmented-control count-segmented">
+            {[1, 2, 3].map((count) => (
+              <button
+                type="button"
+                key={count}
+                className={`segment-btn ${botCount === count ? "active" : ""}`}
+                onClick={() => setBotCount(count)}
+              >
+                <span>
+                  {count} {count === 1 ? "Computer" : "Computers"}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
       )}
       {localMode === "computer" && (
         <BotDifficulty value={botDifficulty} onChange={changeDifficulty} />
@@ -835,10 +855,26 @@ export default function App() {
       )}
       <div className="field-label">
         <span>Finish rule</span>
-        <FinishRuleSelect
-          value={offlineFinishMode}
-          onChange={(mode) => setOfflineFinishMode(mode)}
-        />
+        <div className="finish-rule-segmented">
+          <button
+            type="button"
+            className={`finish-segment-btn ${offlineFinishMode === "first" ? "active" : ""}`}
+            onClick={() => setOfflineFinishMode("first")}
+          >
+            <span className="segment-title">⚡ Quick Finish</span>
+            <small className="segment-desc">
+              First to bring tokens home wins
+            </small>
+          </button>
+          <button
+            type="button"
+            className={`finish-segment-btn ${offlineFinishMode === "all" ? "active" : ""}`}
+            onClick={() => setOfflineFinishMode("all")}
+          >
+            <span className="segment-title">🏆 Play Till End</span>
+            <small className="segment-desc">Full 1st, 2nd, 3rd podium</small>
+          </button>
+        </div>
       </div>
       <button
         className="primary full"
@@ -1166,14 +1202,34 @@ export default function App() {
               </div>
               <div className="lobby-finish-bar">
                 <span className="lobby-finish-label">FINISH RULE</span>
-                <FinishRuleSelect
-                  value={room.finishMode ?? "first"}
-                  disabled={!host || (!!room.game && !finished) || !connected}
-                  onChange={async (finishMode) => {
-                    const r = await send("room:mode", { finishMode });
-                    if (!r.ok) notify(r.error ?? "Unable to change game mode.");
-                  }}
-                />
+                <div className="finish-rule-segmented lobby-segmented">
+                  <button
+                    type="button"
+                    disabled={!host || (!!room.game && !finished) || !connected}
+                    className={`finish-segment-btn ${(room.finishMode ?? "first") === "first" ? "active" : ""}`}
+                    onClick={async () => {
+                      const r = await send("room:mode", {
+                        finishMode: "first",
+                      });
+                      if (!r.ok)
+                        notify(r.error ?? "Unable to change game mode.");
+                    }}
+                  >
+                    <span className="segment-title">⚡ Quick Finish</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!host || (!!room.game && !finished) || !connected}
+                    className={`finish-segment-btn ${(room.finishMode ?? "first") === "all" ? "active" : ""}`}
+                    onClick={async () => {
+                      const r = await send("room:mode", { finishMode: "all" });
+                      if (!r.ok)
+                        notify(r.error ?? "Unable to change game mode.");
+                    }}
+                  >
+                    <span className="segment-title">🏆 Play Till End</span>
+                  </button>
+                </div>
               </div>
               <div className="lobby-voice">
                 <VoicePanel
