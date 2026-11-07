@@ -2977,136 +2977,7 @@ button:disabled {
     margin-top: 10px;
     gap: 10px;
   }
-  .setup-screen:has(.home-page) {
-    padding: 8px 12px 10px;
-    height: 100dvh;
-    max-height: 100dvh;
-    overflow: hidden;
-  }
-  .setup-screen:has(.home-page) .setup-header {
-    margin-bottom: 2px;
-  }
-  .home-page {
-    gap: 4px;
-    height: 100%;
-    justify-content: space-between;
-  }
-  .home-hero {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    align-items: center;
-    text-align: center;
-    flex: 1;
-    min-height: 0;
-    justify-content: space-between;
-  }
-  .home-copy {
-    display: contents;
-  }
-  .home-copy-header {
-    order: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin-bottom: 2px;
-  }
-  .home-kicker {
-    margin-bottom: 2px;
-    font-size: 9.5px;
-    padding: 2px 9px;
-  }
-  .home-copy-header h1 {
-    font-size: clamp(22px, 5.8vw, 29px);
-    letter-spacing: -0.9px;
-    margin: 2px 0 4px;
-    line-height: 1.05;
-  }
-  .home-copy-header p {
-    font-size: 11px;
-    line-height: 1.25;
-    margin: 0;
-  }
-  .home-stage-container {
-    order: 2;
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 2px 0;
-  }
-  .home-board-enclosure {
-    padding: 4px;
-    border-radius: 18px;
-  }
-  .home-board-card {
-    max-width: min(175px, 44vw);
-    max-height: min(175px, 44vw);
-    border-radius: 14px;
-  }
-  .showcase-turn-hud {
-    display: none;
-  }
-  .home-actions-wrapper {
-    order: 3;
-    width: 100%;
-    max-width: 340px;
-    margin-top: 2px;
-    margin-bottom: 2px;
-  }
-  .home-actions {
-    flex-direction: column;
-    gap: 7px;
-    width: 100%;
-  }
-  .home-btn-primary,
-  .home-btn-secondary {
-    width: 100%;
-    min-height: 46px !important;
-    padding: 6px 10px 6px 16px !important;
-    font-size: 13px !important;
-  }
-  .btn-icon-circle {
-    width: 32px;
-    height: 32px;
-  }
-  .home-perks-row {
-    display: none;
-  }
-  .home-smallprint {
-    margin-top: 3px;
-    font-size: 9.5px;
-  }
-  .home-stat-section {
-    padding: 6px 12px;
-  }
-  .home-stat-heading {
-    margin-bottom: 3px;
-  }
-  .home-stat-heading small {
-    font-size: 10px;
-  }
-  .home-stats {
-    gap: 8px;
-  }
-  .home-stats strong {
-    font-size: 24px;
-  }
-  .home-stats span {
-    font-size: 8px;
-  }
-  .home-footer {
-    padding-top: 6px;
-  }
-  .home-footer strong {
-    display: none;
-  }
-  .home-footer .secondary {
-    font-size: 11px;
-    min-height: 32px;
-    padding: 4px 10px;
-  }
+
   .game-stage .dice-turn {
     font-size: 12px;
   }
@@ -5952,35 +5823,45 @@ dialog .app-error-notice {
   }
 }
 
+/* ==========================================================================
+   Mobile (< 900px): Spacious, Balanced, Harmonic Proportions (No Congestion)
+   ========================================================================== */
+
 @media (max-width: 899px) {
   .setup-screen:has(.home-page) {
-    padding: 8px 12px 10px !important;
+    padding: max(14px, env(safe-area-inset-top)) 16px
+      max(14px, env(safe-area-inset-bottom)) !important;
     height: 100dvh !important;
     max-height: 100dvh !important;
     overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    box-sizing: border-box !important;
   }
   .setup-screen:has(.home-page) .setup-header {
-    margin-bottom: 2px !important;
+    margin-bottom: 12px !important;
     flex-shrink: 0 !important;
   }
   .home-page {
-    gap: 4px !important;
+    gap: 10px !important;
     height: 100% !important;
     display: flex !important;
     flex-direction: column !important;
     justify-content: space-between !important;
     overflow: hidden !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
   }
   .home-hero {
     display: flex !important;
     flex-direction: column !important;
-    gap: 4px !important;
     align-items: center !important;
-    text-align: center !important;
+    justify-content: space-evenly !important;
     flex: 1 1 auto !important;
     min-height: 0 !important;
-    justify-content: space-between !important;
     grid-template-columns: none !important;
+    gap: 8px !important;
   }
   .home-copy {
     display: contents !important;
@@ -5990,24 +5871,29 @@ dialog .app-error-notice {
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
-    margin-bottom: 2px !important;
+    text-align: center !important;
+    gap: 6px !important;
+    margin: 0 !important;
+    flex-shrink: 0 !important;
   }
   .home-kicker {
     margin-bottom: 2px !important;
-    font-size: 9.5px !important;
-    padding: 2px 9px !important;
+    font-size: 10.5px !important;
+    padding: 3px 12px !important;
+    letter-spacing: 0.8px !important;
   }
   .home-copy-header h1 {
-    font-size: clamp(22px, 5.8vw, 29px) !important;
-    letter-spacing: -0.9px !important;
-    margin: 2px 0 4px !important;
-    line-height: 1.05 !important;
+    font-size: clamp(24px, 6.4vw, 32px) !important;
+    letter-spacing: -1.2px !important;
+    margin: 0 !important;
+    line-height: 1.08 !important;
   }
   .home-copy-header p {
-    font-size: 11px !important;
-    line-height: 1.25 !important;
+    font-size: 12px !important;
+    line-height: 1.35 !important;
     margin: 0 !important;
     max-width: 320px !important;
+    color: var(--ink-muted) !important;
   }
   .home-stage-container {
     order: 2 !important;
@@ -6016,7 +5902,7 @@ dialog .app-error-notice {
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    padding: 2px 0 !important;
+    padding: 4px 0 !important;
   }
   .showcase-turn-hud {
     display: none !important;
@@ -6026,69 +5912,78 @@ dialog .app-error-notice {
     max-width: 100% !important;
   }
   .home-board-enclosure {
-    padding: 4px !important;
-    border-radius: 18px !important;
+    padding: 6px !important;
+    border-radius: 20px !important;
+    box-shadow:
+      0 16px 36px -8px rgba(0, 0, 0, 0.55),
+      inset 0 1px 1px rgba(255, 255, 255, 0.25) !important;
   }
   .home-board-card {
-    width: min(175px, 44vw) !important;
-    height: min(175px, 44vw) !important;
-    max-width: min(175px, 44vw) !important;
-    max-height: min(175px, 44vw) !important;
-    border-radius: 14px !important;
+    width: min(200px, 48vw, calc(100dvh - 530px)) !important;
+    height: min(200px, 48vw, calc(100dvh - 530px)) !important;
+    min-width: 145px !important;
+    min-height: 145px !important;
+    border-radius: 16px !important;
   }
   .home-actions-wrapper {
     order: 3 !important;
     width: 100% !important;
-    max-width: 340px !important;
-    margin-top: auto !important;
-    margin-bottom: 2px !important;
+    max-width: 360px !important;
+    margin: 0 !important;
+    flex-shrink: 0 !important;
   }
   .home-actions {
+    display: flex !important;
     flex-direction: column !important;
-    gap: 7px !important;
+    gap: 9px !important;
     width: 100% !important;
   }
   .home-btn-primary,
   .home-btn-secondary {
     width: 100% !important;
-    min-height: 44px !important;
-    padding: 6px 10px 6px 16px !important;
-    font-size: 13px !important;
+    min-height: 48px !important;
+    padding: 8px 12px 8px 18px !important;
+    font-size: 13.5px !important;
+    border-radius: 9999px !important;
   }
   .btn-icon-circle {
-    width: 32px !important;
-    height: 32px !important;
+    width: 34px !important;
+    height: 34px !important;
   }
   .home-perks-row {
     display: none !important;
   }
   .home-stat-section {
-    padding: 6px 12px !important;
-    border-radius: 14px !important;
-    margin-bottom: 2px !important;
+    padding: 10px 16px !important;
+    border-radius: 16px !important;
+    margin: 2px 0 !important;
     flex-shrink: 0 !important;
+    background: rgba(255, 255, 255, 0.04) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
   }
   .home-stat-heading {
-    margin-bottom: 3px !important;
+    margin-bottom: 6px !important;
   }
   .home-stat-heading small {
     display: none !important;
   }
   .home-stats {
-    gap: 8px !important;
+    gap: 12px !important;
   }
   .home-stats strong {
-    font-size: 22px !important;
+    font-size: 24px !important;
   }
   .home-stats span {
-    font-size: 8px !important;
+    font-size: 8.5px !important;
+    letter-spacing: 0.6px !important;
   }
   .home-footer {
     display: flex !important;
     align-items: center !important;
     justify-content: space-between !important;
-    padding-top: 4px !important;
-    margin-top: 0 !important;
+    padding-top: 10px !important;
+    margin-top: 2px !important;
+    border-top: 1px solid var(--line) !important;
     width: 100% !important;
     flex-shrink: 0 !important;
   }
@@ -6099,28 +5994,29 @@ dialog .app-error-notice {
     display: none !important;
   }
   .home-rules-link {
-    font-size: 11px !important;
+    font-size: 11.5px !important;
   }
   .home-install-btn {
-    font-size: 11px !important;
-    min-height: 30px !important;
-    padding: 4px 10px !important;
+    font-size: 11.5px !important;
+    min-height: 32px !important;
+    padding: 5px 12px !important;
     margin-left: auto !important;
   }
 
   /* Lobby Card on Mobile / iPhone */
   .setup-screen:has(.lobby-card) {
-    padding: 8px 12px 10px !important;
+    padding: max(12px, env(safe-area-inset-top)) 14px
+      max(12px, env(safe-area-inset-bottom)) !important;
     height: 100dvh !important;
     max-height: 100dvh !important;
     overflow: hidden !important;
   }
   .setup-screen:has(.lobby-card) .setup-header {
-    margin-bottom: 4px !important;
+    margin-bottom: 8px !important;
     flex-shrink: 0 !important;
   }
   .setup-screen:has(.lobby-card) .lobby-card {
-    padding: 10px 14px !important;
+    padding: 12px 16px !important;
     flex: 1 1 auto !important;
     min-height: 0 !important;
     overflow-y: auto !important;
@@ -6145,6 +6041,50 @@ dialog .app-error-notice {
   .lobby-segmented .finish-segment-btn span {
     font-size: 11.5px !important;
     font-weight: 750 !important;
+  }
+}
+
+/* Compact devices / small height (e.g. iPhone SE, landscape or active soft keyboard) */
+@media (max-width: 899px) and (max-height: 720px) {
+  .setup-screen:has(.home-page) {
+    padding: 10px 14px !important;
+  }
+  .setup-screen:has(.home-page) .setup-header {
+    margin-bottom: 6px !important;
+  }
+  .home-page {
+    gap: 6px !important;
+  }
+  .home-hero {
+    gap: 6px !important;
+  }
+  .home-copy-header h1 {
+    font-size: 24px !important;
+  }
+  .home-copy-header p {
+    font-size: 11px !important;
+    line-height: 1.25 !important;
+  }
+  .home-board-card {
+    width: min(150px, 40vw) !important;
+    height: min(150px, 40vw) !important;
+    min-width: 125px !important;
+    min-height: 125px !important;
+  }
+  .home-btn-primary,
+  .home-btn-secondary {
+    min-height: 42px !important;
+    font-size: 12.5px !important;
+  }
+  .home-stat-section {
+    padding: 6px 12px !important;
+    margin: 2px 0 !important;
+  }
+  .home-stats strong {
+    font-size: 20px !important;
+  }
+  .home-footer {
+    padding-top: 6px !important;
   }
 }
 
