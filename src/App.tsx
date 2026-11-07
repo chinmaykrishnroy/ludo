@@ -30,7 +30,6 @@ import {
   Eye,
   House,
 } from "@phosphor-icons/react";
-import { FinishRuleSelect } from "./components/FinishRuleSelect";
 import { Dialog, reportUnexpected } from "./lib";
 import {
   useAppearance,

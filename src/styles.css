@@ -5824,168 +5824,258 @@ dialog .app-error-notice {
 }
 
 /* ==========================================================================
-   Mobile (< 900px): Spacious, Balanced, Harmonic Proportions (No Congestion)
+   Mobile (< 900px): Natural Main-Branch Flow, Centered Hero, Cohesive CTAs
    ========================================================================== */
 
 @media (max-width: 899px) {
+  /* Natural page flow with safe-area padding - allows smooth scrolling */
   .setup-screen:has(.home-page) {
-    padding: max(14px, env(safe-area-inset-top)) 16px
-      max(14px, env(safe-area-inset-bottom)) !important;
-    height: 100dvh !important;
-    max-height: 100dvh !important;
-    overflow: hidden !important;
+    padding: max(18px, env(safe-area-inset-top)) 20px
+      max(28px, env(safe-area-inset-bottom)) !important;
+    min-height: 100dvh !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
     display: flex !important;
     flex-direction: column !important;
-    justify-content: space-between !important;
+    justify-content: flex-start !important;
     box-sizing: border-box !important;
   }
   .setup-screen:has(.home-page) .setup-header {
-    margin-bottom: 12px !important;
+    margin-bottom: 22px !important;
     flex-shrink: 0 !important;
+    width: 100% !important;
   }
   .home-page {
-    gap: 10px !important;
-    height: 100% !important;
     display: flex !important;
     flex-direction: column !important;
-    justify-content: space-between !important;
-    overflow: hidden !important;
-    flex: 1 1 auto !important;
+    gap: 28px !important;
+    height: auto !important;
     min-height: 0 !important;
+    overflow: visible !important;
+    width: 100% !important;
   }
   .home-hero {
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
-    justify-content: space-evenly !important;
-    flex: 1 1 auto !important;
-    min-height: 0 !important;
+    gap: 32px !important;
+    width: 100% !important;
     grid-template-columns: none !important;
-    gap: 8px !important;
   }
+
+  /* Unified Hero Copy & Action Buttons (Preserving natural flow from main) */
   .home-copy {
-    display: contents !important;
-  }
-  .home-copy-header {
-    order: 1 !important;
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
     text-align: center !important;
-    gap: 6px !important;
-    margin: 0 !important;
-    flex-shrink: 0 !important;
+    width: 100% !important;
+    gap: 18px !important;
+  }
+  .home-copy-header {
+    order: unset !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    gap: 12px !important;
+    width: 100% !important;
   }
   .home-kicker {
-    margin-bottom: 2px !important;
-    font-size: 10.5px !important;
-    padding: 3px 12px !important;
-    letter-spacing: 0.8px !important;
-  }
-  .home-copy-header h1 {
-    font-size: clamp(24px, 6.4vw, 32px) !important;
-    letter-spacing: -1.2px !important;
-    margin: 0 !important;
-    line-height: 1.08 !important;
-  }
-  .home-copy-header p {
-    font-size: 12px !important;
-    line-height: 1.35 !important;
-    margin: 0 !important;
-    max-width: 320px !important;
-    color: var(--ink-muted) !important;
-  }
-  .home-stage-container {
-    order: 2 !important;
-    flex: 1 1 auto !important;
-    min-height: 0 !important;
-    display: flex !important;
+    display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    padding: 4px 0 !important;
+    align-self: center !important;
+    margin: 0 auto !important;
+    text-align: center !important;
+    font-size: 11px !important;
+    font-weight: 800 !important;
+    padding: 5px 14px !important;
+    letter-spacing: 0.8px !important;
+    border-radius: var(--radius-pill, 9999px) !important;
+    background: rgba(245, 158, 11, 0.15) !important;
+    border: 1px solid rgba(245, 158, 11, 0.35) !important;
+    color: var(--yellow) !important;
+    box-shadow: 0 2px 10px rgba(245, 158, 11, 0.15) !important;
   }
-  .showcase-turn-hud {
-    display: none !important;
-  }
-  .home-board-showcase {
-    gap: 0 !important;
-    max-width: 100% !important;
-  }
-  .home-board-enclosure {
-    padding: 6px !important;
-    border-radius: 20px !important;
-    box-shadow:
-      0 16px 36px -8px rgba(0, 0, 0, 0.55),
-      inset 0 1px 1px rgba(255, 255, 255, 0.25) !important;
-  }
-  .home-board-card {
-    width: min(200px, 48vw, calc(100dvh - 530px)) !important;
-    height: min(200px, 48vw, calc(100dvh - 530px)) !important;
-    min-width: 145px !important;
-    min-height: 145px !important;
-    border-radius: 16px !important;
-  }
-  .home-actions-wrapper {
-    order: 3 !important;
-    width: 100% !important;
-    max-width: 360px !important;
+  .home-copy-header h1 {
+    font-size: clamp(34px, 8.8vw, 48px) !important;
+    font-weight: 900 !important;
+    letter-spacing: -1.8px !important;
+    line-height: 1.02 !important;
     margin: 0 !important;
-    flex-shrink: 0 !important;
+    text-align: center !important;
+  }
+  .home-copy-header h1 > span {
+    display: block !important;
+    text-align: center !important;
+  }
+  .home-copy-header p {
+    font-size: 14.5px !important;
+    line-height: 1.45 !important;
+    color: var(--ink-muted) !important;
+    margin: 0 auto !important;
+    max-width: 360px !important;
+    text-align: center !important;
+  }
+
+  /* High-Impact CTA Buttons right below Copy */
+  .home-actions-wrapper {
+    order: unset !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 14px !important;
+    width: 100% !important;
+    max-width: 380px !important;
+    margin: 4px auto 0 !important;
   }
   .home-actions {
     display: flex !important;
     flex-direction: column !important;
-    gap: 9px !important;
+    gap: 11px !important;
     width: 100% !important;
   }
   .home-btn-primary,
   .home-btn-secondary {
     width: 100% !important;
-    min-height: 48px !important;
-    padding: 8px 12px 8px 18px !important;
-    font-size: 13.5px !important;
-    border-radius: 9999px !important;
+    min-height: 52px !important;
+    padding: 10px 14px 10px 20px !important;
+    font-size: 14px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.4px !important;
+    border-radius: var(--radius-pill, 9999px) !important;
+    box-sizing: border-box !important;
   }
   .btn-icon-circle {
-    width: 34px !important;
-    height: 34px !important;
+    width: 36px !important;
+    height: 36px !important;
   }
   .home-perks-row {
-    display: none !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 14px !important;
+    flex-wrap: wrap !important;
+    margin-top: 4px !important;
+    width: 100% !important;
   }
+  .perk-pill {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    font-size: 11.5px !important;
+    font-weight: 700 !important;
+    color: var(--ink-muted) !important;
+    white-space: nowrap !important;
+  }
+
+  /* Board Showcase with Active Turn HUD naturally below Buttons */
+  .home-stage-container {
+    order: unset !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    padding: 6px 0 !important;
+  }
+  .home-board-showcase {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 12px !important;
+    width: 100% !important;
+    max-width: 340px !important;
+  }
+  .showcase-turn-hud {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    width: 100% !important;
+    margin-bottom: 4px !important;
+    flex-wrap: wrap !important;
+  }
+  .showcase-hud-badge {
+    padding: 4px 10px !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    border-radius: 999px !important;
+  }
+  .home-board-enclosure {
+    padding: 8px !important;
+    border-radius: 24px !important;
+    box-shadow:
+      0 24px 50px -10px rgba(0, 0, 0, 0.7),
+      0 10px 24px rgba(245, 158, 11, 0.2),
+      inset 0 1px 1px rgba(255, 255, 255, 0.3) !important;
+  }
+  .home-board-card {
+    width: min(290px, 80vw) !important;
+    height: min(290px, 80vw) !important;
+    max-width: 320px !important;
+    max-height: 320px !important;
+    border-radius: 18px !important;
+    aspect-ratio: 1 !important;
+  }
+
+  /* Stats Section */
   .home-stat-section {
-    padding: 10px 16px !important;
-    border-radius: 16px !important;
-    margin: 2px 0 !important;
-    flex-shrink: 0 !important;
+    width: 100% !important;
+    padding: 16px 18px !important;
+    border-radius: 18px !important;
+    margin: 8px 0 !important;
     background: rgba(255, 255, 255, 0.04) !important;
     border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-sizing: border-box !important;
   }
   .home-stat-heading {
-    margin-bottom: 6px !important;
-  }
-  .home-stat-heading small {
-    display: none !important;
-  }
-  .home-stats {
-    gap: 12px !important;
-  }
-  .home-stats strong {
-    font-size: 24px !important;
-  }
-  .home-stats span {
-    font-size: 8.5px !important;
-    letter-spacing: 0.6px !important;
-  }
-  .home-footer {
     display: flex !important;
     align-items: center !important;
     justify-content: space-between !important;
-    padding-top: 10px !important;
-    margin-top: 2px !important;
-    border-top: 1px solid var(--line) !important;
+    margin-bottom: 12px !important;
+  }
+  .home-stat-heading span {
+    font-size: 11px !important;
+    font-weight: 800 !important;
+  }
+  .home-stat-heading small {
+    display: inline !important;
+    font-size: 10.5px !important;
+    color: var(--ink-muted) !important;
+  }
+  .home-stats {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 12px !important;
+  }
+  .home-stats strong {
+    font-size: clamp(24px, 7vw, 32px) !important;
+  }
+  .home-stats span {
+    font-size: 9px !important;
+    letter-spacing: 0.6px !important;
+  }
+
+  /* Footer Strip */
+  .home-footer {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
     width: 100% !important;
-    flex-shrink: 0 !important;
+    padding-top: 16px !important;
+    padding-bottom: 8px !important;
+    border-top: 1px solid var(--line) !important;
+    margin-top: 8px !important;
+    gap: 12px !important;
+  }
+  .home-footer-left {
+    display: inline-flex !important;
+    align-items: center !important;
   }
   .home-footer-tagline {
     display: none !important;
@@ -5994,12 +6084,12 @@ dialog .app-error-notice {
     display: none !important;
   }
   .home-rules-link {
-    font-size: 11.5px !important;
+    font-size: 12px !important;
   }
   .home-install-btn {
-    font-size: 11.5px !important;
-    min-height: 32px !important;
-    padding: 5px 12px !important;
+    font-size: 12px !important;
+    min-height: 36px !important;
+    padding: 6px 14px !important;
     margin-left: auto !important;
   }
 
@@ -6041,50 +6131,6 @@ dialog .app-error-notice {
   .lobby-segmented .finish-segment-btn span {
     font-size: 11.5px !important;
     font-weight: 750 !important;
-  }
-}
-
-/* Compact devices / small height (e.g. iPhone SE, landscape or active soft keyboard) */
-@media (max-width: 899px) and (max-height: 720px) {
-  .setup-screen:has(.home-page) {
-    padding: 10px 14px !important;
-  }
-  .setup-screen:has(.home-page) .setup-header {
-    margin-bottom: 6px !important;
-  }
-  .home-page {
-    gap: 6px !important;
-  }
-  .home-hero {
-    gap: 6px !important;
-  }
-  .home-copy-header h1 {
-    font-size: 24px !important;
-  }
-  .home-copy-header p {
-    font-size: 11px !important;
-    line-height: 1.25 !important;
-  }
-  .home-board-card {
-    width: min(150px, 40vw) !important;
-    height: min(150px, 40vw) !important;
-    min-width: 125px !important;
-    min-height: 125px !important;
-  }
-  .home-btn-primary,
-  .home-btn-secondary {
-    min-height: 42px !important;
-    font-size: 12.5px !important;
-  }
-  .home-stat-section {
-    padding: 6px 12px !important;
-    margin: 2px 0 !important;
-  }
-  .home-stats strong {
-    font-size: 20px !important;
-  }
-  .home-footer {
-    padding-top: 6px !important;
   }
 }
 
