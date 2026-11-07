@@ -1101,49 +1101,25 @@ export default function App() {
                   </div>
                 ))}
               </div>
-              <div className="lobby-options-panel">
-                <div className="lobby-setting-block">
-                  <span className="lobby-setting-label">FINISH RULE</span>
-                  <select
-                    className="lobby-select"
-                    value={room.finishMode ?? "first"}
-                    disabled={!host || (!!room.game && !finished) || !connected}
-                    onChange={async (e) => {
-                      const finishMode = e.target.value as "first" | "all";
-                      const r = await send("room:mode", { finishMode });
-                      if (!r.ok)
-                        notify(r.error ?? "Unable to change game mode.");
-                    }}
-                  >
-                    <option value="first">
-                      ⚡ Quick Finish — 1st to bring all tokens home wins
-                    </option>
-                    <option value="all">
-                      🏆 Play Till End — 1st, 2nd, and 3rd place podium
-                    </option>
-                  </select>
-                  <span className="lobby-setting-hint">
-                    {room.finishMode === "all"
-                      ? "All players race to finish for full podium rankings."
-                      : "Game concludes immediately when the first player brings all tokens home."}
-                  </span>
-                </div>
-                <div className="lobby-setting-block">
-                  <BotDifficulty
-                    label="DEFAULT BOT LEVEL"
-                    value={
-                      room.botDifficulty ??
-                      room.game?.botDifficulty ??
-                      botDifficulty
-                    }
-                    disabled={!host || (!!room.game && !finished) || !connected}
-                    onChange={async (difficulty) => {
-                      const r = await send("room:difficulty", { difficulty });
-                      if (!r.ok)
-                        notify(r.error ?? "Unable to change bot difficulty.");
-                    }}
-                  />
-                </div>
+              <div className="lobby-finish-bar">
+                <span className="lobby-finish-label">FINISH RULE</span>
+                <select
+                  className="lobby-finish-select"
+                  value={room.finishMode ?? "first"}
+                  disabled={!host || (!!room.game && !finished) || !connected}
+                  onChange={async (e) => {
+                    const finishMode = e.target.value as "first" | "all";
+                    const r = await send("room:mode", { finishMode });
+                    if (!r.ok) notify(r.error ?? "Unable to change game mode.");
+                  }}
+                >
+                  <option value="first">
+                    Quick Finish — First to bring tokens home wins
+                  </option>
+                  <option value="all">
+                    Play Till End — 1st, 2nd, and 3rd place podium
+                  </option>
+                </select>
               </div>
               <div className="lobby-voice">
                 <VoicePanel
