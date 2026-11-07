@@ -934,7 +934,7 @@ select {
   justify-content: space-between;
   gap: 16px;
   margin-top: 14px;
-  min-height: 26px;
+  min-height: 24px;
   overflow: hidden;
 }
 .lobby-footer-strip .lobby-switch {
@@ -948,8 +948,11 @@ select {
   text-decoration: none;
   cursor: pointer;
   transition: all 0.15s ease;
-  padding: 0;
-  margin: 0;
+  padding: 0 !important;
+  margin: 0 !important;
+  line-height: 1.2 !important;
+  border: 0;
+  background: transparent;
 }
 .lobby-footer-strip .lobby-switch:hover {
   color: #fbbf24;
@@ -957,8 +960,11 @@ select {
 .lobby-footer-strip .lobby-switch svg {
   width: 14px;
   height: 14px;
+  display: inline-block;
+  vertical-align: middle;
 }
 .lobby-waiting-hint {
+  display: inline-block;
   font-size: 12px;
   font-weight: 600;
   color: #fbbf24;
@@ -968,8 +974,10 @@ select {
   text-align: right;
   flex: 1 1 auto;
   min-width: 0;
-  margin: 0;
-  line-height: 1.4;
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: 1.2 !important;
+  vertical-align: middle;
 }
 .dialog {
   border: 1px solid var(--line);
@@ -3982,16 +3990,6 @@ dialog .app-error-notice {
     align-items: center;
     justify-content: space-between;
   }
-}
-.lobby-voice {
-  margin-block: 18px;
-}
-.lobby-waiting {
-  font-size: 0.9rem;
-  margin: 12px 0 0;
-}
-.lobby-switch {
-  margin-top: 16px;
 }
 
 .game-stage .play-board {

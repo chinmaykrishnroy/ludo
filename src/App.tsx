@@ -1172,7 +1172,7 @@ export default function App() {
                 </button>
                 {host && !room.game && humans < 2 && (
                   <span
-                    className="lobby-waiting lobby-waiting-hint"
+                    className="lobby-waiting-hint"
                     title="Invite at least one more player to start."
                   >
                     Invite at least one more player to start.
