@@ -27,8 +27,8 @@ function createDemoGame(): Game {
   );
   g.seats.forEach((s) => {
     if (!s) return;
-    const pos1 = Math.floor(Math.random() * 14) + 2;
-    const pos2 = Math.floor(Math.random() * 16) + 18;
+    const pos1 = Math.floor(Math.random() * 12) + 2;
+    const pos2 = Math.floor(Math.random() * 14) + 18;
     s.tokens = [pos1, pos2, -1, -1];
   });
   g.phase = "roll";
@@ -93,11 +93,10 @@ export default function Home({
   onRules: () => void;
   onInstall: () => void;
   installed: boolean;
-  resume?: boolean;
-  onResume?: () => void;
 }) {
   const [demoGame, setDemoGame] = useState<Game>(createDemoGame);
-  const cardRef = useRef<HTMLDivElement>(null);
+  const [lastCapture, setLastCapture] = useState<number | null>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
@@ -125,6 +124,7 @@ export default function Home({
                 const nextState = move(current, t);
                 if (nextState.lastMove?.captured) {
                   bestToken = t;
+                  setLastCapture(Date.now());
                   break;
                 }
               } catch {
@@ -138,7 +138,7 @@ export default function Home({
         }
         return current;
       });
-    }, 1300);
+    }, 1100);
 
     return () => {
       active = false;
@@ -147,15 +147,13 @@ export default function Home({
   }, []);
 
   const activeColor = demoGame.seats[demoGame.turn]?.color ?? "red";
-  const activeBot =
-    demoGame.seats[demoGame.turn]?.name ?? BOT_NAMES[demoGame.turn] ?? "Milo";
+  const currentDice = demoGame.dice ?? 6;
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!cardRef.current || window.matchMedia("(max-width: 899px)").matches)
-      return;
-    const rect = cardRef.current.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width - 0.5) * 14;
-    const y = ((e.clientY - rect.top) / rect.height - 0.5) * -14;
+    if (!stageRef.current) return;
+    const rect = stageRef.current.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width - 0.5) * 18;
+    const y = ((e.clientY - rect.top) / rect.height - 0.5) * -18;
     setTilt({ x, y });
   };
 
@@ -166,78 +164,96 @@ export default function Home({
   return (
     <div className="home-page">
       <section className="home-hero">
-        <div className="home-copy">
-          <div className="home-copy-header">
-            <span className="home-kicker">THE CLASSIC. A LITTLE LOUDER.</span>
-            <h1>
-              <span>BIG MOVES.</span>
-              <span className="home-highlight">SMALL GRUDGES.</span>
-            </h1>
-            <p>
-              Bring your friends. Roll your luck.
-              <br />
-              Settle it on the board.
-            </p>
-          </div>
-
-          <div className="home-actions desktop-only">
-            <button className="primary" onClick={onOnline}>
-              <Users weight="bold" />
-              PLAY WITH FRIENDS
-              <ArrowUpRight weight="bold" />
-            </button>
-            <button className="secondary" onClick={onOffline}>
-              <Robot />
-              PLAY OFFLINE
-              <ArrowRight />
-            </button>
-          </div>
-          <span className="home-smallprint desktop-only">
-            2–4 PLAYERS. ZERO SIGN-UP.
-          </span>
+        <div className="home-copy-header">
+          <span className="home-kicker">THE CLASSIC. ELEVATED.</span>
+          <h1>
+            <span>BIG MOVES.</span>
+            <span className="home-highlight">SMALL GRUDGES.</span>
+          </h1>
+          <p>
+            Bring your friends. Roll your luck.
+            <br />
+            Settle it on the board.
+          </p>
         </div>
 
-        <div className="home-art" aria-hidden="true">
+        <div className="home-stage-container" aria-hidden="true">
           <div
-            ref={cardRef}
-            className="home-board-card"
+            ref={stageRef}
+            className="home-3d-stage"
             onPointerMove={handlePointerMove}
             onPointerLeave={handlePointerLeave}
             style={
               {
                 "--aura-color": PALETTE[activeColor],
-                transform: `perspective(900px) rotateX(${tilt.y}deg) rotateY(${tilt.x}deg)`,
+                "--tilt-x": `${tilt.x}deg`,
+                "--tilt-y": `${tilt.y}deg`,
               } as React.CSSProperties
             }
           >
-            <div className="home-board-aura" />
-            <div className="home-board-live-pill">
-              <span className="live-pulse-dot" />
-              <span>
-                LIVE DEMO • <strong>{activeBot}</strong>{" "}
-                {demoGame.phase === "roll" ? "rolling..." : "moving..."}
-              </span>
+            {/* Ambient colored lighting pedestal */}
+            <div className="home-ambient-glow" />
+            <div className="home-pedestal-base" />
+
+            {/* Floating atmospheric dust motes */}
+            <div className="home-motes">
+              <span className="mote mote-1" />
+              <span className="mote mote-2" />
+              <span className="mote mote-3" />
+              <span className="mote mote-4" />
             </div>
-            <div className="home-board-illustration">
+
+            {/* Kinetic 3D Tumbling Dice floating above the active player's yard */}
+            <div
+              className={`home-floating-die ${demoGame.phase === "roll" ? "rolling" : ""}`}
+              data-turn={activeColor}
+            >
+              <div className="die-cube">
+                <div className="die-face die-front">
+                  {Array.from({ length: currentDice }).map((_, i) => (
+                    <i key={i} className="die-pip" />
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Kinetic capture shockwave trigger */}
+            {lastCapture && Date.now() - lastCapture < 900 && (
+              <div className="home-capture-burst" key={lastCapture}>
+                <span className="burst-ring" />
+                <strong className="burst-text">💥 CAPTURED!</strong>
+              </div>
+            )}
+
+            {/* The Floating Physical Board */}
+            <div className="home-board-card">
               <Board game={demoGame} me="none" onMove={() => {}} busy />
             </div>
           </div>
-          <span className="home-art-caption">
-            YOUR NEXT RIVALRY STARTS HERE.
-          </span>
         </div>
 
-        <div className="mobile-actions-wrapper mobile-only">
+        <div className="home-actions-wrapper">
           <div className="home-actions">
-            <button className="primary" onClick={onOnline}>
-              <Users weight="bold" />
-              PLAY WITH FRIENDS
-              <ArrowUpRight weight="bold" />
+            <button className="primary home-btn-primary" onClick={onOnline}>
+              <span className="btn-label-group">
+                <Users weight="bold" />
+                <span>PLAY WITH FRIENDS</span>
+              </span>
+              <span className="btn-icon-circle">
+                <ArrowUpRight weight="bold" />
+              </span>
             </button>
-            <button className="secondary" onClick={onOffline}>
-              <Robot />
-              PLAY OFFLINE
-              <ArrowRight />
+            <button
+              className="secondary home-btn-secondary"
+              onClick={onOffline}
+            >
+              <span className="btn-label-group">
+                <Robot weight="bold" />
+                <span>PLAY OFFLINE</span>
+              </span>
+              <span className="btn-icon-circle">
+                <ArrowRight weight="bold" />
+              </span>
             </button>
           </div>
           <span className="home-smallprint">2–4 PLAYERS. ZERO SIGN-UP.</span>

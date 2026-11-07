@@ -264,11 +264,11 @@ export default function PlayScreen({
               ? isSpectator
                 ? "Exit spectating"
                 : "Leave table"
-              : "Pause game and return to home"
+              : "Back to home"
           }
         >
           <ArrowLeft weight="bold" />
-          {room ? (isSpectator ? "EXIT" : "BACK") : "PAUSE"}
+          {room ? (isSpectator ? "EXIT" : "BACK") : "BACK"}
         </button>
         {isSpectator && (
           <span className="spectator-header-pill">

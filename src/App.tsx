@@ -29,6 +29,7 @@ import {
   Eye,
   House,
 } from "@phosphor-icons/react";
+import { FinishRuleSelect } from "./components/FinishRuleSelect";
 import { Dialog, reportUnexpected } from "./lib";
 import {
   useAppearance,
@@ -223,7 +224,6 @@ export default function App() {
       | "install"
       | "moderation"
       | "offline"
-      | "offline-choice"
       | null
     >(new URLSearchParams(location.search).has("room") ? "rooms" : null),
     [toast, setToast] = useState(""),
@@ -751,16 +751,22 @@ export default function App() {
   const offlineForm = (
     <>
       {practiceOpen && local.phase !== "finished" && (
-        <button
-          className="secondary full resume-button"
-          onClick={() => {
-            setSetup(false);
-            setModal(null);
-          }}
-        >
-          <Play weight="fill" />
-          RESUME GAME
-        </button>
+        <div className="offline-resume-callout">
+          <button
+            type="button"
+            className="primary full resume-button"
+            onClick={() => {
+              setSetup(false);
+              setModal(null);
+            }}
+          >
+            <Play weight="fill" />
+            RESUME SAVED GAME
+          </button>
+          <div className="offline-divider">
+            <span>or start a new game below</span>
+          </div>
+        </div>
       )}
       <label className="field-label">
         Your name
@@ -827,22 +833,13 @@ export default function App() {
           ))}
         </details>
       )}
-      <label className="field-label">
-        Finish rule
-        <select
+      <div className="field-label">
+        <span>Finish rule</span>
+        <FinishRuleSelect
           value={offlineFinishMode}
-          onChange={(e) =>
-            setOfflineFinishMode(e.target.value as "first" | "all")
-          }
-        >
-          <option value="first">
-            Quick Finish — 1st to bring all tokens home wins
-          </option>
-          <option value="all">
-            Play Till End — 1st, 2nd, and 3rd place podium
-          </option>
-        </select>
-      </label>
+          onChange={(mode) => setOfflineFinishMode(mode)}
+        />
+      </div>
       <button
         className="primary full"
         onClick={() => {
@@ -935,11 +932,7 @@ export default function App() {
           pending={commandBusy}
           showVoice={modal !== "menu" && !chat.open}
           onBack={() => {
-            if (room) {
-              setModal("leave");
-            } else {
-              setSetup(true);
-            }
+            setModal("leave");
           }}
           connected={connected}
           clockOffset={room ? clockOffset : 0}
@@ -1173,28 +1166,14 @@ export default function App() {
               </div>
               <div className="lobby-finish-bar">
                 <span className="lobby-finish-label">FINISH RULE</span>
-                <select
-                  className="lobby-finish-select"
+                <FinishRuleSelect
                   value={room.finishMode ?? "first"}
-                  title={
-                    room.finishMode === "all"
-                      ? "Play Till End — 1st, 2nd, and 3rd place podium"
-                      : "Quick Finish — First to bring tokens home wins"
-                  }
                   disabled={!host || (!!room.game && !finished) || !connected}
-                  onChange={async (e) => {
-                    const finishMode = e.target.value as "first" | "all";
+                  onChange={async (finishMode) => {
                     const r = await send("room:mode", { finishMode });
                     if (!r.ok) notify(r.error ?? "Unable to change game mode.");
                   }}
-                >
-                  <option value="first">
-                    Quick Finish — First to bring tokens home wins
-                  </option>
-                  <option value="all">
-                    Play Till End — 1st, 2nd, and 3rd place podium
-                  </option>
-                </select>
+                />
               </div>
               <div className="lobby-voice">
                 <VoicePanel
@@ -1270,11 +1249,7 @@ export default function App() {
               stats={clubStats}
               onOnline={() => setModal("rooms")}
               onOffline={() => {
-                if (practiceOpen && local.phase !== "finished") {
-                  setModal("offline-choice");
-                } else {
-                  setModal("offline");
-                }
+                setModal("offline");
               }}
               onRules={() => setModal("rules")}
               onInstall={() =>
@@ -1286,44 +1261,6 @@ export default function App() {
             />
           )}
         </main>
-      )}
-      {modal === "offline-choice" && (
-        <Dialog title="OFFLINE MATCH" onClose={() => setModal(null)}>
-          <p className="dialog-intro">You have an offline match in progress.</p>
-          <div className="offline-choice-options">
-            <button
-              className="primary full offline-resume-btn"
-              onClick={() => {
-                setSetup(false);
-                setModal(null);
-              }}
-            >
-              <Play weight="fill" />
-              <div style={{ textAlign: "left", flex: 1, padding: "0 8px" }}>
-                <strong>RESUME GAME</strong>
-                <small style={{ display: "block", opacity: 0.8, fontSize: 12 }}>
-                  Pick up where you left off
-                </small>
-              </div>
-              <ArrowRight />
-            </button>
-            <button
-              className="secondary full offline-new-btn"
-              onClick={() => {
-                setModal("offline");
-              }}
-            >
-              <ArrowCounterClockwise weight="bold" />
-              <div style={{ textAlign: "left", flex: 1, padding: "0 8px" }}>
-                <strong>START NEW GAME</strong>
-                <small style={{ display: "block", opacity: 0.8, fontSize: 12 }}>
-                  Discard and configure a new table
-                </small>
-              </div>
-              <ArrowRight />
-            </button>
-          </div>
-        </Dialog>
       )}
       {modal === "menu" && (
         <Dialog title="GAME MENU" onClose={() => setModal(null)}>
@@ -1592,44 +1529,73 @@ export default function App() {
                 : "Would you like to pause and save this match to resume later, or quit and clear your progress?"
               : "This ends your current practice game."}
           </p>
-          <div className="dialog-buttons">
-            <button className="secondary" onClick={() => setModal(null)}>
-              CANCEL
-            </button>
-            {!room && modal === "leave" && (
-              <button
-                className="primary"
-                onClick={() => {
-                  savePractice(browserStorage, local, true);
-                  setSetup(true);
-                  setModal(null);
-                }}
-              >
-                <House weight="bold" />
-                PAUSE GAME
-              </button>
+          <div
+            className="dialog-buttons"
+            style={
+              !room && modal === "leave"
+                ? {
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    width: "100%",
+                    gap: "12px",
+                  }
+                : undefined
+            }
+          >
+            {!room && modal === "leave" ? (
+              <>
+                <button
+                  className="secondary danger-btn"
+                  onClick={() => {
+                    savePractice(browserStorage, null);
+                    setPracticeOpen(false);
+                    setLocal(practice(name, botCount));
+                    setSetup(true);
+                    setModal(null);
+                  }}
+                >
+                  <SignOut weight="bold" />
+                  LEAVE & QUIT
+                </button>
+                <div
+                  style={{ display: "flex", gap: "10px", alignItems: "center" }}
+                >
+                  <button className="secondary" onClick={() => setModal(null)}>
+                    CANCEL
+                  </button>
+                  <button
+                    className="primary"
+                    onClick={() => {
+                      savePractice(browserStorage, local, true);
+                      setSetup(true);
+                      setModal(null);
+                    }}
+                  >
+                    <Pause weight="bold" />
+                    PAUSE GAME
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <button className="secondary" onClick={() => setModal(null)}>
+                  CANCEL
+                </button>
+                <button
+                  className="primary"
+                  onClick={() =>
+                    modal === "leave"
+                      ? void leave()
+                      : (setLocal(practice(name, botCount)),
+                        setModal(null),
+                        feedback.reset())
+                  }
+                >
+                  CONFIRM <ArrowRight />
+                </button>
+              </>
             )}
-            <button
-              className={
-                !room && modal === "leave" ? "secondary danger-btn" : "primary"
-              }
-              onClick={() =>
-                modal === "leave"
-                  ? room
-                    ? void leave()
-                    : (savePractice(browserStorage, null),
-                      setPracticeOpen(false),
-                      setLocal(practice(name, botCount)),
-                      setSetup(true),
-                      setModal(null))
-                  : (setLocal(practice(name, botCount)),
-                    setModal(null),
-                    feedback.reset())
-              }
-            >
-              {!room && modal === "leave" ? "QUIT & CLEAR" : "CONFIRM"}{" "}
-              <ArrowRight />
-            </button>
           </div>
         </Dialog>
       )}

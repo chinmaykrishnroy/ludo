@@ -132,7 +132,7 @@ try {
     );
     service.app.get("/sw.js", (_req, res) =>
       res.sendFile(resolve("dist/sw.js"), {
-        headers: { "Cache-Control": "no-cache" },
+        headers: { "Cache-Control": "no-cache, no-store, must-revalidate" },
       }),
     );
     service.app.use(
@@ -147,7 +147,7 @@ try {
         return;
       }
       res.sendFile(resolve("dist/index.html"), {
-        headers: { "Cache-Control": "no-cache" },
+        headers: { "Cache-Control": "no-cache, no-store, must-revalidate" },
       });
     });
   } else {

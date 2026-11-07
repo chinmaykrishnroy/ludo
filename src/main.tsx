@@ -12,12 +12,18 @@ if (import.meta.env.PROD && "serviceWorker" in navigator) {
   const register = () => {
     void navigator.serviceWorker
       .register("/sw.js", { scope: "/" })
-      .then(() => navigator.serviceWorker.ready)
+      .then((reg) => {
+        void reg.update();
+        return navigator.serviceWorker.ready;
+      })
       .then(() => {
         document.documentElement.dataset.offlineReady = "true";
       })
       .catch(() => {});
   };
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    window.location.reload();
+  });
   if (document.readyState === "complete") register();
   else window.addEventListener("load", register, { once: true });
 }
