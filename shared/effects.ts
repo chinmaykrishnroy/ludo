@@ -23,6 +23,7 @@ export const DEFAULT_REACTION_STYLE: Record<string, ReactionStyle> = {
 };
 export const REACTION_MS = 2100;
 export const REACTION_GAP_MS = 1100;
+export const REACTION_COOLDOWN_MS = 1000;
 export const SOUND_MAX_SECONDS = 15;
 
 export type EffectActor = Pick<Seat, "id" | "name" | "color">;

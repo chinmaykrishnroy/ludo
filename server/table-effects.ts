@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import {
   REACTION_GAP_MS,
   REACTION_MS,
+  REACTION_COOLDOWN_MS,
   DEFAULT_REACTION_STYLE,
   selectBotReaction,
   type BotReaction,
@@ -72,7 +73,7 @@ export class TableEffects {
     return {
       room,
       reactionReadyAt: latestReaction
-        ? latestReaction.endsAt + REACTION_GAP_MS
+        ? latestReaction.startsAt + REACTION_COOLDOWN_MS
         : 0,
       soundReadyAt,
       cooldowns,
@@ -109,7 +110,7 @@ export class TableEffects {
       .filter((r) => r.actor.id !== actor.id);
     entry.activeReactions.push(cue);
     entry.reaction = cue;
-    const readyAt = endsAt + REACTION_GAP_MS;
+    const readyAt = startsAt + REACTION_COOLDOWN_MS;
     entry.playerCooldowns.set(actor.id, readyAt);
     entry.reactionReadyAt = readyAt;
     return true;

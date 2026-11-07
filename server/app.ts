@@ -377,6 +377,49 @@ export function createApplication(options: ApplicationOptions = {}) {
           : [];
       if (effects.bot(after.code, candidates, delay) || left.length)
         publishEffects(after);
+      if (
+        after.game &&
+        before.game &&
+        soundboard.availableCatalog().clips.length > 0 &&
+        Math.random() < 0.45
+      ) {
+        const isCapture = !!after.game.lastMove?.captured;
+        const isFinish =
+          (after.game.rankings?.length ?? 0) >
+          (before.game.rankings?.length ?? 0);
+        if (isCapture || isFinish) {
+          const movedSeat = before.seats[before.game.turn];
+          const botMoved = movedSeat?.id.startsWith("bot:");
+          const targetCategories =
+            botMoved || isFinish
+              ? ["hype", "troll", "laughs"]
+              : ["sad", "fails", "shock"];
+          const availableClips = soundboard.catalog.clips.filter(
+            (c) =>
+              c.categories.some((cat) => targetCategories.includes(cat)) &&
+              soundboard.available(c.id),
+          );
+          if (availableClips.length > 0) {
+            const clip =
+              availableClips[Math.floor(Math.random() * availableClips.length)];
+            const actorSeat =
+              (botMoved ? movedSeat : undefined) ??
+              after.seats.find((s) => s?.id.startsWith("bot:"));
+            if (actorSeat) {
+              if (
+                effects.sound(
+                  after.code,
+                  effectActor(actorSeat),
+                  { sound: clip.id, title: clip.label, gain: 1 },
+                  clip.duration,
+                )
+              ) {
+                publishEffects(after);
+              }
+            }
+          }
+        }
+      }
     } catch (error) {
       failure("room_effects", error);
     }

@@ -70,11 +70,13 @@ test("a table has separate reaction and sound slots that expire and respect visi
   assert(effects.react("B", b, "angry"));
   assert.equal(effects.view("A", () => false)?.sound, undefined);
   assert(effects.view("A", () => false)!.soundReadyAt > now);
-  now += 1700;
-  assert(effects.sound("A", b, clip, 1));
+  now += 500;
   assert(!effects.react("A", b, "angry"));
-  now += 1600;
+  now += 600;
   assert(effects.react("A", b, "angry"));
+  now += 600;
+  assert(effects.sound("A", b, clip, 1));
+  now += 1600;
   effects.removeActor("A", b.id);
   assert.equal(effects.view("A")!.reaction, undefined);
 });

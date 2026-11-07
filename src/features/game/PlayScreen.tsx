@@ -17,6 +17,7 @@ import {
   effectActor,
   REACTION_GAP_MS,
   REACTION_MS,
+  REACTION_COOLDOWN_MS,
   type EffectActor,
   type ReactionId,
   type ReactionStyle,
@@ -126,7 +127,7 @@ export default function PlayScreen({
       startsAt,
       endsAt,
     };
-    const nextReady = endsAt + REACTION_GAP_MS;
+    const nextReady = startsAt + REACTION_COOLDOWN_MS;
     localCooldowns.current.set(actor.id, nextReady);
     setLocalEffects((current) => {
       const active = (
@@ -168,33 +169,30 @@ export default function PlayScreen({
     if (selected) {
       recentBots.current.set(selected.actor.id, timestamp);
       localReact(selected.actor, selected.reaction, 950);
-      if (!voice.muted) {
-        try {
-          const ctx = voice.mixer.unlock();
-          if (ctx) {
-            const r = selected.reaction;
-            if (
-              r === "celebrate" ||
-              r === "🎉" ||
-              r === "🏆" ||
-              r === "🔥" ||
-              r === "👑"
-            ) {
-              playGameSound(ctx, "botCheer");
-            } else if (
-              r === "angry" ||
-              r === "😭" ||
-              r === "💔" ||
-              r === "plead"
-            ) {
-              playGameSound(ctx, "botGroan");
-            } else {
-              playGameSound(ctx, "botTaunt");
+      if (!voice.muted && selected.reaction !== "plead") {
+        setTimeout(() => {
+          try {
+            const ctx = voice.mixer.unlock();
+            if (ctx) {
+              const r = selected.reaction;
+              if (
+                r === "celebrate" ||
+                r === "🎉" ||
+                r === "🏆" ||
+                r === "🔥" ||
+                r === "👑"
+              ) {
+                playGameSound(ctx, "botCheer");
+              } else if (r === "angry" || r === "😭" || r === "💔") {
+                playGameSound(ctx, "botGroan");
+              } else {
+                playGameSound(ctx, "botTaunt");
+              }
             }
+          } catch {
+            /* optional sound feedback */
           }
-        } catch {
-          /* optional sound feedback */
-        }
+        }, 950);
       }
     }
   }, [game, room, localEffects?.reactionReadyAt]);

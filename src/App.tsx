@@ -942,74 +942,105 @@ export default function App() {
               {!chat.open && <ChatPreviews messages={chat.previews} />}
               <div className="lobby-title">
                 <h1>{room.name}</h1>
-                <span className="room-visibility">
-                  {room.public ? <GlobeHemisphereWest /> : <LockSimple />}
-                  {room.public ? "PUBLIC" : "PRIVATE"}
+                <span className="room-visibility-badge">
+                  {room.public ? (
+                    <GlobeHemisphereWest weight="bold" />
+                  ) : (
+                    <LockSimple weight="bold" />
+                  )}
+                  <span>{room.public ? "PUBLIC TABLE" : "PRIVATE TABLE"}</span>
                 </span>
               </div>
               <div className="invite-strip">
-                <span>
-                  ROOM CODE <strong>{room.code}</strong>
-                </span>
+                <div className="invite-code-box">
+                  <span className="invite-label">ROOM CODE</span>
+                  <strong className="invite-code">{room.code}</strong>
+                </div>
                 <button
-                  className="square-button"
+                  type="button"
+                  className="invite-copy-btn"
                   aria-label="Copy room invite link"
                   onClick={() => void copyInvite()}
                 >
-                  {copied ? <Check /> : <Copy />}
+                  {copied ? <Check weight="bold" /> : <Copy weight="bold" />}
+                  <span>{copied ? "COPIED LINK!" : "COPY LINK"}</span>
                 </button>
               </div>
               <div className="seat-editor">
                 {room.seats.map((p, i) => (
-                  <div className="seat-row" key={i}>
+                  <div
+                    className={`seat-card ${p ? "seat-occupied" : "seat-vacant"}`}
+                    key={i}
+                  >
                     <span
-                      className="seat-colour"
-                      style={{ background: PALETTE[COLORS[i]] }}
+                      className="seat-colour-dot"
+                      style={{
+                        background: PALETTE[COLORS[i]],
+                        boxShadow: `0 0 10px ${PALETTE[COLORS[i]]}88`,
+                      }}
                     />
-                    <span>
-                      <strong>{p?.name ?? "Empty seat"}</strong>
-                      <small>
+                    <div className="seat-main-info">
+                      <div className="seat-header-row">
+                        <strong className="seat-player-name">
+                          {p?.name ?? "Open Seat"}
+                        </strong>
+                        {p?.id === me && (
+                          <span className="seat-badge you-badge">YOU</span>
+                        )}
+                        {p?.id === room.host && (
+                          <span className="seat-badge host-badge">HOST</span>
+                        )}
+                        {p?.bot && (
+                          <span className="seat-badge bot-badge">
+                            BOT · Lv.
+                            {p.botDifficulty ?? room.botDifficulty ?? 10}
+                          </span>
+                        )}
+                      </div>
+                      <small className="seat-status-caption">
                         {p?.id === room.host
-                          ? "Organiser"
+                          ? "Table Organiser"
                           : p?.bot
-                            ? `Bot · Level ${p.botDifficulty ?? room.botDifficulty ?? 10}`
+                            ? "Computer player"
                             : p
                               ? p.connected
-                                ? "Player"
+                                ? "Ready"
                                 : "Offline"
-                              : "Open to a friend"}
+                              : "Open seat — invite a friend or add bot"}
                       </small>
                       {p?.id.startsWith("bot:") && (
-                        <BotDifficulty
-                          label={`${COLORS[i]} bot difficulty`}
-                          value={
-                            p.botDifficulty ??
-                            room.botDifficulty ??
-                            botDifficulty
-                          }
-                          disabled={
-                            !host || (!!room.game && !finished) || !connected
-                          }
-                          onChange={async (difficulty) => {
-                            const r = await send("room:difficulty", {
-                              difficulty,
-                              seat: i,
-                            });
-                            if (!r.ok)
-                              notify(
-                                r.error ?? "Unable to change bot difficulty.",
-                              );
-                          }}
-                        />
+                        <div className="seat-bot-config">
+                          <BotDifficulty
+                            label={`${COLORS[i]} bot level`}
+                            value={
+                              p.botDifficulty ??
+                              room.botDifficulty ??
+                              botDifficulty
+                            }
+                            disabled={
+                              !host || (!!room.game && !finished) || !connected
+                            }
+                            onChange={async (difficulty) => {
+                              const r = await send("room:difficulty", {
+                                difficulty,
+                                seat: i,
+                              });
+                              if (!r.ok)
+                                notify(
+                                  r.error ?? "Unable to change bot difficulty.",
+                                );
+                            }}
+                          />
+                        </div>
                       )}
-                    </span>
-                    <div className="seat-actions">
+                    </div>
+                    <div className="seat-action-tools">
                       {p && host && (!room.game || finished) && (
-                        <div className="seat-order">
+                        <div className="seat-reorder-buttons">
                           {([-1, 1] as const).map((step) => (
                             <button
                               type="button"
-                              className="square-button"
+                              className="seat-arrow-btn"
                               key={step}
                               aria-label={`Move ${p.name} ${step < 0 ? "up" : "down"}`}
                               disabled={
@@ -1042,7 +1073,8 @@ export default function App() {
                       (!room.game || finished) &&
                       (!p || p.id.startsWith("bot:")) ? (
                         <button
-                          className="secondary"
+                          type="button"
+                          className={`seat-bot-action-btn ${p ? "remove-bot" : "add-bot"}`}
                           aria-label={`${p ? "Remove" : "Add"} Bot in ${COLORS[i]} seat`}
                           onClick={async () => {
                             const r = await send("room:configure", {
@@ -1054,56 +1086,65 @@ export default function App() {
                         >
                           {p ? (
                             <>
-                              <X />
-                              Remove Bot
+                              <X weight="bold" />
+                              <span>Remove</span>
                             </>
                           ) : (
                             <>
-                              <Plus />
-                              Add Bot
+                              <Plus weight="bold" />
+                              <span>Add Bot</span>
                             </>
                           )}
                         </button>
-                      ) : p?.id === me ? (
-                        <span className="you-label">YOU</span>
                       ) : null}
                     </div>
                   </div>
                 ))}
               </div>
-              <BotDifficulty
-                label="Default for new bots"
-                value={
-                  room.botDifficulty ??
-                  room.game?.botDifficulty ??
-                  botDifficulty
-                }
-                disabled={!host || (!!room.game && !finished) || !connected}
-                onChange={async (difficulty) => {
-                  const r = await send("room:difficulty", { difficulty });
-                  if (!r.ok)
-                    notify(r.error ?? "Unable to change bot difficulty.");
-                }}
-              />
-              <label className="field-label" style={{ marginTop: 12 }}>
-                Finish rule
-                <select
-                  value={room.finishMode ?? "first"}
-                  disabled={!host || (!!room.game && !finished) || !connected}
-                  onChange={async (e) => {
-                    const finishMode = e.target.value as "first" | "all";
-                    const r = await send("room:mode", { finishMode });
-                    if (!r.ok) notify(r.error ?? "Unable to change game mode.");
-                  }}
-                >
-                  <option value="first">
-                    Quick Finish — 1st to bring all tokens home wins
-                  </option>
-                  <option value="all">
-                    Play Till End — 1st, 2nd, and 3rd place podium
-                  </option>
-                </select>
-              </label>
+              <div className="lobby-options-panel">
+                <div className="lobby-setting-block">
+                  <span className="lobby-setting-label">FINISH RULE</span>
+                  <select
+                    className="lobby-select"
+                    value={room.finishMode ?? "first"}
+                    disabled={!host || (!!room.game && !finished) || !connected}
+                    onChange={async (e) => {
+                      const finishMode = e.target.value as "first" | "all";
+                      const r = await send("room:mode", { finishMode });
+                      if (!r.ok)
+                        notify(r.error ?? "Unable to change game mode.");
+                    }}
+                  >
+                    <option value="first">
+                      ⚡ Quick Finish — 1st to bring all tokens home wins
+                    </option>
+                    <option value="all">
+                      🏆 Play Till End — 1st, 2nd, and 3rd place podium
+                    </option>
+                  </select>
+                  <span className="lobby-setting-hint">
+                    {room.finishMode === "all"
+                      ? "All players race to finish for full podium rankings."
+                      : "Game concludes immediately when the first player brings all tokens home."}
+                  </span>
+                </div>
+                <div className="lobby-setting-block">
+                  <BotDifficulty
+                    label="DEFAULT BOT LEVEL"
+                    value={
+                      room.botDifficulty ??
+                      room.game?.botDifficulty ??
+                      botDifficulty
+                    }
+                    disabled={!host || (!!room.game && !finished) || !connected}
+                    onChange={async (difficulty) => {
+                      const r = await send("room:difficulty", { difficulty });
+                      if (!r.ok)
+                        notify(r.error ?? "Unable to change bot difficulty.");
+                    }}
+                  />
+                </div>
+              </div>
               <div className="lobby-voice">
                 <VoicePanel
                   compact
@@ -1113,12 +1154,17 @@ export default function App() {
                 />
               </div>
               <div className="lobby-actions">
-                <button className="secondary" onClick={() => setModal("leave")}>
-                  <SignOut />
-                  Leave
+                <button
+                  type="button"
+                  className="secondary lobby-btn-leave"
+                  onClick={() => setModal("leave")}
+                >
+                  <SignOut weight="bold" />
+                  Leave Table
                 </button>
                 <button
-                  className="primary"
+                  type="button"
+                  className="primary lobby-btn-start"
                   disabled={
                     (!room.game || finished) &&
                     (!host ||
@@ -1141,7 +1187,8 @@ export default function App() {
               </div>
               {host && !room.game && humans < 2 && (
                 <p className="lobby-waiting">
-                  Invite one more player to start.
+                  Invite at least one more player (or add a computer player) to
+                  start.
                 </p>
               )}
               <button
