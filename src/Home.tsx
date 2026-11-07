@@ -281,17 +281,20 @@ export default function Home({
       </section>
 
       {/* Footer Strip */}
-      <footer className="home-footer-strip">
-        <span className="home-footer-tagline">
-          SAME BOARD. YOUR KIND OF COMPANY.
-        </span>
-        <button
-          type="button"
-          className="text-button home-rules-link"
-          onClick={onRules}
-        >
-          New to the table? House rules <ArrowUpRight weight="bold" />
-        </button>
+      <footer className="home-footer">
+        <div className="home-footer-left">
+          <strong className="home-footer-tagline">
+            SAME BOARD. YOUR KIND OF COMPANY.
+          </strong>
+          <span className="footer-dot">•</span>
+          <button
+            type="button"
+            className="text-button home-rules-link"
+            onClick={onRules}
+          >
+            New to the table? House rules <ArrowUpRight weight="bold" />
+          </button>
+        </div>
         {!installed && (
           <button
             type="button"

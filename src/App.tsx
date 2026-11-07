@@ -861,7 +861,7 @@ export default function App() {
             className={`finish-segment-btn ${offlineFinishMode === "first" ? "active" : ""}`}
             onClick={() => setOfflineFinishMode("first")}
           >
-            <span className="segment-title">⚡ Quick Finish</span>
+            <span className="segment-title">Quick Finish</span>
             <small className="segment-desc">
               First to bring tokens home wins
             </small>
@@ -871,7 +871,7 @@ export default function App() {
             className={`finish-segment-btn ${offlineFinishMode === "all" ? "active" : ""}`}
             onClick={() => setOfflineFinishMode("all")}
           >
-            <span className="segment-title">🏆 Play Till End</span>
+            <span className="segment-title">Play Till End</span>
             <small className="segment-desc">Full 1st, 2nd, 3rd podium</small>
           </button>
         </div>
@@ -1215,7 +1215,7 @@ export default function App() {
                         notify(r.error ?? "Unable to change game mode.");
                     }}
                   >
-                    <span className="segment-title">⚡ Quick Finish</span>
+                    <span className="segment-title">Quick Finish</span>
                   </button>
                   <button
                     type="button"
@@ -1227,7 +1227,7 @@ export default function App() {
                         notify(r.error ?? "Unable to change game mode.");
                     }}
                   >
-                    <span className="segment-title">🏆 Play Till End</span>
+                    <span className="segment-title">Play Till End</span>
                   </button>
                 </div>
               </div>
