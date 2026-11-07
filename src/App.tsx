@@ -706,6 +706,18 @@ export default function App() {
   const humans =
     room?.seats.filter((seat) => seat && !seat.id.startsWith("bot:")).length ??
     0;
+  const startTooltip =
+    room?.game && !finished
+      ? "Resume game"
+      : !connected
+        ? "Connecting to server..."
+        : admission?.newRoomsAvailable === false
+          ? "The server is busy. Starting new games will reopen automatically."
+          : !host
+            ? "Waiting for table host to start the game."
+            : humans < 2
+              ? "Invite at least one more player to start."
+              : "Start game";
   useEffect(() => {
     const openMenu = (event: KeyboardEvent) => {
       if (
@@ -1135,32 +1147,36 @@ export default function App() {
                   type="button"
                   className="secondary lobby-btn-leave"
                   onClick={() => setModal("leave")}
+                  title="Leave table"
                 >
                   <SignOut weight="bold" />
                   Leave Table
                 </button>
-                <button
-                  type="button"
-                  className="primary lobby-btn-start"
-                  disabled={
-                    (!room.game || finished) &&
-                    (!host ||
-                      humans < 2 ||
-                      !connected ||
-                      admission?.newRoomsAvailable === false)
-                  }
-                  onClick={() => {
-                    setSetup(false);
-                    if (!room.game || finished) void start();
-                  }}
-                >
-                  <Play weight="fill" />
-                  {room.game && !finished
-                    ? "RESUME GAME"
-                    : host
-                      ? "START GAME"
-                      : "WAITING FOR HOST"}
-                </button>
+                <div className="lobby-btn-start-wrap" title={startTooltip}>
+                  <button
+                    type="button"
+                    className="primary lobby-btn-start"
+                    disabled={
+                      (!room.game || finished) &&
+                      (!host ||
+                        humans < 2 ||
+                        !connected ||
+                        admission?.newRoomsAvailable === false)
+                    }
+                    title={startTooltip}
+                    onClick={() => {
+                      setSetup(false);
+                      if (!room.game || finished) void start();
+                    }}
+                  >
+                    <Play weight="fill" />
+                    {room.game && !finished
+                      ? "RESUME GAME"
+                      : host
+                        ? "START GAME"
+                        : "WAITING FOR HOST"}
+                  </button>
+                </div>
               </div>
               <div className="lobby-footer-strip">
                 <button

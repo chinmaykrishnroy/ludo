@@ -922,7 +922,16 @@ select {
   padding: 8px 14px;
   font-size: 13px;
 }
+.lobby-btn-start-wrap {
+  flex: 1 1 auto;
+  display: flex;
+  min-width: 0;
+}
+.lobby-btn-start-wrap:has(.lobby-btn-start:disabled) {
+  cursor: not-allowed;
+}
 .lobby-btn-start {
+  width: 100%;
   flex: 1 1 auto;
   min-height: 42px;
   padding: 8px 18px;
