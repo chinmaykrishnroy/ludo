@@ -1547,6 +1547,7 @@ export default function App() {
               <>
                 <button
                   className="secondary danger-btn"
+                  style={{ flex: 1 }}
                   onClick={() => {
                     savePractice(browserStorage, null);
                     setPracticeOpen(false);
@@ -1558,24 +1559,18 @@ export default function App() {
                   <SignOut weight="bold" />
                   LEAVE & QUIT
                 </button>
-                <div
-                  style={{ display: "flex", gap: "10px", alignItems: "center" }}
+                <button
+                  className="primary"
+                  style={{ flex: 1 }}
+                  onClick={() => {
+                    savePractice(browserStorage, local, true);
+                    setSetup(true);
+                    setModal(null);
+                  }}
                 >
-                  <button className="secondary" onClick={() => setModal(null)}>
-                    CANCEL
-                  </button>
-                  <button
-                    className="primary"
-                    onClick={() => {
-                      savePractice(browserStorage, local, true);
-                      setSetup(true);
-                      setModal(null);
-                    }}
-                  >
-                    <Pause weight="bold" />
-                    PAUSE GAME
-                  </button>
-                </div>
+                  <Pause weight="bold" />
+                  PAUSE GAME
+                </button>
               </>
             ) : (
               <>
