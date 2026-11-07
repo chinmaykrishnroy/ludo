@@ -21,16 +21,16 @@ import {
 import { orientCell, type BoardRotation } from "./boardOrientation";
 
 export const PALETTE: Record<Color, string> = {
-  red: "#e85050",
-  green: "#26966a",
-  yellow: "#edbb38",
-  blue: "#477ee0",
+  red: "#dc2626",
+  green: "#16a34a",
+  yellow: "#f59e0b",
+  blue: "#2563eb",
 };
 const LIGHT: Record<Color, string> = {
-  red: "#fceceb",
-  green: "#e4f3eb",
-  yellow: "#fcf3d9",
-  blue: "#e8effc",
+  red: "#fee2e2",
+  green: "#dcfce7",
+  yellow: "#fef3c7",
+  blue: "#dbeafe",
 };
 const Token = memo(function Token({
   game,
@@ -201,7 +201,7 @@ export const Board = memo(function Board({
                     cy={y + 64 + Math.floor(n / 2) * 64}
                     r="14"
                     fill={PALETTE[color]}
-                    opacity=".17"
+                    opacity=".28"
                   />
                 ))}
               </g>
@@ -217,8 +217,8 @@ export const Board = memo(function Board({
                 width="32"
                 height="32"
                 fill={color ? PALETTE[color] : "#fffdf8"}
-                stroke="#9b9f93"
-                strokeWidth=".8"
+                stroke="#888275"
+                strokeWidth="1"
               />
             );
           })}
@@ -233,8 +233,8 @@ export const Board = memo(function Board({
                   width="32"
                   height="32"
                   fill={j === 4 ? PALETTE[color] : LIGHT[color]}
-                  stroke="#9b9f93"
-                  strokeWidth=".8"
+                  stroke="#888275"
+                  strokeWidth="1"
                 />
               )),
           )}

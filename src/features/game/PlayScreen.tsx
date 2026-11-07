@@ -247,9 +247,13 @@ export default function PlayScreen({
   return (
     <div className="game-stage">
       <header className="game-header">
-        <button className="play-tool header-back" onClick={onBack}>
+        <button
+          className="play-tool header-back"
+          onClick={onBack}
+          title={room ? "Leave table" : "Pause game and return to home"}
+        >
           <ArrowLeft weight="bold" />
-          BACK
+          {room ? "BACK" : "PAUSE"}
         </button>
         <RoomTools voice={voice} chat={chat} online={!!room} />
       </header>

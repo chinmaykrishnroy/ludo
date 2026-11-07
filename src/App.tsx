@@ -25,6 +25,7 @@ import {
   ArrowCounterClockwise,
   SignOut,
   Trophy,
+  Pause,
 } from "@phosphor-icons/react";
 import { Dialog, reportUnexpected } from "./lib";
 import {
@@ -918,7 +919,13 @@ export default function App() {
           busy={busy || commandBusy}
           pending={commandBusy}
           showVoice={modal !== "menu" && !chat.open}
-          onBack={() => setModal("leave")}
+          onBack={() => {
+            if (room) {
+              setModal("leave");
+            } else {
+              setSetup(true);
+            }
+          }}
           connected={connected}
           clockOffset={room ? clockOffset : 0}
           onRoll={() => void act("game:roll")}
@@ -1119,6 +1126,11 @@ export default function App() {
                 <select
                   className="lobby-finish-select"
                   value={room.finishMode ?? "first"}
+                  title={
+                    room.finishMode === "all"
+                      ? "Play Till End — 1st, 2nd, and 3rd place podium"
+                      : "Quick Finish — First to bring tokens home wins"
+                  }
                   disabled={!host || (!!room.game && !finished) || !connected}
                   onChange={async (e) => {
                     const finishMode = e.target.value as "first" | "all";
@@ -1283,15 +1295,27 @@ export default function App() {
                 LEAVE ROOM
               </button>
             ) : (
-              <button
-                className="secondary full"
-                onClick={() => {
-                  setModal("leave");
-                }}
-              >
-                <ArrowCounterClockwise />
-                QUIT GAME
-              </button>
+              <>
+                <button
+                  className="secondary full"
+                  onClick={() => {
+                    setSetup(true);
+                    setModal(null);
+                  }}
+                >
+                  <Pause weight="bold" />
+                  PAUSE &amp; GO TO HOME
+                </button>
+                <button
+                  className="secondary full"
+                  onClick={() => {
+                    setModal("leave");
+                  }}
+                >
+                  <ArrowCounterClockwise />
+                  QUIT GAME
+                </button>
+              </>
             )}
             {room && (
               <VoicePanel
@@ -1455,20 +1479,37 @@ export default function App() {
       )}
       {(modal === "leave" || modal === "reset") && (
         <Dialog
-          title={modal === "leave" ? "QUIT GAME?" : "START AGAIN?"}
+          title={
+            modal === "leave"
+              ? room
+                ? "QUIT GAME?"
+                : "PAUSE OR QUIT?"
+              : "START AGAIN?"
+          }
           onClose={() => setModal(null)}
         >
           <p className="dialog-intro">
             {modal === "leave"
               ? room
                 ? "Leave this game and remove your tokens? Refreshing or closing the app keeps your seat saved."
-                : "End this offline game and clear its saved progress?"
+                : "You can pause this game and resume anytime from the home screen, or quit and clear its progress."
               : "This ends your current practice game."}
           </p>
           <div className="dialog-buttons">
             <button className="secondary" onClick={() => setModal(null)}>
               CANCEL
             </button>
+            {!room && modal === "leave" && (
+              <button
+                className="secondary"
+                onClick={() => {
+                  setSetup(true);
+                  setModal(null);
+                }}
+              >
+                PAUSE GAME
+              </button>
+            )}
             <button
               className="primary"
               onClick={() =>
@@ -1484,7 +1525,8 @@ export default function App() {
                     feedback.reset())
               }
             >
-              CONFIRM <ArrowRight />
+              {!room && modal === "leave" ? "QUIT & CLEAR" : "CONFIRM"}{" "}
+              <ArrowRight />
             </button>
           </div>
         </Dialog>

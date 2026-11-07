@@ -56,7 +56,7 @@ export type BotReaction = {
   observer?: boolean;
   soundCategory?: string;
 };
-const BOT_REACTION_REST_MS = 7000;
+const BOT_REACTION_REST_MS = 3500;
 
 export function selectBotReaction(
   candidates: BotReaction[],
@@ -147,6 +147,19 @@ export function botReactionCandidates(
         reaction: "celebrate",
         alternatives: ["wave", "surprised"],
       });
+  } else if (
+    before.phase === "roll" &&
+    isBot(before.seats[before.turn]) &&
+    after.dice !== null &&
+    after.dice !== 6 &&
+    before.seats[before.turn]!.tokens.every((step) => step < 0 || step >= 56)
+  ) {
+    const actor = before.seats[before.turn]!;
+    choices.push({
+      actor: effectActor(actor),
+      reaction: "plead",
+      alternatives: ["angry", "surprised"],
+    });
   } else if (
     before.phase === "roll" &&
     after.phase === "move" &&

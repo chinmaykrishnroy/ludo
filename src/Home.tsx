@@ -8,15 +8,31 @@ import {
   Play,
 } from "@phosphor-icons/react";
 import { Board } from "./Board";
-import { newGame, seat, COLORS } from "../shared/game";
-import { useId } from "react";
+import {
+  newGame,
+  seat,
+  COLORS,
+  roll,
+  move,
+  legalMoves,
+  type Game,
+} from "../shared/game";
+import { useId, useState, useEffect } from "react";
 import { formatCount } from "./formatCount";
-const preview = newGame(
-  COLORS.map((_, i) => seat(`preview-${i}`, COLORS[i], i, true)),
-);
-preview.seats[0]!.tokens = [0, 8, -1, -1];
-preview.seats[1]!.tokens = [4, -1, -1, -1];
-preview.seats[2]!.tokens = [1, 12, -1, -1];
+
+function createDemoGame(): Game {
+  const g = newGame(
+    COLORS.map((_, i) => seat(`demo-${i}`, COLORS[i], i, true)),
+  );
+  g.seats.forEach((s) => {
+    if (!s) return;
+    const pos1 = Math.floor(Math.random() * 14) + 2;
+    const pos2 = Math.floor(Math.random() * 16) + 18;
+    s.tokens = [pos1, pos2, -1, -1];
+  });
+  g.phase = "roll";
+  return g;
+}
 export type ClubStats = {
   gamesStarted: number;
   gamesFinished: number;
@@ -78,6 +94,54 @@ export default function Home({
   resume: boolean;
   onResume: () => void;
 }) {
+  const [demoGame, setDemoGame] = useState<Game>(createDemoGame);
+
+  useEffect(() => {
+    let active = true;
+    const timer = setInterval(() => {
+      if (!active || document.hidden) return;
+      setDemoGame((current) => {
+        try {
+          if (
+            current.phase === "finished" ||
+            (current.rankings?.length ?? 0) > 0
+          ) {
+            return createDemoGame();
+          }
+          if (current.phase === "roll") {
+            const dice = Math.floor(Math.random() * 6) + 1;
+            return roll(current, dice);
+          }
+          if (current.phase === "move") {
+            const legal = legalMoves(current);
+            if (!legal.length) return current;
+            let bestToken = legal[0];
+            for (const t of legal) {
+              try {
+                const nextState = move(current, t);
+                if (nextState.lastMove?.captured) {
+                  bestToken = t;
+                  break;
+                }
+              } catch {
+                // Ignore test move error
+              }
+            }
+            return move(current, bestToken);
+          }
+        } catch {
+          return createDemoGame();
+        }
+        return current;
+      });
+    }, 1300);
+
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, []);
+
   return (
     <div className="home-page">
       <section className="home-hero">
@@ -93,6 +157,21 @@ export default function Home({
             Settle it on the board.
           </p>
           <div className="home-actions">
+            {resume && (
+              <button
+                className="secondary home-resume-top"
+                onClick={onResume}
+                style={{
+                  gridColumn: "1 / -1",
+                  background: "rgba(245, 158, 11, 0.15)",
+                  borderColor: "rgba(245, 158, 11, 0.4)",
+                  color: "#d97706",
+                }}
+              >
+                <Play weight="fill" />
+                RESUME SAVED GAME
+              </button>
+            )}
             <button className="primary" onClick={onOnline}>
               <Users weight="bold" />
               PLAY WITH FRIENDS
@@ -114,7 +193,7 @@ export default function Home({
         </div>
         <div className="home-art" aria-hidden="true">
           <div className="home-board-illustration">
-            <Board game={preview} me="none" onMove={() => {}} busy />
+            <Board game={demoGame} me="none" onMove={() => {}} busy />
           </div>
           <div className="home-sticker">
             <DiceFive weight="fill" />

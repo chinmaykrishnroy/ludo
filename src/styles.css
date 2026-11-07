@@ -213,11 +213,12 @@ select {
     color-mix(in srgb, var(--token-color) 70%, #ffffff 30%),
     var(--token-color) 80%
   );
-  border: 2px solid rgba(255, 255, 255, 0.7);
+  border: 2.5px solid var(--token-color);
   box-shadow:
-    0 3px 8px rgba(0, 0, 0, 0.28),
-    inset 0 2px 3px rgba(255, 255, 255, 0.4),
-    inset 0 -2px 3px rgba(0, 0, 0, 0.3);
+    0 0 0 1px rgba(0, 0, 0, 0.4),
+    0 3px 8px rgba(0, 0, 0, 0.32),
+    inset 0 2px 4px rgba(255, 255, 255, 0.45),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.35);
   position: relative;
   display: block;
   transition:
@@ -631,8 +632,8 @@ select {
   font-size: 22px;
   font-weight: 900;
   letter-spacing: 3px;
-  color: #fbbf24;
-  text-shadow: 0 0 18px rgba(245, 158, 11, 0.35);
+  color: #92400e;
+  text-shadow: 0 0 18px rgba(245, 158, 11, 0.2);
   font-variant-numeric: tabular-nums;
 }
 .invite-copy-btn {
@@ -642,8 +643,8 @@ select {
   padding: 6px 14px;
   border-radius: 999px;
   background: rgba(245, 158, 11, 0.12);
-  border: 1px solid rgba(245, 158, 11, 0.35);
-  color: #fbbf24;
+  border: 1px solid rgba(217, 119, 6, 0.4);
+  color: #92400e;
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.5px;
@@ -716,18 +717,21 @@ select {
 }
 .you-badge {
   background: rgba(245, 158, 11, 0.18);
-  border: 1px solid rgba(245, 158, 11, 0.45);
-  color: #fbbf24;
+  border: 1px solid rgba(217, 119, 6, 0.45);
+  color: #78350f;
+  font-weight: 800;
 }
 .host-badge {
-  background: rgba(59, 130, 246, 0.18);
-  border: 1px solid rgba(59, 130, 246, 0.45);
-  color: #60a5fa;
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(37, 99, 235, 0.4);
+  color: #1e40af;
+  font-weight: 800;
 }
 .bot-badge {
-  background: rgba(168, 85, 247, 0.18);
-  border: 1px solid rgba(168, 85, 247, 0.45);
-  color: #c084fc;
+  background: rgba(168, 85, 247, 0.15);
+  border: 1px solid rgba(147, 51, 234, 0.4);
+  color: #6b21a8;
+  font-weight: 800;
 }
 .seat-status-caption {
   display: block;
@@ -864,12 +868,16 @@ select {
   white-space: nowrap;
 }
 .lobby-finish-select {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
   max-width: 400px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   background-color: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 10px;
-  padding: 8px 36px 8px 14px;
+  padding: 8px 34px 8px 12px;
   font-size: 13px;
   font-weight: 600;
   color: var(--ink);
@@ -882,7 +890,7 @@ select {
   -moz-appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23f59e0b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 12px center;
+  background-position: right 10px center;
   background-size: 14px;
   transition: all 0.15s ease;
 }
@@ -950,10 +958,9 @@ select {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  flex: 0 0 auto;
   font-size: 13px;
-  font-weight: 700;
-  color: var(--ink-muted);
+  font-weight: 600;
+  color: #57534e;
   text-decoration: none;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -964,7 +971,7 @@ select {
   background: transparent;
 }
 .lobby-footer-strip .lobby-switch:hover {
-  color: #fbbf24;
+  color: #92400e;
 }
 .lobby-footer-strip .lobby-switch svg {
   width: 14px;
@@ -976,7 +983,7 @@ select {
   display: inline-block;
   font-size: 12px;
   font-weight: 600;
-  color: #fbbf24;
+  color: #92400e;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1094,19 +1101,20 @@ select {
   transform: translateY(-1px);
 }
 .privacy-options .chosen {
-  background: rgba(245, 158, 11, 0.14) !important;
-  border-color: #f59e0b !important;
-  box-shadow: 0 0 16px rgba(245, 158, 11, 0.2);
+  background: rgba(245, 158, 11, 0.12) !important;
+  border-color: #d97706 !important;
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.15);
   color: var(--ink) !important;
 }
 .privacy-options .chosen strong {
-  color: #fbbf24 !important;
+  color: #78350f !important;
 }
 .privacy-options .chosen small {
-  color: #d6d0c4 !important;
+  color: #44403c !important;
+  font-weight: 500;
 }
 .privacy-options .chosen svg {
-  color: #fbbf24 !important;
+  color: #b45309 !important;
 }
 .privacy-options strong {
   font-size: 15px;
@@ -1453,8 +1461,10 @@ select {
     box-shadow: none;
   }
   .round-token {
-    border-width: 1.7px;
-    box-shadow: 0 1.5px 0 #191919;
+    border-width: 2px;
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.35),
+      0 2px 4px rgba(0, 0, 0, 0.3);
   }
   .play-controls {
     width: 100%;
@@ -1916,12 +1926,18 @@ select {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 [data-theme="dark"] .privacy-options .chosen {
-  background: rgba(245, 158, 11, 0.18);
-  border-color: #f59e0b;
-  color: #f5f2eb;
+  background: rgba(245, 158, 11, 0.18) !important;
+  border-color: #f59e0b !important;
+  color: #f5f2eb !important;
+}
+[data-theme="dark"] .privacy-options .chosen strong {
+  color: #fbbf24 !important;
 }
 [data-theme="dark"] .privacy-options .chosen small {
-  color: #d6d0c4;
+  color: #d6d0c4 !important;
+}
+[data-theme="dark"] .privacy-options .chosen svg {
+  color: #fbbf24 !important;
 }
 [data-theme="dark"] .dialog-intro,
 [data-theme="dark"] .field-note,
@@ -4805,4 +4821,38 @@ dialog .app-error-notice {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+[data-theme="dark"] .invite-code {
+  color: #fbbf24;
+  text-shadow: 0 0 18px rgba(245, 158, 11, 0.35);
+}
+[data-theme="dark"] .invite-copy-btn {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.35);
+  color: #fbbf24;
+}
+[data-theme="dark"] .you-badge {
+  background: rgba(245, 158, 11, 0.18);
+  border-color: rgba(245, 158, 11, 0.45);
+  color: #fbbf24;
+}
+[data-theme="dark"] .host-badge {
+  background: rgba(59, 130, 246, 0.18);
+  border-color: rgba(59, 130, 246, 0.45);
+  color: #60a5fa;
+}
+[data-theme="dark"] .bot-badge {
+  background: rgba(168, 85, 247, 0.18);
+  border-color: rgba(168, 85, 247, 0.45);
+  color: #c084fc;
+}
+[data-theme="dark"] .lobby-footer-strip .lobby-switch {
+  color: #a8a29e;
+}
+[data-theme="dark"] .lobby-footer-strip .lobby-switch:hover {
+  color: #fbbf24;
+}
+[data-theme="dark"] .lobby-waiting-hint {
+  color: #fbbf24;
 }

@@ -381,17 +381,22 @@ export function createApplication(options: ApplicationOptions = {}) {
         after.game &&
         before.game &&
         soundboard.availableCatalog().clips.length > 0 &&
-        Math.random() < 0.45
+        Math.random() < 0.75
       ) {
         const isCapture = !!after.game.lastMove?.captured;
         const isFinish =
           (after.game.rankings?.length ?? 0) >
           (before.game.rankings?.length ?? 0);
-        if (isCapture || isFinish) {
-          const movedSeat = before.seats[before.game.turn];
-          const botMoved = movedSeat?.id.startsWith("bot:");
-          const targetCategories =
-            botMoved || isFinish
+        const movedSeat = before.seats[before.game.turn];
+        const isStuck =
+          !!(movedSeat?.id.startsWith("bot:") || movedSeat?.bot) &&
+          (after.game.dice ?? 0) !== 6 &&
+          movedSeat?.tokens.every((s) => s < 0 || s >= 56);
+        if (isCapture || isFinish || isStuck) {
+          const botMoved = movedSeat?.id.startsWith("bot:") || movedSeat?.bot;
+          const targetCategories = isStuck
+            ? ["sad", "fails", "shock"]
+            : botMoved || isFinish
               ? ["hype", "troll", "laughs"]
               : ["sad", "fails", "shock"];
           const availableClips = soundboard.catalog.clips.filter(
@@ -404,7 +409,7 @@ export function createApplication(options: ApplicationOptions = {}) {
               availableClips[Math.floor(Math.random() * availableClips.length)];
             const actorSeat =
               (botMoved ? movedSeat : undefined) ??
-              after.seats.find((s) => s?.id.startsWith("bot:"));
+              after.seats.find((s) => s?.id.startsWith("bot:") || s?.bot);
             if (actorSeat) {
               if (
                 effects.sound(
