@@ -1008,9 +1008,13 @@ export default function App() {
                                 : "Offline"
                               : "Open seat — invite a friend or add bot"}
                       </small>
-                      {p?.id.startsWith("bot:") && (
-                        <div className="seat-bot-config">
+                    </div>
+                    <div className="seat-action-tools">
+                      {p?.id.startsWith("bot:") &&
+                        host &&
+                        (!room.game || finished) && (
                           <BotDifficulty
+                            compact
                             label={`${COLORS[i]} bot level`}
                             value={
                               p.botDifficulty ??
@@ -1031,10 +1035,7 @@ export default function App() {
                                 );
                             }}
                           />
-                        </div>
-                      )}
-                    </div>
-                    <div className="seat-action-tools">
+                        )}
                       {p && host && (!room.game || finished) && (
                         <div className="seat-reorder-buttons">
                           {([-1, 1] as const).map((step) => (
@@ -1163,8 +1164,7 @@ export default function App() {
               </div>
               {host && !room.game && humans < 2 && (
                 <p className="lobby-waiting">
-                  Invite at least one more player (or add a computer player) to
-                  start.
+                  Invite at least one more player to start.
                 </p>
               )}
               <button

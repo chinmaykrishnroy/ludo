@@ -721,17 +721,45 @@ select {
   color: var(--ink-muted);
   margin-top: 2px;
 }
-.seat-bot-config {
-  margin-top: 4px;
+.seat-bot-level-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 0 4px 0 6px;
+  height: 26px;
+  box-sizing: border-box;
+  transition: all 0.15s ease;
 }
-.seat-bot-config .field-label {
-  margin: 0;
-  font-size: 11px;
+.seat-bot-level-picker:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
 }
-.seat-bot-config select {
-  min-height: 30px;
-  padding: 3px 8px;
+.seat-bot-level-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: var(--ink-muted);
+  user-select: none;
+}
+.seat-bot-level-select {
+  background: transparent;
+  border: none;
+  color: var(--ink);
   font-size: 12px;
+  font-weight: 700;
+  padding: 0 1px;
+  height: 100%;
+  cursor: pointer;
+  outline: none;
+  text-align: center;
+}
+.seat-bot-level-select option {
+  background: #18181b;
+  color: #f5f2eb;
+  font-weight: 600;
 }
 .seat-action-tools {
   display: flex;
