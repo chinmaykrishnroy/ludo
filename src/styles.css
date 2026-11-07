@@ -5824,13 +5824,13 @@ dialog .app-error-notice {
 }
 
 /* ==========================================================================
-   Mobile (< 900px): Natural Main-Branch Flow, Centered Hero, Cohesive CTAs
+   Mobile (< 900px): Thumb-Accessible Layout - Hero Copy -> Board -> CTAs
    ========================================================================== */
 
 @media (max-width: 899px) {
   /* Natural page flow with safe-area padding - allows smooth scrolling */
   .setup-screen:has(.home-page) {
-    padding: max(18px, env(safe-area-inset-top)) 20px
+    padding: max(16px, env(safe-area-inset-top)) 18px
       max(28px, env(safe-area-inset-bottom)) !important;
     min-height: 100dvh !important;
     height: auto !important;
@@ -5844,14 +5844,14 @@ dialog .app-error-notice {
     box-sizing: border-box !important;
   }
   .setup-screen:has(.home-page) .setup-header {
-    margin-bottom: 22px !important;
+    margin-bottom: 18px !important;
     flex-shrink: 0 !important;
     width: 100% !important;
   }
   .home-page {
     display: flex !important;
     flex-direction: column !important;
-    gap: 28px !important;
+    gap: 24px !important;
     height: auto !important;
     min-height: 0 !important;
     overflow: visible !important;
@@ -5861,27 +5861,24 @@ dialog .app-error-notice {
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
-    gap: 32px !important;
+    gap: 22px !important;
     width: 100% !important;
     grid-template-columns: none !important;
   }
 
-  /* Unified Hero Copy & Action Buttons (Preserving natural flow from main) */
+  /* Unroll home-copy so its header and action buttons can be ordered around the board */
   .home-copy {
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: center !important;
-    text-align: center !important;
-    width: 100% !important;
-    gap: 18px !important;
+    display: contents !important;
   }
+
+  /* 1. Centered Hero Headline Copy */
   .home-copy-header {
-    order: unset !important;
+    order: 1 !important;
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
     text-align: center !important;
-    gap: 12px !important;
+    gap: 10px !important;
     width: 100% !important;
   }
   .home-kicker {
@@ -5902,10 +5899,10 @@ dialog .app-error-notice {
     box-shadow: 0 2px 10px rgba(245, 158, 11, 0.15) !important;
   }
   .home-copy-header h1 {
-    font-size: clamp(34px, 8.8vw, 48px) !important;
+    font-size: clamp(32px, 8.5vw, 44px) !important;
     font-weight: 900 !important;
-    letter-spacing: -1.8px !important;
-    line-height: 1.02 !important;
+    letter-spacing: -1.6px !important;
+    line-height: 1.04 !important;
     margin: 0 !important;
     text-align: center !important;
   }
@@ -5914,7 +5911,7 @@ dialog .app-error-notice {
     text-align: center !important;
   }
   .home-copy-header p {
-    font-size: 14.5px !important;
+    font-size: 14px !important;
     line-height: 1.45 !important;
     color: var(--ink-muted) !important;
     margin: 0 auto !important;
@@ -5922,13 +5919,62 @@ dialog .app-error-notice {
     text-align: center !important;
   }
 
-  /* High-Impact CTA Buttons right below Copy */
-  .home-actions-wrapper {
-    order: unset !important;
+  /* 2. Board Animation Showcase with Turn HUD (Placed above CTAs) */
+  .home-stage-container {
+    order: 2 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    padding: 4px 0 !important;
+  }
+  .home-board-showcase {
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
-    gap: 14px !important;
+    gap: 10px !important;
+    width: 100% !important;
+    max-width: 340px !important;
+  }
+  .showcase-turn-hud {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    width: 100% !important;
+    margin-bottom: 2px !important;
+    flex-wrap: wrap !important;
+  }
+  .showcase-hud-badge {
+    padding: 4px 10px !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    border-radius: 999px !important;
+  }
+  .home-board-enclosure {
+    padding: 8px !important;
+    border-radius: 24px !important;
+    box-shadow:
+      0 24px 50px -10px rgba(0, 0, 0, 0.7),
+      0 10px 24px rgba(245, 158, 11, 0.2),
+      inset 0 1px 1px rgba(255, 255, 255, 0.3) !important;
+  }
+  .home-board-card {
+    width: min(270px, 75vw) !important;
+    height: min(270px, 75vw) !important;
+    max-width: 300px !important;
+    max-height: 300px !important;
+    border-radius: 18px !important;
+    aspect-ratio: 1 !important;
+  }
+
+  /* 3. Action Buttons & Perks BELOW the Board (Maximum Thumb Accessibility) */
+  .home-actions-wrapper {
+    order: 3 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 12px !important;
     width: 100% !important;
     max-width: 380px !important;
     margin: 4px auto 0 !important;
@@ -5936,7 +5982,7 @@ dialog .app-error-notice {
   .home-actions {
     display: flex !important;
     flex-direction: column !important;
-    gap: 11px !important;
+    gap: 10px !important;
     width: 100% !important;
   }
   .home-btn-primary,
@@ -5973,61 +6019,12 @@ dialog .app-error-notice {
     white-space: nowrap !important;
   }
 
-  /* Board Showcase with Active Turn HUD naturally below Buttons */
-  .home-stage-container {
-    order: unset !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    width: 100% !important;
-    padding: 6px 0 !important;
-  }
-  .home-board-showcase {
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: center !important;
-    gap: 12px !important;
-    width: 100% !important;
-    max-width: 340px !important;
-  }
-  .showcase-turn-hud {
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    gap: 6px !important;
-    width: 100% !important;
-    margin-bottom: 4px !important;
-    flex-wrap: wrap !important;
-  }
-  .showcase-hud-badge {
-    padding: 4px 10px !important;
-    font-size: 11px !important;
-    font-weight: 700 !important;
-    border-radius: 999px !important;
-  }
-  .home-board-enclosure {
-    padding: 8px !important;
-    border-radius: 24px !important;
-    box-shadow:
-      0 24px 50px -10px rgba(0, 0, 0, 0.7),
-      0 10px 24px rgba(245, 158, 11, 0.2),
-      inset 0 1px 1px rgba(255, 255, 255, 0.3) !important;
-  }
-  .home-board-card {
-    width: min(290px, 80vw) !important;
-    height: min(290px, 80vw) !important;
-    max-width: 320px !important;
-    max-height: 320px !important;
-    border-radius: 18px !important;
-    aspect-ratio: 1 !important;
-  }
-
-  /* Stats Section */
+  /* 4. Stats Section */
   .home-stat-section {
     width: 100% !important;
     padding: 16px 18px !important;
     border-radius: 18px !important;
-    margin: 8px 0 !important;
+    margin: 6px 0 !important;
     background: rgba(255, 255, 255, 0.04) !important;
     border: 1px solid rgba(255, 255, 255, 0.08) !important;
     box-sizing: border-box !important;
@@ -6060,7 +6057,7 @@ dialog .app-error-notice {
     letter-spacing: 0.6px !important;
   }
 
-  /* Footer Strip */
+  /* 5. Footer Strip */
   .home-footer {
     display: flex !important;
     flex-direction: row !important;
@@ -6070,7 +6067,7 @@ dialog .app-error-notice {
     padding-top: 16px !important;
     padding-bottom: 8px !important;
     border-top: 1px solid var(--line) !important;
-    margin-top: 8px !important;
+    margin-top: 6px !important;
     gap: 12px !important;
   }
   .home-footer-left {
