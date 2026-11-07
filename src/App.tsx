@@ -1162,17 +1162,23 @@ export default function App() {
                       : "WAITING FOR HOST"}
                 </button>
               </div>
-              {host && !room.game && humans < 2 && (
-                <p className="lobby-waiting">
-                  Invite at least one more player to start.
-                </p>
-              )}
-              <button
-                className="text-button lobby-switch"
-                onClick={() => setModal("rooms")}
-              >
-                Join another room <ArrowRight />
-              </button>
+              <div className="lobby-footer-strip">
+                <button
+                  type="button"
+                  className="text-button lobby-switch"
+                  onClick={() => setModal("rooms")}
+                >
+                  Join another room <ArrowRight weight="bold" />
+                </button>
+                {host && !room.game && humans < 2 && (
+                  <span
+                    className="lobby-waiting lobby-waiting-hint"
+                    title="Invite at least one more player to start."
+                  >
+                    Invite at least one more player to start.
+                  </span>
+                )}
+              </div>
               {(!room.game || finished) &&
                 admission?.newRoomsAvailable === false && (
                   <p role="status" className="admission-notice">
