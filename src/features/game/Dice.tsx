@@ -91,6 +91,11 @@ export default memo(function Dice({
       animation.onfinish = null;
       animation.cancel();
       setPhase("settled");
+      if (typeof window !== "undefined" && value) {
+        window.dispatchEvent(
+          new CustomEvent("ludo:dice-roll", { detail: { value } }),
+        );
+      }
       notify.current?.(value);
     };
     return () => {

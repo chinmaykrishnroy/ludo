@@ -7,7 +7,10 @@ import "@fontsource/dm-sans/700.css";
 import "@fontsource/dm-sans/800.css";
 import App from "./App";
 import AppErrorBoundary from "./AppErrorBoundary";
+import { initFaviconSync } from "./lib/animatedFavicon";
 import "./styles.css";
+
+initFaviconSync();
 if (import.meta.env.PROD && "serviceWorker" in navigator) {
   const register = () => {
     void navigator.serviceWorker

@@ -7,9 +7,9 @@ import {
   Lightning,
   Microphone,
   Sparkle,
-  DeviceMobile,
 } from "@phosphor-icons/react";
 import { Board, PALETTE } from "./features/game/Board";
+import { BouncyDie } from "./components/BouncyDie";
 import {
   newGame,
   seat,
@@ -131,8 +131,17 @@ export default function Home({
             const dice = Math.floor(Math.random() * 6) + 1;
             setLastRoll(dice);
             setIsRolling(true);
-            setTimeout(() => setIsRolling(false), 500);
+            setTimeout(() => setIsRolling(false), 550);
             setActionText(`${currentBot.name} rolled ${dice}!`);
+
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(
+                new CustomEvent("ludo:dice-roll", {
+                  detail: { value: dice, color: PALETTE[currentBot.color] },
+                }),
+              );
+            }
+
             return roll(current, dice);
           }
 
@@ -271,10 +280,6 @@ export default function Home({
               <span className="perk-pill">
                 <Robot weight="fill" className="perk-icon" /> 10 Bot Levels
               </span>
-              <span className="perk-pill">
-                <DeviceMobile weight="fill" className="perk-icon" /> Pass &amp;
-                Play
-              </span>
             </div>
           </div>
         </div>
@@ -313,18 +318,20 @@ export default function Home({
                 ))}
               </div>
 
-              {/* Live Action Ticker with Animated Die */}
+              {/* Live Action Ticker with Animated Bouncy Die */}
               <div className="showcase-live-action">
-                <div
-                  className={`live-die-preview ${isRolling ? "die-bouncing" : ""}`}
-                  style={
-                    {
-                      "--die-color": PALETTE[activeColor],
-                    } as React.CSSProperties
-                  }
-                >
-                  <span className="die-val">{lastRoll}</span>
-                </div>
+                <BouncyDie
+                  value={lastRoll}
+                  isRolling={isRolling}
+                  color={PALETTE[activeColor]}
+                  pipColor="#ffffff"
+                  size={26}
+                  interactive
+                  onRoll={(newVal) => {
+                    setLastRoll(newVal);
+                    setActionText(`Rolled ${newVal}!`);
+                  }}
+                />
                 <span className="action-pill-text">{actionText}</span>
               </div>
             </div>
