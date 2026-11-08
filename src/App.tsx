@@ -11,8 +11,7 @@ import {
   Question,
   GearSix,
   ArrowRight,
-  ArrowUp,
-  ArrowDown,
+  DotsSixVertical,
   Plus,
   GlobeHemisphereWest,
   LockSimple,
@@ -734,6 +733,64 @@ export default function App() {
             : humans < 2
               ? "Invite at least one more player to start."
               : "Start game";
+
+  const [draggedSeat, setDraggedSeat] = useState<number | null>(null);
+  const [dropTargetSeat, setDropTargetSeat] = useState<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+  const touchDragSeat = useRef<number | null>(null);
+
+  const handleSwapSeats = useCallback(
+    async (fromIdx: number, toIdx: number) => {
+      if (fromIdx === toIdx || toIdx < 0 || toIdx >= COLORS.length) return;
+      const player = room?.seats[fromIdx];
+      if (!player) return;
+      const res = await send("room:swap", {
+        from: fromIdx,
+        to: toIdx,
+        player: player.id,
+      });
+      if (!res.ok) notify(res.error ?? "Could not change seats.");
+    },
+    [room?.seats, send, notify],
+  );
+
+  const handleTouchStart = (seatIdx: number, e: React.TouchEvent) => {
+    if (!host || (room?.game && !finished) || !room?.seats[seatIdx]) return;
+    touchStartY.current = e.touches[0].clientY;
+    touchDragSeat.current = seatIdx;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchDragSeat.current === null || touchStartY.current === null) return;
+    const currentY = e.touches[0].clientY;
+    if (Math.abs(currentY - touchStartY.current) > 10) {
+      if (draggedSeat !== touchDragSeat.current) {
+        setDraggedSeat(touchDragSeat.current);
+      }
+      const element = document.elementFromPoint(e.touches[0].clientX, currentY);
+      const card = element?.closest<HTMLElement>("[data-seat-index]");
+      if (card) {
+        const targetIdx = Number(card.dataset.seatIndex);
+        if (!isNaN(targetIdx) && targetIdx !== dropTargetSeat) {
+          setDropTargetSeat(targetIdx);
+        }
+      }
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (
+      draggedSeat !== null &&
+      dropTargetSeat !== null &&
+      draggedSeat !== dropTargetSeat
+    ) {
+      void handleSwapSeats(draggedSeat, dropTargetSeat);
+    }
+    setDraggedSeat(null);
+    setDropTargetSeat(null);
+    touchDragSeat.current = null;
+    touchStartY.current = null;
+  };
   useEffect(() => {
     const openMenu = (event: KeyboardEvent) => {
       if (
@@ -1002,302 +1059,344 @@ export default function App() {
           {room ? (
             <section className="lobby-card">
               {!chat.open && <ChatPreviews messages={chat.previews} />}
-              <div className="lobby-title">
-                <h1>{room.name}</h1>
-                <div
-                  style={{
-                    display: "flex",
-                    gap: "8px",
-                    alignItems: "center",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <span className="room-visibility-badge">
-                    {room.public ? (
-                      <GlobeHemisphereWest weight="bold" />
-                    ) : (
-                      <LockSimple weight="bold" />
-                    )}
-                    <span>
-                      {room.public ? "PUBLIC TABLE" : "PRIVATE TABLE"}
+              <div className="lobby-scroll-body">
+                <div className="lobby-title">
+                  <h1>{room.name}</h1>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "8px",
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <span className="room-visibility-badge">
+                      {room.public ? (
+                        <GlobeHemisphereWest weight="bold" />
+                      ) : (
+                        <LockSimple weight="bold" />
+                      )}
+                      <span>
+                        {room.public ? "PUBLIC TABLE" : "PRIVATE TABLE"}
+                      </span>
                     </span>
-                  </span>
-                  {isSpectator && (
-                    <span className="spectator-badge">
-                      <Eye weight="bold" />
-                      <span>SPECTATING</span>
+                    {isSpectator && (
+                      <span className="spectator-badge">
+                        <Eye weight="bold" />
+                        <span>SPECTATING</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {isSpectator &&
+                  room.seats.some((seat) => !seat || seat.bot) && (
+                    <div className="spectator-seat-prompt">
+                      <span>An open seat is available at this table.</span>
+                      <button
+                        className="primary compact take-seat-btn"
+                        onClick={async () => {
+                          const res = await send("room:join", {
+                            code: room.code,
+                            playerName: name,
+                            spectate: false,
+                          });
+                          if (!res.ok)
+                            notify(res.error ?? "Could not take seat.");
+                        }}
+                      >
+                        Take an Open Seat <ArrowRight />
+                      </button>
+                    </div>
+                  )}
+                <div className="invite-strip">
+                  <div className="invite-code-box">
+                    <span className="invite-label">ROOM CODE</span>
+                    <strong className="invite-code">{room.code}</strong>
+                  </div>
+                  <button
+                    type="button"
+                    className={`invite-copy-btn ${copied ? "copied" : ""}`}
+                    aria-label={
+                      copied
+                        ? "Link copied to clipboard"
+                        : "Copy room invite link"
+                    }
+                    title={copied ? "Link Copied!" : "Copy Invite Link"}
+                    onClick={() => void copyInvite()}
+                  >
+                    {copied ? <Check weight="bold" /> : <Copy weight="bold" />}
+                  </button>
+                </div>
+                <div
+                  className="seat-editor"
+                  onTouchMove={handleTouchMove}
+                  onTouchEnd={handleTouchEnd}
+                  onTouchCancel={handleTouchEnd}
+                >
+                  {room.seats.map((p, i) => (
+                    <div
+                      className={`seat-card ${p ? "seat-occupied" : "seat-vacant"} ${draggedSeat === i ? "is-dragging" : ""} ${dropTargetSeat === i ? "is-drop-target" : ""}`}
+                      key={i}
+                      data-seat-index={i}
+                      draggable={host && (!room.game || finished) && Boolean(p)}
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData("text/plain", String(i));
+                        e.dataTransfer.effectAllowed = "move";
+                        setDraggedSeat(i);
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = "move";
+                        if (draggedSeat !== null && dropTargetSeat !== i) {
+                          setDropTargetSeat(i);
+                        }
+                      }}
+                      onDragLeave={() => {
+                        if (dropTargetSeat === i) setDropTargetSeat(null);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        if (draggedSeat !== null && draggedSeat !== i) {
+                          void handleSwapSeats(draggedSeat, i);
+                        }
+                        setDraggedSeat(null);
+                        setDropTargetSeat(null);
+                      }}
+                      onDragEnd={() => {
+                        setDraggedSeat(null);
+                        setDropTargetSeat(null);
+                      }}
+                    >
+                      <span
+                        className="seat-colour-dot"
+                        style={{
+                          background: PALETTE[COLORS[i]],
+                          boxShadow: `0 0 10px ${PALETTE[COLORS[i]]}88`,
+                        }}
+                      />
+                      <div className="seat-main-info">
+                        <div className="seat-header-row">
+                          <strong className="seat-player-name">
+                            {p?.name ?? "Open Seat"}
+                          </strong>
+                          {p?.id === me && (
+                            <span className="seat-badge you-badge">YOU</span>
+                          )}
+                          {p?.id === room.host && (
+                            <span className="seat-badge host-badge">HOST</span>
+                          )}
+                          {p?.bot && (
+                            <span className="seat-badge bot-badge">BOT</span>
+                          )}
+                        </div>
+                        <small className="seat-status-caption">
+                          {p?.id === room.host
+                            ? "Table Organiser"
+                            : p?.bot
+                              ? "Computer player"
+                              : p
+                                ? p.connected
+                                  ? "Ready"
+                                  : "Offline"
+                                : "Open seat — invite a friend or add bot"}
+                        </small>
+                      </div>
+                      <div className="seat-action-tools">
+                        {p?.id.startsWith("bot:") &&
+                          host &&
+                          (!room.game || finished) && (
+                            <BotDifficulty
+                              compact
+                              label={`${COLORS[i]} bot level`}
+                              value={
+                                p.botDifficulty ??
+                                room.botDifficulty ??
+                                botDifficulty
+                              }
+                              disabled={
+                                !host ||
+                                (!!room.game && !finished) ||
+                                !connected
+                              }
+                              onChange={async (difficulty) => {
+                                const r = await send("room:difficulty", {
+                                  difficulty,
+                                  seat: i,
+                                });
+                                if (!r.ok)
+                                  notify(
+                                    r.error ??
+                                      "Unable to change bot difficulty.",
+                                  );
+                              }}
+                            />
+                          )}
+                        {p && host && (!room.game || finished) && (
+                          <div
+                            className="seat-drag-handle"
+                            role="button"
+                            tabIndex={0}
+                            aria-label={`Drag or use arrow keys to reorder ${p.name}`}
+                            title="Drag to change seat position"
+                            onTouchStart={(e) => handleTouchStart(i, e)}
+                            onKeyDown={(e) => {
+                              if (e.key === "ArrowUp" && i > 0) {
+                                e.preventDefault();
+                                void handleSwapSeats(i, i - 1);
+                              } else if (
+                                e.key === "ArrowDown" &&
+                                i < COLORS.length - 1
+                              ) {
+                                e.preventDefault();
+                                void handleSwapSeats(i, i + 1);
+                              }
+                            }}
+                          >
+                            <DotsSixVertical weight="bold" />
+                          </div>
+                        )}
+                        {host &&
+                        (!room.game || finished) &&
+                        (!p || p.id.startsWith("bot:")) ? (
+                          <button
+                            type="button"
+                            className={`seat-bot-action-btn ${p ? "remove-bot" : "add-bot"}`}
+                            aria-label={`${p ? "Remove" : "Add"} Bot in ${COLORS[i]} seat`}
+                            onClick={async () => {
+                              const r = await send("room:configure", {
+                                seat: i,
+                                bot: !p,
+                              });
+                              if (!r.ok) notify(r.error!);
+                            }}
+                          >
+                            {p ? (
+                              <>
+                                <X weight="bold" />
+                                <span className="btn-label-text">Remove</span>
+                              </>
+                            ) : (
+                              <>
+                                <Plus weight="bold" />
+                                <span className="btn-label-text">Add Bot</span>
+                              </>
+                            )}
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="lobby-finish-bar">
+                  <span className="lobby-finish-label">FINISH RULE</span>
+                  <div className="finish-rule-segmented lobby-segmented">
+                    <button
+                      type="button"
+                      disabled={
+                        !host || (!!room.game && !finished) || !connected
+                      }
+                      className={`finish-segment-btn ${(room.finishMode ?? "first") === "first" ? "active" : ""}`}
+                      onClick={async () => {
+                        const r = await send("room:mode", {
+                          finishMode: "first",
+                        });
+                        if (!r.ok)
+                          notify(r.error ?? "Unable to change game mode.");
+                      }}
+                    >
+                      <span className="segment-title">Quick Finish</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={
+                        !host || (!!room.game && !finished) || !connected
+                      }
+                      className={`finish-segment-btn ${(room.finishMode ?? "first") === "all" ? "active" : ""}`}
+                      onClick={async () => {
+                        const r = await send("room:mode", {
+                          finishMode: "all",
+                        });
+                        if (!r.ok)
+                          notify(r.error ?? "Unable to change game mode.");
+                      }}
+                    >
+                      <span className="segment-title">Play Till End</span>
+                    </button>
+                  </div>
+                </div>
+                <div className="lobby-voice">
+                  <VoicePanel
+                    compact
+                    room={room}
+                    voice={voice}
+                    onOnline={() => setModal("rooms")}
+                  />
+                </div>
+              </div>
+
+              {/* Anchored Bottom Bar */}
+              <div className="lobby-anchored-footer">
+                <div className="lobby-actions">
+                  <button
+                    type="button"
+                    className="secondary lobby-btn-leave"
+                    onClick={() => setModal("leave")}
+                    title="Leave table"
+                  >
+                    <SignOut weight="bold" />
+                    Leave Table
+                  </button>
+                  <div className="lobby-btn-start-wrap" title={startTooltip}>
+                    <button
+                      type="button"
+                      className="primary lobby-btn-start"
+                      disabled={
+                        (!room.game || finished) &&
+                        (!host ||
+                          humans < 2 ||
+                          !connected ||
+                          admission?.newRoomsAvailable === false)
+                      }
+                      title={startTooltip}
+                      onClick={() => {
+                        setSetup(false);
+                        if (!room.game || finished) void start();
+                      }}
+                    >
+                      <Play weight="fill" />
+                      {room.game && !finished
+                        ? "RESUME GAME"
+                        : host
+                          ? "START GAME"
+                          : "WAITING FOR HOST"}
+                    </button>
+                  </div>
+                </div>
+                <div className="lobby-footer-strip">
+                  <button
+                    type="button"
+                    className="text-button lobby-switch"
+                    onClick={() => setModal("rooms")}
+                  >
+                    Join another room <ArrowRight weight="bold" />
+                  </button>
+                  {host && !room.game && humans < 2 && (
+                    <span
+                      className="lobby-waiting-hint"
+                      title="Invite at least one more player to start."
+                    >
+                      Invite at least one more player to start.
                     </span>
                   )}
                 </div>
+                {(!room.game || finished) &&
+                  admission?.newRoomsAvailable === false && (
+                    <p role="status" className="admission-notice">
+                      The server is busy. Starting new games will reopen
+                      automatically; your room and seats are saved.
+                    </p>
+                  )}
               </div>
-              {isSpectator && room.seats.some((seat) => !seat || seat.bot) && (
-                <div className="spectator-seat-prompt">
-                  <span>An open seat is available at this table.</span>
-                  <button
-                    className="primary compact take-seat-btn"
-                    onClick={async () => {
-                      const res = await send("room:join", {
-                        code: room.code,
-                        playerName: name,
-                        spectate: false,
-                      });
-                      if (!res.ok) notify(res.error ?? "Could not take seat.");
-                    }}
-                  >
-                    Take an Open Seat <ArrowRight />
-                  </button>
-                </div>
-              )}
-              <div className="invite-strip">
-                <div className="invite-code-box">
-                  <span className="invite-label">ROOM CODE</span>
-                  <strong className="invite-code">{room.code}</strong>
-                </div>
-                <button
-                  type="button"
-                  className="invite-copy-btn"
-                  aria-label="Copy room invite link"
-                  onClick={() => void copyInvite()}
-                >
-                  {copied ? <Check weight="bold" /> : <Copy weight="bold" />}
-                  <span>{copied ? "COPIED LINK!" : "COPY LINK"}</span>
-                </button>
-              </div>
-              <div className="seat-editor">
-                {room.seats.map((p, i) => (
-                  <div
-                    className={`seat-card ${p ? "seat-occupied" : "seat-vacant"}`}
-                    key={i}
-                  >
-                    <span
-                      className="seat-colour-dot"
-                      style={{
-                        background: PALETTE[COLORS[i]],
-                        boxShadow: `0 0 10px ${PALETTE[COLORS[i]]}88`,
-                      }}
-                    />
-                    <div className="seat-main-info">
-                      <div className="seat-header-row">
-                        <strong className="seat-player-name">
-                          {p?.name ?? "Open Seat"}
-                        </strong>
-                        {p?.id === me && (
-                          <span className="seat-badge you-badge">YOU</span>
-                        )}
-                        {p?.id === room.host && (
-                          <span className="seat-badge host-badge">HOST</span>
-                        )}
-                        {p?.bot && (
-                          <span className="seat-badge bot-badge">
-                            BOT · Lv.
-                            {p.botDifficulty ?? room.botDifficulty ?? 10}
-                          </span>
-                        )}
-                      </div>
-                      <small className="seat-status-caption">
-                        {p?.id === room.host
-                          ? "Table Organiser"
-                          : p?.bot
-                            ? "Computer player"
-                            : p
-                              ? p.connected
-                                ? "Ready"
-                                : "Offline"
-                              : "Open seat — invite a friend or add bot"}
-                      </small>
-                    </div>
-                    <div className="seat-action-tools">
-                      {p?.id.startsWith("bot:") &&
-                        host &&
-                        (!room.game || finished) && (
-                          <BotDifficulty
-                            compact
-                            label={`${COLORS[i]} bot level`}
-                            value={
-                              p.botDifficulty ??
-                              room.botDifficulty ??
-                              botDifficulty
-                            }
-                            disabled={
-                              !host || (!!room.game && !finished) || !connected
-                            }
-                            onChange={async (difficulty) => {
-                              const r = await send("room:difficulty", {
-                                difficulty,
-                                seat: i,
-                              });
-                              if (!r.ok)
-                                notify(
-                                  r.error ?? "Unable to change bot difficulty.",
-                                );
-                            }}
-                          />
-                        )}
-                      {p && host && (!room.game || finished) && (
-                        <div className="seat-reorder-buttons">
-                          {([-1, 1] as const).map((step) => (
-                            <button
-                              type="button"
-                              className="seat-arrow-btn"
-                              key={step}
-                              aria-label={`Move ${p.name} ${step < 0 ? "up" : "down"}`}
-                              disabled={
-                                !connected ||
-                                i + step < 0 ||
-                                i + step >= COLORS.length
-                              }
-                              onClick={async () => {
-                                const result = await send("room:swap", {
-                                  from: i,
-                                  to: i + step,
-                                  player: p.id,
-                                });
-                                if (!result.ok)
-                                  notify(
-                                    result.error ?? "Could not change seats.",
-                                  );
-                              }}
-                            >
-                              {step < 0 ? (
-                                <ArrowUp weight="bold" />
-                              ) : (
-                                <ArrowDown weight="bold" />
-                              )}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                      {host &&
-                      (!room.game || finished) &&
-                      (!p || p.id.startsWith("bot:")) ? (
-                        <button
-                          type="button"
-                          className={`seat-bot-action-btn ${p ? "remove-bot" : "add-bot"}`}
-                          aria-label={`${p ? "Remove" : "Add"} Bot in ${COLORS[i]} seat`}
-                          onClick={async () => {
-                            const r = await send("room:configure", {
-                              seat: i,
-                              bot: !p,
-                            });
-                            if (!r.ok) notify(r.error!);
-                          }}
-                        >
-                          {p ? (
-                            <>
-                              <X weight="bold" />
-                              <span>Remove</span>
-                            </>
-                          ) : (
-                            <>
-                              <Plus weight="bold" />
-                              <span>Add Bot</span>
-                            </>
-                          )}
-                        </button>
-                      ) : null}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="lobby-finish-bar">
-                <span className="lobby-finish-label">FINISH RULE</span>
-                <div className="finish-rule-segmented lobby-segmented">
-                  <button
-                    type="button"
-                    disabled={!host || (!!room.game && !finished) || !connected}
-                    className={`finish-segment-btn ${(room.finishMode ?? "first") === "first" ? "active" : ""}`}
-                    onClick={async () => {
-                      const r = await send("room:mode", {
-                        finishMode: "first",
-                      });
-                      if (!r.ok)
-                        notify(r.error ?? "Unable to change game mode.");
-                    }}
-                  >
-                    <span className="segment-title">Quick Finish</span>
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!host || (!!room.game && !finished) || !connected}
-                    className={`finish-segment-btn ${(room.finishMode ?? "first") === "all" ? "active" : ""}`}
-                    onClick={async () => {
-                      const r = await send("room:mode", { finishMode: "all" });
-                      if (!r.ok)
-                        notify(r.error ?? "Unable to change game mode.");
-                    }}
-                  >
-                    <span className="segment-title">Play Till End</span>
-                  </button>
-                </div>
-              </div>
-              <div className="lobby-voice">
-                <VoicePanel
-                  compact
-                  room={room}
-                  voice={voice}
-                  onOnline={() => setModal("rooms")}
-                />
-              </div>
-              <div className="lobby-actions">
-                <button
-                  type="button"
-                  className="secondary lobby-btn-leave"
-                  onClick={() => setModal("leave")}
-                  title="Leave table"
-                >
-                  <SignOut weight="bold" />
-                  Leave Table
-                </button>
-                <div className="lobby-btn-start-wrap" title={startTooltip}>
-                  <button
-                    type="button"
-                    className="primary lobby-btn-start"
-                    disabled={
-                      (!room.game || finished) &&
-                      (!host ||
-                        humans < 2 ||
-                        !connected ||
-                        admission?.newRoomsAvailable === false)
-                    }
-                    title={startTooltip}
-                    onClick={() => {
-                      setSetup(false);
-                      if (!room.game || finished) void start();
-                    }}
-                  >
-                    <Play weight="fill" />
-                    {room.game && !finished
-                      ? "RESUME GAME"
-                      : host
-                        ? "START GAME"
-                        : "WAITING FOR HOST"}
-                  </button>
-                </div>
-              </div>
-              <div className="lobby-footer-strip">
-                <button
-                  type="button"
-                  className="text-button lobby-switch"
-                  onClick={() => setModal("rooms")}
-                >
-                  Join another room <ArrowRight weight="bold" />
-                </button>
-                {host && !room.game && humans < 2 && (
-                  <span
-                    className="lobby-waiting-hint"
-                    title="Invite at least one more player to start."
-                  >
-                    Invite at least one more player to start.
-                  </span>
-                )}
-              </div>
-              {(!room.game || finished) &&
-                admission?.newRoomsAvailable === false && (
-                  <p role="status" className="admission-notice">
-                    The server is busy. Starting new games will reopen
-                    automatically; your room and seats are saved.
-                  </p>
-                )}
             </section>
           ) : (
             <Home
