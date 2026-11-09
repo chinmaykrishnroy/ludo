@@ -270,7 +270,7 @@ export const RoomBrowser = memo(function RoomBrowser({
               disabled={busy || !online || !name.trim() || code.length !== 6}
             >
               {busy ? <CircleNotch className="spin" /> : <ArrowRight />} Join
-              table
+              the table
             </button>
             <button
               type="button"

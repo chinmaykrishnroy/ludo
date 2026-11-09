@@ -45,11 +45,14 @@
   z-index: 30;
 }
 .room-chat.dialog {
+  inset: var(--chat-view-center, 50dvh) auto auto 50%;
+  margin: 0;
+  transform: translate(-50%, -50%);
   padding: 0;
   width: min(580px, calc(100vw - 24px));
   max-width: 580px;
-  height: min(760px, calc(100dvh - 36px));
-  max-height: calc(100dvh - 36px);
+  height: min(760px, calc(var(--chat-view-height, 100dvh) - 36px));
+  max-height: calc(var(--chat-view-height, 100dvh) - 36px);
   overflow: hidden;
   color: var(--ink);
   background: var(--paper);
@@ -181,9 +184,10 @@
 }
 /* Tagged player name (just their name part in their colour background) */
 .chat-mention {
-  display: inline-block;
-  padding: 1px 7px;
+  color: var(--player-colour);
+  background: #191919;
   border-radius: 6px;
+  padding: 1px 7px;
   font-weight: 750;
   font-size: 0.9em;
   line-height: 1.35;
@@ -191,52 +195,39 @@
   vertical-align: baseline;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
   margin: 0 2px;
+  display: inline-block;
 }
 .chat-mention.mention-red {
-  background: #dc2626 !important;
-  color: #ffffff !important;
-  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: var(--player-colour, #db3236);
+  background: #191919;
+  border: 1px solid rgba(220, 38, 38, 0.5);
 }
 .chat-mention.mention-green {
-  background: #16a34a !important;
-  color: #ffffff !important;
-  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: var(--player-colour, #26966a);
+  background: #191919;
+  border: 1px solid rgba(38, 150, 106, 0.5);
 }
 .chat-mention.mention-yellow {
-  background: #f59e0b !important;
-  color: #451a03 !important;
-  border: 1px solid rgba(120, 53, 15, 0.4);
+  color: var(--player-colour, #e5a100);
+  background: #191919;
+  border: 1px solid rgba(245, 158, 11, 0.5);
 }
 [data-theme="dark"] .chat-mention.mention-yellow {
-  background: #f59e0b !important;
-  color: #1c1917 !important;
+  color: var(--player-colour, #e5a100);
 }
 .chat-mention.mention-blue {
-  background: #2563eb !important;
-  color: #ffffff !important;
-  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: var(--player-colour, #2b72d7);
+  background: #191919;
+  border: 1px solid rgba(43, 114, 215, 0.5);
 }
 
 /* Same-color mention contrast inside matching bubble */
-.chat-bubble-red .chat-mention.mention-red {
-  background: #7f1d1d !important;
-  border: 1.5px solid rgba(255, 255, 255, 0.65) !important;
-  color: #ffffff !important;
-}
-.chat-bubble-green .chat-mention.mention-green {
-  background: #064e3b !important;
-  border: 1.5px solid rgba(255, 255, 255, 0.65) !important;
-  color: #ffffff !important;
-}
-.chat-bubble-yellow .chat-mention.mention-yellow {
-  background: #78350f !important;
-  border: 1.5px solid rgba(255, 255, 255, 0.6) !important;
-  color: #fef3c7 !important;
-}
-.chat-bubble-blue .chat-mention.mention-blue {
-  background: #1e3a8a !important;
-  border: 1.5px solid rgba(255, 255, 255, 0.65) !important;
-  color: #ffffff !important;
+.chat-bubble-red .chat-mention,
+.chat-bubble-green .chat-mention,
+.chat-bubble-yellow .chat-mention,
+.chat-bubble-blue .chat-mention {
+  background: #191919;
+  border: 1px solid rgba(255, 255, 255, 0.25);
 }
 
 /* Player-coloured chat message bubbles */
@@ -622,8 +613,8 @@
   }
   .room-chat.dialog {
     width: calc(100vw - 16px);
-    height: calc(100dvh - 16px);
-    max-height: calc(100dvh - 16px);
+    height: calc(var(--chat-view-height, 100dvh) - 16px);
+    max-height: calc(var(--chat-view-height, 100dvh) - 16px);
   }
   .chat-feed {
     padding: 16px 12px;

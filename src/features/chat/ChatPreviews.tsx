@@ -18,7 +18,7 @@ export function ChatPreviews({ messages }: { messages: Chat[] }) {
             }}
           >
             {message.name}:
-          </strong>
+          </strong>{" "}
           {message.gif
             ? "sent a GIF"
             : message.photo

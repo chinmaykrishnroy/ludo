@@ -22,7 +22,7 @@ import { orientCell, type BoardRotation } from "./boardOrientation";
 
 export const PALETTE: Record<Color, string> = {
   red: "#dc2626",
-  green: "#16a34a",
+  green: "#26966a",
   yellow: "#f59e0b",
   blue: "#2563eb",
 };
