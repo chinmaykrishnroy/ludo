@@ -273,17 +273,27 @@
 
 /* Seat Drag & Drop States */
 .seat-card {
-  touch-action: pan-y;
+  touch-action: manipulation;
   position: relative;
   transition:
     transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
     box-shadow 0.2s ease,
     border-color 0.2s ease;
 }
+.seat-card.can-drag {
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: grab;
+}
 .seat-card.is-dragging {
-  opacity: 0.55;
+  opacity: 0.65;
   transform: scale(0.98);
   border-style: dashed;
+  touch-action: none !important;
+  cursor: grabbing !important;
+  z-index: 20 !important;
 }
 .seat-card.is-drop-target {
   border-color: #f59e0b !important;
@@ -293,16 +303,21 @@
   transform: translateY(-2px);
 }
 .seat-drag-handle {
-  width: 26px;
-  height: 26px;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: var(--ink-muted);
   cursor: grab;
-  border-radius: 6px;
+  border-radius: 8px;
   transition: all 0.15s ease;
   user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: none;
   flex-shrink: 0;
 }
 .seat-drag-handle:active {
@@ -313,8 +328,8 @@
   background: rgba(255, 255, 255, 0.08);
 }
 .seat-drag-handle svg {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
 }
 
 .seat-arrow-btn {
@@ -778,6 +793,12 @@
   .setup-screen:has(.lobby-card) .seat-card {
     padding: 6px 12px !important;
     min-height: 48px !important;
+  }
+  .setup-screen:has(.lobby-card) .seat-drag-handle {
+    min-width: 38px !important;
+    min-height: 38px !important;
+    width: 38px !important;
+    height: 38px !important;
   }
   .setup-screen:has(.lobby-card) .seat-player-name {
     font-size: 14px !important;

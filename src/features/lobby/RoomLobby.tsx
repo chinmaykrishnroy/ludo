@@ -249,6 +249,7 @@ export function RoomLobby({
         </div>
         <div className="seat-editor">
           {room.seats.map((p, i) => {
+            const canDrag = Boolean(p && host && (!room.game || finished));
             let cardTransform = "translateY(0px)";
             let cardZIndex = 1;
             let isDraggingCard = false;
@@ -287,13 +288,31 @@ export function RoomLobby({
             return (
               <div
                 key={i}
-                className={`seat-card ${p ? "seat-occupied" : "seat-vacant"} ${isDraggingCard ? "is-dragging" : ""} ${isDropTargetCard ? "is-drop-target" : ""}`}
+                className={`seat-card ${p ? "seat-occupied" : "seat-vacant"} ${canDrag ? "can-drag" : ""} ${isDraggingCard ? "is-dragging" : ""} ${isDropTargetCard ? "is-drop-target" : ""}`}
                 data-seat-index={i}
                 style={{
                   transform: cardTransform,
                   zIndex: cardZIndex,
                   transition: cardTransition,
                 }}
+                onPointerDown={
+                  canDrag
+                    ? (e) => {
+                        const target = e.target as HTMLElement | null;
+                        if (
+                          target?.closest(
+                            "button, select, input, .seat-bot-action-btn, .bot-difficulty-pill, .bot-difficulty",
+                          )
+                        ) {
+                          return;
+                        }
+                        handleSeatPointerDown(i, e);
+                      }
+                    : undefined
+                }
+                onPointerMove={canDrag ? handleSeatPointerMove : undefined}
+                onPointerUp={canDrag ? handleSeatPointerUp : undefined}
+                onPointerCancel={canDrag ? handleSeatPointerUp : undefined}
               >
                 <span
                   className="seat-colour-dot"
@@ -361,10 +380,6 @@ export function RoomLobby({
                       tabIndex={0}
                       aria-label={`Drag or use arrow keys to reorder ${p.name}`}
                       title="Drag to change seat position"
-                      onPointerDown={(e) => handleSeatPointerDown(i, e)}
-                      onPointerMove={handleSeatPointerMove}
-                      onPointerUp={handleSeatPointerUp}
-                      onPointerCancel={handleSeatPointerUp}
                       onKeyDown={(e) => {
                         if (e.key === "ArrowUp" && i > 0) {
                           e.preventDefault();
