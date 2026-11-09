@@ -111,7 +111,7 @@ test("a two-version PWA update waits for active games, then reopens offline with
     );
     version = "new";
     await page.evaluate(async () => {
-      await (await navigator.serviceWorker.getRegistration())!.update();
+      void (await navigator.serviceWorker.getRegistration())?.update();
     });
     await page.waitForFunction(
       async () => !!(await navigator.serviceWorker.getRegistration())?.waiting,
