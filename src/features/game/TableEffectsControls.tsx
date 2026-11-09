@@ -25,15 +25,24 @@ export function ReactionOverlay({
   cue: ReactionCue;
   rotation: BoardRotation;
 }) {
-  const meta = REACTIONS[cue.reaction];
-  const style = cue.style ?? DEFAULT_REACTION_STYLE[cue.reaction];
+  const meta = REACTIONS[cue.reaction as keyof typeof REACTIONS] as
+    { emoji: string; label: string } | undefined;
+  const emoji = meta ? meta.emoji : cue.reaction;
+  const label = meta ? meta.label : emoji;
+  const style =
+    cue.style ??
+    (meta
+      ? DEFAULT_REACTION_STYLE[
+          cue.reaction as keyof typeof DEFAULT_REACTION_STYLE
+        ]
+      : "burst");
   const [x, y] = homeOrigin(cue.actor.color, rotation);
   return (
     <div
       className={`table-reaction reaction-${cue.reaction} reaction-style-${style}`}
       data-reaction-style={style}
       role="status"
-      aria-label={`${cue.actor.name}: ${meta.label}`}
+      aria-label={`${cue.actor.name}: ${label}`}
     >
       <div
         className="reaction-animation"
@@ -75,7 +84,7 @@ export function ReactionOverlay({
           <span className="reaction-pop-halo" aria-hidden="true" />
         )}
         <span className="reaction-emoji" aria-hidden="true">
-          {meta.emoji}
+          {emoji}
         </span>
         <strong>{cue.actor.name}</strong>
       </div>
@@ -85,6 +94,7 @@ export function ReactionOverlay({
 
 export function TableEffectsControls({
   room,
+  actorId,
   effects,
   now,
   connected,
@@ -95,6 +105,7 @@ export function TableEffectsControls({
   notify,
 }: {
   room?: string;
+  actorId?: string;
   effects?: RoomEffects;
   now: number;
   connected: boolean;
@@ -118,10 +129,11 @@ export function TableEffectsControls({
   const panel = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const request = useRef(0);
-  const wait = Math.max(
-    0,
-    Math.ceil(((effects?.reactionReadyAt ?? 0) - now) / 1000),
-  );
+  const actorReadyAt =
+    actorId && effects?.cooldowns
+      ? (effects.cooldowns[actorId] ?? 0)
+      : (effects?.reactionReadyAt ?? 0);
+  const wait = Math.max(0, Math.ceil((actorReadyAt - now) / 1000));
   const waitSound = Math.max(
     0,
     Math.ceil(((effects?.soundReadyAt ?? 0) - now) / 1000),

@@ -32,6 +32,7 @@ export const RoomCreateSchema = z.object({
   public: z.boolean().default(false),
   bots: z.number().int().min(0).max(3).default(0),
   botDifficulty: BotDifficultySchema.optional(),
+  finishMode: z.enum(["first", "all"]).default("first"),
 });
 export type RoomCreatePayload = z.infer<typeof RoomCreateSchema>;
 

@@ -34,6 +34,7 @@ export type Room = {
   joinOrder?: string[];
   actionReadyAt?: number;
   botDifficulty?: number;
+  finishMode?: "first" | "all";
   archived?: boolean;
   code: string;
   name: string;
@@ -46,12 +47,16 @@ export type Room = {
   createdAt: number;
   updatedAt: number;
   lastHumanAt: number;
+  spectators?: string[];
+  spectatorNames?: Record<string, string>;
 };
 export type PublicRoom = {
   code: string;
   name: string;
   players: number;
   bots: number;
+  spectators?: number;
+  gameStarted?: boolean;
 };
 export type Reply = {
   effects?: RoomEffects;

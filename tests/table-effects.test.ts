@@ -63,18 +63,49 @@ test("a table has separate reaction and sound slots that expire and respect visi
   const clip = { sound: "ding", title: "Ding", gain: 0.4 };
   assert(effects.react("A", a, "celebrate"));
   assert(effects.sound("A", a, clip, 1));
-  assert(!effects.react("A", b, "angry"));
+  assert(!effects.react("A", a, "angry"));
+  assert(effects.react("A", b, "angry"));
+  assert(!effects.react("A", b, "celebrate"));
   assert(!effects.sound("A", b, clip, 1));
   assert(effects.react("B", b, "angry"));
   assert.equal(effects.view("A", () => false)?.sound, undefined);
   assert(effects.view("A", () => false)!.soundReadyAt > now);
-  now += 1700;
-  assert(effects.sound("A", b, clip, 1));
+  now += 500;
   assert(!effects.react("A", b, "angry"));
-  now += 1600;
+  now += 600;
   assert(effects.react("A", b, "angry"));
+  now += 600;
+  assert(effects.sound("A", b, clip, 1));
+  now += 1600;
   effects.removeActor("A", b.id);
   assert.equal(effects.view("A")!.reaction, undefined);
+});
+
+test("reactions have per-player cooldowns and allow concurrent active reactions", () => {
+  let now = 1000;
+  const effects = new TableEffects(() => now);
+  const a = effectActor(seat("alice", "Alice", 0));
+  const b = effectActor(seat("bob", "Bob", 1));
+
+  // Player A reacts
+  assert(effects.react("room1", a, "celebrate"));
+  // Player A is immediately on cooldown
+  assert(!effects.react("room1", a, "laugh"));
+
+  // Player B can react concurrently without being blocked by A!
+  assert(effects.react("room1", b, "angry"));
+  // Player B is now on cooldown
+  assert(!effects.react("room1", b, "plead"));
+
+  // Both reactions are concurrently active in the room view
+  const view = effects.view("room1")!;
+  assert.equal(view.reactions?.length, 2);
+  assert((view.cooldowns?.[a.id] ?? 0) > now);
+  assert((view.cooldowns?.[b.id] ?? 0) > now);
+
+  // Sound is not blocked by active reactions
+  const clip = { sound: "cheer", title: "Cheer", gain: 0.5 };
+  assert(effects.sound("room1", a, clip, 1));
 });
 
 test("capture reactions give all bots a chance and vary the captured bot's expression", () => {

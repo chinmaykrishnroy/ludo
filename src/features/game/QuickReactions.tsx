@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState, type PointerEvent } from "react";
-import { Confetti, Circle, ArrowUp, Waves } from "@phosphor-icons/react";
+import {
+  Confetti,
+  Circle,
+  ArrowUp,
+  Waves,
+  Plus,
+  PaperPlaneRight,
+} from "@phosphor-icons/react";
 import {
   DEFAULT_REACTION_STYLE,
   REACTIONS,
@@ -19,6 +26,25 @@ type Gesture = {
   revealed: boolean;
 };
 
+const EXTRA_EMOJI_GROUPS = [
+  {
+    name: "Wins",
+    emojis: ["🏆", "🎉", "🔥", "💪", "👑", "🥇", "🥳", "🚀", "✨", "🍾"],
+  },
+  {
+    name: "Laughs",
+    emojis: ["😂", "🤣", "💀", "😈", "😜", "🤡", "🍿", "👻", "🤪", "🤭"],
+  },
+  {
+    name: "Salt",
+    emojis: ["😭", "🥺", "💔", "🤦‍♂️", "😱", "🤢", "🤐", "🥶", "😵", "🤬"],
+  },
+  {
+    name: "Vibes",
+    emojis: ["😏", "😎", "👀", "🙃", "🤷‍♂️", "🫡", "🎲", "🎯", "💯", "⚡"],
+  },
+];
+
 export function QuickReactions({
   wait,
   coolingReaction,
@@ -32,12 +58,17 @@ export function QuickReactions({
 }) {
   const group = useRef<HTMLDivElement>(null);
   const options = useRef<HTMLDivElement>(null);
+  const customPanel = useRef<HTMLDivElement>(null);
   const lastTrigger = useRef<HTMLButtonElement>(null);
   const gesture = useRef<Gesture | null>(null);
   const hold = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const suppressClick = useRef(false);
   const [picker, setPicker] = useState<Picker>();
   const [hovered, setHovered] = useState<ReactionStyle>();
+  const [customOpen, setCustomOpen] = useState(false);
+  const [customInput, setCustomInput] = useState("");
+  const [customTab, setCustomTab] = useState(0);
+  const [customStyle, setCustomStyle] = useState<ReactionStyle>("burst");
   const locked = wait > 0 || offline;
 
   function resetGesture() {
@@ -53,8 +84,18 @@ export function QuickReactions({
   }
   function choose(reaction: ReactionId, style: ReactionStyle) {
     setPicker(undefined);
+    setCustomOpen(false);
     resetGesture();
     if (!locked) onReact(reaction, style);
+  }
+  function sendCustom(emoji: string, style: ReactionStyle) {
+    const trimmed = emoji.trim();
+    if (!trimmed || locked) return;
+    setCustomOpen(false);
+    setPicker(undefined);
+    resetGesture();
+    onReact(trimmed, style);
+    setCustomInput("");
   }
   function target(event: PointerEvent<HTMLButtonElement>) {
     const option = document
@@ -68,23 +109,28 @@ export function QuickReactions({
     if (locked) {
       resetGesture();
       setPicker(undefined);
+      setCustomOpen(false);
     }
   }, [locked]);
   useEffect(() => {
-    if (!picker) return;
-    if (picker.keyboard) options.current?.querySelector("button")?.focus();
+    if (!picker && !customOpen) return;
+    if (picker?.keyboard) options.current?.querySelector("button")?.focus();
     const outside = (event: globalThis.PointerEvent) => {
       if (
         event.target instanceof Node &&
-        !group.current?.contains(event.target)
-      )
+        !group.current?.contains(event.target) &&
+        !customPanel.current?.contains(event.target)
+      ) {
         setPicker(undefined);
+        setCustomOpen(false);
+      }
     };
     const escape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       event.preventDefault();
       event.stopImmediatePropagation();
       setPicker(undefined);
+      setCustomOpen(false);
       lastTrigger.current?.focus({ preventScroll: true });
     };
     document.addEventListener("pointerdown", outside, true);
@@ -93,7 +139,7 @@ export function QuickReactions({
       document.removeEventListener("pointerdown", outside, true);
       document.removeEventListener("keydown", escape, true);
     };
-  }, [picker]);
+  }, [picker, customOpen]);
   useEffect(() => () => clearTimeout(hold.current), []);
 
   return (
@@ -184,12 +230,30 @@ export function QuickReactions({
           )}
         </button>
       ))}
+
+      <button
+        type="button"
+        className="reaction-button-custom"
+        title="React with any emoji"
+        aria-label="React with any emoji"
+        aria-expanded={customOpen}
+        disabled={locked}
+        onClick={() => {
+          setCustomOpen((v) => !v);
+          setPicker(undefined);
+        }}
+      >
+        <span className="reaction-button-emoji" aria-hidden="true">
+          <Plus weight="bold" size={14} />
+        </span>
+      </button>
+
       {picker && (
         <div
           ref={options}
           className={`reaction-picker ${picker.above ? "reaction-picker-above" : ""}`}
           role="group"
-          aria-label={`${REACTIONS[picker.reaction].label} reaction styles`}
+          aria-label={`${REACTIONS[picker.reaction as keyof typeof REACTIONS]?.label ?? picker.reaction} reaction styles`}
         >
           {REACTION_STYLES.map((style) => {
             const Icon = icons[style];
@@ -208,6 +272,80 @@ export function QuickReactions({
               </button>
             );
           })}
+        </div>
+      )}
+
+      {customOpen && (
+        <div
+          ref={customPanel}
+          className="reaction-custom-palette"
+          role="dialog"
+          aria-label="Any emoji reactions"
+        >
+          <div className="reaction-custom-tabs">
+            {EXTRA_EMOJI_GROUPS.map((grp, idx) => (
+              <button
+                type="button"
+                key={grp.name}
+                className={customTab === idx ? "active" : undefined}
+                onClick={() => setCustomTab(idx)}
+              >
+                {grp.name}
+              </button>
+            ))}
+          </div>
+
+          <div className="reaction-custom-grid">
+            {EXTRA_EMOJI_GROUPS[customTab].emojis.map((emoji) => (
+              <button
+                type="button"
+                key={emoji}
+                title={`React with ${emoji}`}
+                aria-label={`React with ${emoji}`}
+                onClick={() => sendCustom(emoji, customStyle)}
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+
+          <form
+            className="reaction-custom-input-row"
+            onSubmit={(e) => {
+              e.preventDefault();
+              sendCustom(customInput, customStyle);
+            }}
+          >
+            <input
+              type="text"
+              placeholder="Type or paste any emoji…"
+              value={customInput}
+              maxLength={8}
+              onChange={(e) => setCustomInput(e.target.value)}
+              aria-label="Custom emoji"
+            />
+            <button
+              type="submit"
+              disabled={!customInput.trim()}
+              aria-label="Send custom reaction"
+            >
+              <PaperPlaneRight weight="fill" size={14} />
+            </button>
+          </form>
+
+          <div className="reaction-custom-styles">
+            <span className="sr-only">Animation style:</span>
+            {REACTION_STYLES.map((st) => (
+              <button
+                type="button"
+                key={st}
+                className={customStyle === st ? "active" : undefined}
+                onClick={() => setCustomStyle(st)}
+              >
+                {labels[st]}
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>

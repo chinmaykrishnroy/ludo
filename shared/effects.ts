@@ -8,11 +8,12 @@ export const REACTIONS = {
   wave: { emoji: "😏", label: "Bye" },
   surprised: { emoji: "😮", label: "Surprised" },
 } as const;
-export type ReactionId = keyof typeof REACTIONS;
-export const REACTION_IDS = Object.keys(REACTIONS) as ReactionId[];
+export type BaseReactionId = keyof typeof REACTIONS;
+export type ReactionId = BaseReactionId | (string & {});
+export const REACTION_IDS = Object.keys(REACTIONS) as BaseReactionId[];
 export const REACTION_STYLES = ["pop", "burst", "float", "ripple"] as const;
 export type ReactionStyle = (typeof REACTION_STYLES)[number];
-export const DEFAULT_REACTION_STYLE: Record<ReactionId, ReactionStyle> = {
+export const DEFAULT_REACTION_STYLE: Record<string, ReactionStyle> = {
   laugh: "float",
   angry: "pop",
   celebrate: "burst",
@@ -22,6 +23,7 @@ export const DEFAULT_REACTION_STYLE: Record<ReactionId, ReactionStyle> = {
 };
 export const REACTION_MS = 2100;
 export const REACTION_GAP_MS = 1100;
+export const REACTION_COOLDOWN_MS = 1000;
 export const SOUND_MAX_SECONDS = 15;
 
 export type EffectActor = Pick<Seat, "id" | "name" | "color">;
@@ -34,7 +36,9 @@ export type RoomEffects = {
   coolingReaction?: ReactionId;
   soundReadyAt: number;
   reaction?: ReactionCue;
+  reactions?: ReactionCue[];
   sound?: SoundCue;
+  cooldowns?: Record<string, number>;
 };
 export type SoundCatalog = {
   categories: { id: string; label: string }[];
@@ -50,8 +54,9 @@ export type BotReaction = {
   reaction: ReactionId;
   alternatives?: ReactionId[];
   observer?: boolean;
+  soundCategory?: string;
 };
-const BOT_REACTION_REST_MS = 7000;
+const BOT_REACTION_REST_MS = 3500;
 
 export function selectBotReaction(
   candidates: BotReaction[],
@@ -77,6 +82,7 @@ export function selectBotReaction(
   return {
     actor: choice.actor,
     reaction: reactions[Math.floor(random() * reactions.length)],
+    soundCategory: choice.soundCategory,
   };
 }
 
@@ -141,6 +147,19 @@ export function botReactionCandidates(
         reaction: "celebrate",
         alternatives: ["wave", "surprised"],
       });
+  } else if (
+    before.phase === "roll" &&
+    isBot(before.seats[before.turn]) &&
+    after.dice !== null &&
+    after.dice !== 6 &&
+    before.seats[before.turn]!.tokens.every((step) => step < 0 || step >= 56)
+  ) {
+    const actor = before.seats[before.turn]!;
+    choices.push({
+      actor: effectActor(actor),
+      reaction: "plead",
+      alternatives: ["angry", "surprised"],
+    });
   } else if (
     before.phase === "roll" &&
     after.phase === "move" &&

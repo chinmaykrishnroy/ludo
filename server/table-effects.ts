@@ -2,12 +2,14 @@ import { randomUUID } from "node:crypto";
 import {
   REACTION_GAP_MS,
   REACTION_MS,
+  REACTION_COOLDOWN_MS,
   DEFAULT_REACTION_STYLE,
   selectBotReaction,
   type BotReaction,
   type EffectActor,
   type ReactionId,
   type ReactionStyle,
+  type ReactionCue,
   type RoomEffects,
   type SoundCue,
 } from "../shared/effects.js";
@@ -15,6 +17,8 @@ import {
 type Entry = RoomEffects & {
   recentBots: Map<string, number>;
   reactionTimes: Map<string, number[]>;
+  playerCooldowns: Map<string, number>;
+  activeReactions: ReactionCue[];
   pendingBot?: ReturnType<typeof setTimeout>;
 };
 
@@ -34,6 +38,8 @@ export class TableEffects {
       soundReadyAt: 0,
       recentBots: new Map(),
       reactionTimes: new Map(),
+      playerCooldowns: new Map(),
+      activeReactions: [],
     };
     this.rooms.set(room, fresh);
     return fresh;
@@ -44,20 +50,36 @@ export class TableEffects {
   ): RoomEffects | undefined {
     const entry = this.rooms.get(room);
     if (!entry) return;
-    const { reaction, sound, reactionReadyAt, soundReadyAt } = entry;
     const now = this.now();
-    const visibleReaction =
-      reaction && visible(reaction.actor) ? reaction : undefined;
+    entry.activeReactions = (entry.activeReactions ?? []).filter(
+      (r) => r.endsAt > now,
+    );
+    const visibleReactions = entry.activeReactions.filter((r) =>
+      visible(r.actor),
+    );
+    const latestReaction =
+      visibleReactions[visibleReactions.length - 1] ??
+      (entry.reaction &&
+      visible(entry.reaction.actor) &&
+      entry.reaction.endsAt > now
+        ? entry.reaction
+        : undefined);
+    const cooldowns: Record<string, number> = {};
+    for (const [id, readyAt] of entry.playerCooldowns.entries()) {
+      if (readyAt > now) cooldowns[id] = readyAt;
+      else entry.playerCooldowns.delete(id);
+    }
+    const { sound, soundReadyAt } = entry;
     return {
       room,
-      reactionReadyAt,
+      reactionReadyAt: latestReaction
+        ? latestReaction.startsAt + REACTION_COOLDOWN_MS
+        : 0,
       soundReadyAt,
-      coolingReaction:
-        reactionReadyAt > now ? visibleReaction?.reaction : undefined,
-      reaction:
-        visibleReaction && visibleReaction.endsAt > now
-          ? visibleReaction
-          : undefined,
+      cooldowns,
+      coolingReaction: latestReaction?.reaction,
+      reaction: latestReaction,
+      reactions: visibleReactions,
       sound:
         sound && sound.endsAt > now && visible(sound.actor) ? sound : undefined,
     };
@@ -71,10 +93,11 @@ export class TableEffects {
   ) {
     const entry = this.entry(room);
     const now = this.now();
-    if (entry.reactionReadyAt > now) return false;
+    const playerReady = entry.playerCooldowns.get(actor.id) ?? 0;
+    if (playerReady > now) return false;
     const startsAt = now + delay;
     const endsAt = startsAt + REACTION_MS;
-    entry.reaction = {
+    const cue: ReactionCue = {
       id: randomUUID(),
       actor,
       reaction,
@@ -82,7 +105,14 @@ export class TableEffects {
       startsAt,
       endsAt,
     };
-    entry.reactionReadyAt = endsAt + REACTION_GAP_MS;
+    entry.activeReactions = (entry.activeReactions ?? [])
+      .filter((r) => r.endsAt > now)
+      .filter((r) => r.actor.id !== actor.id);
+    entry.activeReactions.push(cue);
+    entry.reaction = cue;
+    const readyAt = startsAt + REACTION_COOLDOWN_MS;
+    entry.playerCooldowns.set(actor.id, readyAt);
+    entry.reactionReadyAt = readyAt;
     return true;
   }
   sound(
@@ -103,6 +133,10 @@ export class TableEffects {
     const entry = this.rooms.get(room);
     if (!entry) return;
     entry.reactionTimes.delete(id);
+    entry.playerCooldowns.delete(id);
+    entry.activeReactions = (entry.activeReactions ?? []).filter(
+      (r) => r.actor.id !== id,
+    );
     if (entry.reaction?.actor.id === id) entry.reaction = undefined;
     if (entry.sound?.actor.id === id) entry.sound = undefined;
   }
@@ -110,7 +144,6 @@ export class TableEffects {
     if (!candidates.length) return false;
     const entry = this.entry(room);
     const now = this.now();
-    if (entry.reactionReadyAt > now) return false;
     const choice = selectBotReaction(
       candidates,
       entry.recentBots,

@@ -206,3 +206,50 @@ test("turn departure preserves other tokens and their deadline, skips empty seat
   assert.equal(current.dice, null);
   assert.equal(depart(current, "p2", 300), null);
 });
+
+test("finishMode: all continues until podium is settled and skips finished players", () => {
+  const seats = COLORS.map((_, i) => seat(`p${i}`, `Player ${i}`, i));
+  let g = newGame(seats, 100, 10, "all");
+  assert.equal(g.finishMode, "all");
+  assert.deepEqual(g.rankings, []);
+
+  // Set p0 on the brink of finishing: 3 tokens at 56, 1 at 55
+  g.seats[0]!.tokens = [56, 56, 56, 55];
+  // p1 on the brink:
+  g.seats[1]!.tokens = [56, 56, 56, 54];
+  // p2 on the brink:
+  g.seats[2]!.tokens = [56, 56, 56, 53];
+  // p3 far behind:
+  g.seats[3]!.tokens = [0, -1, -1, -1];
+
+  // p0 rolls 1 and moves to 56
+  g = roll(g, 1, 100);
+  g = move(g, 3, 200);
+
+  // p0 finished 1st! Game should NOT be finished, turn should advance to p1
+  assert.equal(g.phase, "roll");
+  assert.deepEqual(g.rankings, ["p0"]);
+  assert.equal(g.turn, 1);
+  assert(g.notice?.includes("Player 0 finished in 1st place! Game continues."));
+
+  // p1 rolls 2 and moves to 56
+  g = roll(g, 2, 300);
+  g = move(g, 3, 400);
+
+  // p1 finished 2nd! Game continues, turn should advance to p2
+  assert.equal(g.phase, "roll");
+  assert.deepEqual(g.rankings, ["p0", "p1"]);
+  assert.equal(g.turn, 2);
+  assert(g.notice?.includes("Player 1 finished in 2nd place! Game continues."));
+
+  // p2 rolls 3 and moves to 56
+  g = roll(g, 3, 500);
+  g = move(g, 3, 600);
+
+  // Now 3 players have finished out of 4!
+  // Game should automatically finish, p3 placed 4th, winner is p0
+  assert.equal(g.phase, "finished");
+  assert.equal(g.winner, "p0");
+  assert.deepEqual(g.rankings, ["p0", "p1", "p2", "p3"]);
+  assert(g.notice?.includes("Player 2 takes 3rd! Game complete."));
+});

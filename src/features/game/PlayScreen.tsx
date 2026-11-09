@@ -1,4 +1,4 @@
-import { DotsThree, ArrowLeft } from "@phosphor-icons/react";
+import { DotsThree, ArrowLeft, Eye } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
 import { Board, PALETTE } from "./Board";
 import Dice from "./Dice";
@@ -17,13 +17,16 @@ import {
   effectActor,
   REACTION_GAP_MS,
   REACTION_MS,
+  REACTION_COOLDOWN_MS,
   type EffectActor,
   type ReactionId,
   type ReactionStyle,
+  type ReactionCue,
   type RoomEffects,
 } from "../../../shared/effects";
 import { ReactionOverlay, TableEffectsControls } from "./TableEffectsControls";
 import { useTableSound } from "./useTableSound";
+import { playGameSound } from "./gameFeedback";
 import { rotationForHome } from "./boardOrientation";
 
 export default function PlayScreen({
@@ -89,29 +92,62 @@ export default function PlayScreen({
     voice.recording || voice.playing.length > 0,
     voice.mixer,
   );
-  const cue = tableEffects?.reaction;
+  const cues =
+    tableEffects?.reactions && tableEffects.reactions.length > 0
+      ? tableEffects.reactions
+      : tableEffects?.reaction
+        ? [tableEffects.reaction]
+        : [];
+  const localCooldowns = useRef<Map<string, number>>(new Map());
 
   function localReact(
     actor: EffectActor,
     reaction: ReactionId,
     delay = 0,
-    style = DEFAULT_REACTION_STYLE[reaction],
+    style?: ReactionStyle,
   ) {
     const timestamp = Date.now();
+    const readyAt = localCooldowns.current.get(actor.id) ?? 0;
+    if (readyAt > timestamp) return;
     const startsAt = timestamp + delay;
     const endsAt = startsAt + REACTION_MS;
     const id = String(++localCueId.current);
-    setLocalEffects((current) =>
-      (current?.reactionReadyAt ?? 0) > timestamp
-        ? current
-        : {
-            room: "local",
-            reactionReadyAt: endsAt + REACTION_GAP_MS,
-            coolingReaction: reaction,
-            soundReadyAt: 0,
-            reaction: { id, actor, reaction, style, startsAt, endsAt },
-          },
-    );
+    const finalStyle =
+      style ??
+      (reaction in DEFAULT_REACTION_STYLE
+        ? DEFAULT_REACTION_STYLE[
+            reaction as keyof typeof DEFAULT_REACTION_STYLE
+          ]
+        : "burst");
+    const cue: ReactionCue = {
+      id,
+      actor,
+      reaction,
+      style: finalStyle,
+      startsAt,
+      endsAt,
+    };
+    const nextReady = startsAt + REACTION_COOLDOWN_MS;
+    localCooldowns.current.set(actor.id, nextReady);
+    setLocalEffects((current) => {
+      const active = (
+        current?.reactions ?? (current?.reaction ? [current.reaction] : [])
+      ).filter((r) => r.endsAt > timestamp && r.actor.id !== actor.id);
+      active.push(cue);
+      const cooldownsObj: Record<string, number> = {};
+      for (const [k, v] of localCooldowns.current.entries()) {
+        if (v > timestamp) cooldownsObj[k] = v;
+      }
+      return {
+        room: "local",
+        reactionReadyAt: nextReady,
+        cooldowns: cooldownsObj,
+        coolingReaction: reaction,
+        soundReadyAt: 0,
+        reaction: cue,
+        reactions: active,
+      };
+    });
   }
   useEffect(() => {
     const before = previousGame.current;
@@ -133,6 +169,37 @@ export default function PlayScreen({
     if (selected) {
       recentBots.current.set(selected.actor.id, timestamp);
       localReact(selected.actor, selected.reaction, 950);
+      if (!voice.muted) {
+        setTimeout(() => {
+          try {
+            const ctx = voice.mixer.unlock();
+            if (ctx) {
+              const r = selected.reaction;
+              if (
+                r === "celebrate" ||
+                r === "🎉" ||
+                r === "🏆" ||
+                r === "🔥" ||
+                r === "👑"
+              ) {
+                playGameSound(ctx, "botCheer");
+              } else if (
+                r === "angry" ||
+                r === "plead" ||
+                r === "😭" ||
+                r === "💔" ||
+                r === "🥺"
+              ) {
+                playGameSound(ctx, "botGroan");
+              } else {
+                playGameSound(ctx, "botTaunt");
+              }
+            }
+          } catch {
+            /* optional sound feedback */
+          }
+        }, 950);
+      }
     }
   }, [game, room, localEffects?.reactionReadyAt]);
 
@@ -161,8 +228,11 @@ export default function PlayScreen({
     busy ||
     presentation.active ||
     (!!room && now + clockOffset < (room.actionReadyAt ?? 0));
+  const isSpectator = Boolean(
+    room && !room.seats.some((seat) => seat?.id === me),
+  );
   const current = presentation.actor,
-    mine = current.id === me && !current.bot,
+    mine = !isSpectator && current.id === me && !current.bot,
     sharedDevice = !room && game.seats.filter((s) => s && !s.bot).length > 1,
     finished = game.phase === "finished";
   // A shared device stays fixed so a hand-off cannot interrupt a token's move.
@@ -186,10 +256,25 @@ export default function PlayScreen({
   return (
     <div className="game-stage">
       <header className="game-header">
-        <button className="play-tool header-back" onClick={onBack}>
+        <button
+          className="play-tool header-back"
+          onClick={onBack}
+          title={
+            room
+              ? isSpectator
+                ? "Exit spectating"
+                : "Leave table"
+              : "Back to home"
+          }
+        >
           <ArrowLeft weight="bold" />
-          BACK
+          {room ? (isSpectator ? "EXIT" : "BACK") : "BACK"}
         </button>
+        {isSpectator && (
+          <span className="spectator-header-pill">
+            <Eye weight="bold" /> SPECTATING
+          </span>
+        )}
         <RoomTools voice={voice} chat={chat} online={!!room} />
       </header>
       <main className="play-screen">
@@ -208,9 +293,11 @@ export default function PlayScreen({
             rotation={rotation}
           />
           {!chat.open && <ChatPreviews messages={chat.previews} />}
-          {cue && cue.startsAt <= serverNow && cue.endsAt > serverNow && (
-            <ReactionOverlay key={cue.id} cue={cue} rotation={rotation} />
-          )}
+          {cues
+            .filter((c) => c.startsAt <= serverNow && c.endsAt > serverNow)
+            .map((c) => (
+              <ReactionOverlay key={c.id} cue={c} rotation={rotation} />
+            ))}
           <button
             className="board-menu"
             aria-label="Open game menu"
@@ -223,11 +310,12 @@ export default function PlayScreen({
         <div className={`play-controls ${room ? "with-room-voice" : ""}`}>
           <button
             className={`big-dice-button ${mine ? "your-roll" : ""}`}
+            data-turn-color={current.color}
             style={
               {
                 "--turn-colour": PALETTE[current.color],
                 background: PALETTE[current.color],
-                color: "#111111",
+                color: current.color === "yellow" ? "#11100e" : "#ffffff",
               } as React.CSSProperties
             }
             disabled={
@@ -261,17 +349,19 @@ export default function PlayScreen({
               onSettled={presentation.onSettled}
             />
             <span className="dice-action">
-              {presentation.rolling || presentation.settling
-                ? "ROLLING"
-                : presentation.result?.phase === "roll"
-                  ? "TURN OVER"
-                  : game.phase === "move" && mine
-                    ? soleLegalMove(game) !== undefined
-                      ? "AUTO MOVE"
-                      : "PICK TOKEN"
-                    : mine
-                      ? "ROLL DICE"
-                      : "WAITING"}
+              {isSpectator
+                ? "SPECTATING"
+                : presentation.rolling || presentation.settling
+                  ? "ROLLING"
+                  : presentation.result?.phase === "roll"
+                    ? "TURN OVER"
+                    : game.phase === "move" && mine
+                      ? soleLegalMove(game) !== undefined
+                        ? "AUTO MOVE"
+                        : "PICK TOKEN"
+                      : mine
+                        ? "ROLL DICE"
+                        : "WAITING"}
             </span>
           </button>
           {showVoice && (
@@ -279,6 +369,7 @@ export default function PlayScreen({
           )}
           <TableEffectsControls
             room={room?.code}
+            actorId={me}
             effects={tableEffects}
             now={serverNow}
             connected={connected}

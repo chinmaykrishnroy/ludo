@@ -1,9 +1,15 @@
 import type { Game } from "../../shared/game";
 import { gameSchema } from "../../shared/state-schema";
 import type { LocalStore } from "./storage";
-// Existing installations keep their key. Bare objects are v1; new saves use v2.
+
 export const PRACTICE_KEY = "ludo-local-game-v1";
-export function loadPractice(storage: LocalStore): Game | null {
+
+export type SavedPractice = {
+  game: Game;
+  paused: boolean;
+};
+
+export function loadPracticeRecord(storage: LocalStore): SavedPractice | null {
   try {
     const raw = storage.getItem(PRACTICE_KEY);
     if (!raw) return null;
@@ -16,15 +22,34 @@ export function loadPractice(storage: LocalStore): Game | null {
           : null
         : value;
     const result = gameSchema.safeParse(candidate);
-    return result.success ? result.data : null;
+    if (!result.success) return null;
+    const paused = Boolean(
+      value &&
+      typeof value === "object" &&
+      "paused" in value &&
+      (value as { paused?: boolean }).paused,
+    );
+    return { game: result.data, paused };
   } catch {
     return null;
   }
 }
-export function savePractice(storage: LocalStore, game: Game | null) {
+
+export function loadPractice(storage: LocalStore): Game | null {
+  return loadPracticeRecord(storage)?.game ?? null;
+}
+
+export function savePractice(
+  storage: LocalStore,
+  game: Game | null,
+  paused = false,
+) {
   try {
     if (game)
-      storage.setItem(PRACTICE_KEY, JSON.stringify({ version: 2, game }));
+      storage.setItem(
+        PRACTICE_KEY,
+        JSON.stringify({ version: 2, game, paused }),
+      );
     else storage.removeItem(PRACTICE_KEY);
     return true;
   } catch {
