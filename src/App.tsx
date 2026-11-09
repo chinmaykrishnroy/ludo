@@ -5,74 +5,39 @@ import {
   useRef,
   useState,
 } from "react";
-import { io, type Socket } from "socket.io-client";
-import {
-  DiceFive,
-  Info,
-  Question,
-  GearSix,
-  ArrowRight,
-  DotsSixVertical,
-  Plus,
-  GlobeHemisphereWest,
-  LockSimple,
-  X,
-  Copy,
-  Check,
-  Robot,
-  Users,
-  Play,
-  ShieldCheck,
-  ArrowCounterClockwise,
-  SignOut,
-  Trophy,
-  Pause,
-  Eye,
-  House,
-} from "@phosphor-icons/react";
-import { Dialog, reportUnexpected } from "./lib";
+import { DiceFive, GearSix, X } from "@phosphor-icons/react";
 import {
   useAppearance,
   type Appearance,
   useInstall,
   browserStorage,
-  loadPractice,
   loadPracticeRecord,
   savePractice,
   loadDisplayName,
   rememberDisplayName,
   useServerAdmission,
 } from "./store";
-import { RoomBrowser, BotDifficulty } from "./features/lobby";
-import {
-  PlayScreen,
-  useGameFeedback,
-  requestOfflineMove,
-  PALETTE,
-} from "./features/game";
+import { RoomBrowser, RoomLobby, useRoomSession } from "./features/lobby";
+import { PlayScreen, useGameFeedback, useOfflineGame } from "./features/game";
 import { RoomChat, RoomTools, useRoomChat } from "./features/chat";
-import { ChatPreviews } from "./features/chat/ChatPreviews";
-import { VoicePanel, useRoomVoice } from "./features/voice";
+import { useRoomVoice } from "./features/voice";
 import Home, { type ClubStats } from "./Home";
-import { APP_VERSION } from "./version";
-import type { Typing, Voice } from "../shared/protocol";
-import type { RoomEffects } from "../shared/effects";
+import type { Voice } from "../shared/protocol";
+import { seat, newGame, roll, move, type Game } from "../shared/game";
 import {
-  COLORS,
-  ROLL_MS,
-  MOVE_MS,
-  seat,
-  newGame,
-  roll,
-  move,
-  legalMoves,
-  soleLegalMove,
-  forcedMoveAt,
-  type Game,
-} from "../shared/game";
-import type { Room, Reply } from "../shared/protocol";
+  RulesDialog,
+  SettingsDialog,
+  GameMenuDialog,
+  OfflineDialog,
+  ModerationDialog,
+  LeaveResetDialog,
+  VictoryDialog,
+  InstallDialog,
+} from "./features/modals";
+import { NotificationStack } from "./components/NotificationStack";
 
 const LOCAL_ID = "local-you";
+
 function practice(
   name = "You",
   bots = 3,
@@ -92,6 +57,7 @@ function practice(
     );
   return newGame(seats, Date.now(), difficulty, finishMode);
 }
+
 function passAndPlay(
   name: string,
   count: number,
@@ -108,68 +74,13 @@ function passAndPlay(
   }
   return newGame(arranged, Date.now(), 10, finishMode);
 }
+
 function randomDice() {
   const a = new Uint32Array(1);
   do {
     crypto.getRandomValues(a);
   } while (a[0] >= 4294967292);
   return (a[0] % 6) + 1;
-}
-function Rules({ onClose }: { onClose: () => void }) {
-  return (
-    <Dialog
-      title="A classic for a reason."
-      eyebrow="HOW TO PLAY"
-      onClose={onClose}
-    >
-      <div className="rules-list">
-        {[
-          [
-            "01",
-            "Make your entrance",
-            "Roll a six to move a token from the yard onto your starting square.",
-          ],
-          [
-            "02",
-            "Find your way home",
-            "Move clockwise around the board, then up your colour’s home lane. Choose a highlighted token after rolling.",
-          ],
-          [
-            "03",
-            "A little friendly rivalry",
-            "Land on an opponent to send their tokens to the yard. Star squares and coloured starting squares are safe. Tokens may share squares; stacks do not block movement.",
-          ],
-          [
-            "04",
-            "Keep a good thing going",
-            "Rolling a six, capturing a token, or finishing a token earns another roll. Three consecutive sixes forfeit that roll and end your turn.",
-          ],
-          [
-            "05",
-            "Bring the whole team home",
-            "You need the exact number to finish. Bring all four tokens home first to win. No capture is required to enter the home lane.",
-          ],
-        ].map(([n, t, d]) => (
-          <div key={n}>
-            <span>{n}</span>
-            <section>
-              <h3>{t}</h3>
-              <p>{d}</p>
-            </section>
-          </div>
-        ))}
-      </div>
-      <div className="rule-note">
-        <ShieldCheck />
-        <p>
-          Each human has {ROLL_MS / 1000} seconds to roll, then {MOVE_MS / 1000}{" "}
-          seconds to choose a token. If time runs out, the game rolls
-          automatically or moves the first legal token. Your seat stays saved
-          until you explicitly quit.
-        </p>
-      </div>
-    </Dialog>
-  );
 }
 
 export default function App() {
@@ -190,8 +101,7 @@ export default function App() {
   };
   const [appearance, setAppearance] = useAppearance();
   const [clubStats, setClubStats] = useState<ClubStats | null>(null);
-  const [publicRoomsEnabled, setPublicRoomsEnabled] = useState(false),
-    [moderationTarget, setModerationTarget] = useState(""),
+  const [moderationTarget, setModerationTarget] = useState(""),
     [moderationReason, setModerationReason] = useState("");
   const { installed, install } = useInstall();
   const [initialPracticeRecord] = useState(() =>
@@ -204,16 +114,7 @@ export default function App() {
     [practiceOpen, setPracticeOpen] = useState(
       Boolean(initialPractice && initialPractice.phase !== "finished"),
     ),
-    [room, setRoom] = useState<Room | null>(null),
-    [roomEffects, setRoomEffects] = useState<RoomEffects>(),
     [mutedVoice, setMutedVoice] = useState<Voice | null>(null),
-    [typingEvent, setTypingEvent] = useState<(Typing & { at: number }) | null>(
-      null,
-    ),
-    [chatIdleSeconds, setChatIdleSeconds] = useState(10),
-    [me, setMe] = useState(""),
-    [connected, setConnected] = useState(false),
-    [clockOffset, setClockOffset] = useState(0),
     [modal, setModal] = useState<
       | "rooms"
       | "rules"
@@ -246,229 +147,52 @@ export default function App() {
         Boolean(initialPracticeRecord?.paused),
     ),
     [copied, setCopied] = useState(false);
-  const socket = useRef<Socket | null>(null),
-    commandPending = useRef(false),
+
+  const commandPending = useRef(false),
     issuedAction = useRef<string | null>(null),
-    activeRoomCode = useRef<string | undefined>(undefined),
     toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null),
     mutedVoiceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
       undefined,
     );
+
   const notify = useCallback((text: string) => {
     setToast(text);
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(""), 4500);
   }, []);
-  const clearRoom = useCallback((code?: string) => {
-    if (code && activeRoomCode.current !== code) return false;
-    activeRoomCode.current = undefined;
-    setRoom(null);
-    setRoomEffects(undefined);
-    setTypingEvent(null);
-    setSetup(true);
-    setModal((current) =>
-      current === "leave" || current === "moderation" ? null : current,
-    );
-    return true;
-  }, []);
-  const send = useCallback(
-    async (event: string, data: unknown): Promise<Reply> => {
-      const s = socket.current;
-      if (!s?.connected)
-        return {
-          ok: false,
-          error: "The server is reconnecting. Please try again shortly.",
-        };
-      try {
-        const reply = (await s.timeout(8000).emitWithAck(event, data)) as Reply;
-        if (!reply.ok && reply.code === "STORAGE_UNAVAILABLE")
-          reportUnexpected("SERVER_ERROR");
-        return reply;
-      } catch {
-        return {
-          ok: false,
-          error:
-            "Connection interrupted. The room will sync when you reconnect.",
-        };
+
+  const {
+    room,
+    setRoom,
+    roomEffects,
+    typingEvent,
+    me,
+    connected,
+    clockOffset,
+    publicRoomsEnabled,
+    chatIdleSeconds,
+    activeRoomCode,
+    send,
+    clearRoom,
+  } = useRoomSession({
+    notify,
+    onClearRoomModal: () => {
+      setSetup(true);
+      setModal((current) =>
+        current === "leave" || current === "moderation" ? null : current,
+      );
+    },
+    onBotDifficultyConfig: (diff) => {
+      if (!difficultyTouched.current) {
+        setBotDifficulty(diff);
+        setOfflineBotLevels([diff, diff, diff]);
       }
     },
-    [],
-  );
-  useEffect(() => {
-    let disposed = false,
-      s: Socket | undefined,
-      pending = false,
-      attempts = 0;
-    let retry: ReturnType<typeof setTimeout> | undefined;
-    let clockTimer: ReturnType<typeof setInterval> | undefined;
-    const syncClock = async () => {
-      if (!s?.connected) return;
-      const connection = s;
-      const room = activeRoomCode.current;
-      const sent = Date.now();
-      try {
-        const reply = (await connection
-          .timeout(3000)
-          .emitWithAck("clock:sync", { room })) as Reply;
-        if (disposed || connection !== s || !reply.ok) return;
-        if (typeof reply.serverNow === "number")
-          setClockOffset(reply.serverNow - (sent + Date.now()) / 2);
-        if (room && reply.roomMissing && clearRoom(room))
-          notify("This room is no longer available.");
-      } catch {
-        /* Next heartbeat retries. */
-      }
-    };
-    const resume = () => {
-      if (document.visibilityState === "visible") void syncClock();
-    };
-    const connect = () => {
-      if (disposed || pending) return;
-      if (s) {
-        s.connect();
-        return;
-      }
-      pending = true;
-      attempts++;
-      void fetch("/api/session")
-        .then((r) => {
-          if (!r.ok) throw new Error("Server unavailable");
-          if (disposed) return;
-          s = io({ autoConnect: false, reconnection: true });
-          socket.current = s;
-          s.on("connect", () => {
-            setConnected(true);
-            void syncClock();
-            if (clockTimer) clearInterval(clockTimer);
-            clockTimer = setInterval(() => void syncClock(), 30000);
-          });
-          s.on("disconnect", () => {
-            setConnected(false);
-            if (clockTimer) clearInterval(clockTimer);
-          });
-          const renew = () => {
-            s?.disconnect();
-            s?.removeAllListeners();
-            s = undefined;
-            socket.current = null;
-            clearRoom();
-            if (retry) clearTimeout(retry);
-            retry = setTimeout(connect, 250);
-          };
-          s.on(
-            "connect_error",
-            (error: Error & { data?: { code?: string } }) => {
-              setConnected(false);
-              if (error.data?.code === "SESSION_EXPIRED") renew();
-              else if (error.data?.code === "STORAGE_UNAVAILABLE") {
-                reportUnexpected("SERVER_ERROR");
-                if (retry) clearTimeout(retry);
-                retry = setTimeout(connect, 5000);
-              }
-            },
-          );
-          s.on("session:expired", () => {
-            notify("Your guest session expired. Reconnecting as a new guest.");
-            renew();
-          });
-          s.on("session:blocked", () => {
-            notify("Online access is blocked for this guest.");
-            clearRoom();
-            s?.disconnect();
-            if (retry) clearTimeout(retry);
-          });
-          s.on("server:unavailable", (value?: { message?: string }) => {
-            reportUnexpected("SERVER_ERROR");
-            notify(
-              value?.message ??
-                "Saved game is temporarily unavailable. Reconnecting shortly.",
-            );
-            if (retry) clearTimeout(retry);
-            retry = setTimeout(connect, 5000);
-          });
-          s.on(
-            "session",
-            ({ me, serverNow }: { me: string; serverNow: number }) => {
-              setMe(me);
-              if (typeof serverNow === "number")
-                setClockOffset(serverNow - Date.now());
-            },
-          );
-          s.on("room:state", (r: Room) => {
-            activeRoomCode.current = r.code;
-            setRoom(r);
-            setRoomEffects(r.effects);
-            setSetup(!r.game);
-          });
-          s.on("room:effects", (state: RoomEffects) => {
-            if (state?.room === activeRoomCode.current) setRoomEffects(state);
-          });
-          s.on("chat:typing", (event: Typing) =>
-            setTypingEvent({ ...event, at: Date.now() }),
-          );
-          s.on("room:closed", (event: { code: string }) => {
-            if (event?.code && clearRoom(event.code))
-              notify("This room expired.");
-          });
-          s.on("room:left", (event: { code: string; closed?: boolean }) => {
-            if (event?.code && clearRoom(event.code) && event.closed)
-              notify(
-                "This room closed because fewer than two players remained.",
-              );
-          });
-          s.connect();
-        })
-        .catch(() => {
-          if (navigator.onLine && attempts === 1)
-            notify("Online play is unavailable. Offline play is ready.");
-          if (!disposed) retry = setTimeout(connect, 5000);
-        })
-        .finally(() => {
-          pending = false;
-        });
-    };
-    connect();
-    window.addEventListener("online", connect);
-    window.addEventListener("pageshow", resume);
-    document.addEventListener("visibilitychange", resume);
-    return () => {
-      disposed = true;
-      if (retry) clearTimeout(retry);
-      if (clockTimer) clearInterval(clockTimer);
-      window.removeEventListener("online", connect);
-      window.removeEventListener("pageshow", resume);
-      document.removeEventListener("visibilitychange", resume);
-      s?.disconnect();
-    };
-  }, [clearRoom, notify]);
-  useEffect(() => {
-    if (connected)
-      void fetch("/api/config")
-        .then((r) => r.json())
-        .then((c) => {
-          setPublicRoomsEnabled(c.publicRoomsEnabled === true);
-          if (
-            Number.isInteger(c.chatIdleSeconds) &&
-            c.chatIdleSeconds >= 1 &&
-            c.chatIdleSeconds <= 300
-          )
-            setChatIdleSeconds(c.chatIdleSeconds);
-          if (
-            !difficultyTouched.current &&
-            Number.isInteger(c.defaultBotDifficulty) &&
-            c.defaultBotDifficulty >= 0 &&
-            c.defaultBotDifficulty <= 10
-          ) {
-            setBotDifficulty(c.defaultBotDifficulty);
-            setOfflineBotLevels([
-              c.defaultBotDifficulty,
-              c.defaultBotDifficulty,
-              c.defaultBotDifficulty,
-            ]);
-          }
-        })
-        .catch(() => {});
-  }, [connected]);
+    onGameActive: (hasGame) => {
+      setSetup(!hasGame);
+    },
+  });
+
   useEffect(() => {
     if (!setup || room) return;
     let disposed = false;
@@ -489,11 +213,13 @@ export default function App() {
       clearInterval(timer);
     };
   }, [setup, room]);
+
   const announceMutedVoice = useCallback((message: Voice) => {
     setMutedVoice(message);
     clearTimeout(mutedVoiceTimer.current);
     mutedVoiceTimer.current = setTimeout(() => setMutedVoice(null), 5000);
   }, []);
+
   const voice = useRoomVoice({
     room,
     send,
@@ -502,11 +228,13 @@ export default function App() {
     me,
     onMutedVoice: announceMutedVoice,
   });
+
   useEffect(() => {
     setMutedVoice(null);
     clearTimeout(mutedVoiceTimer.current);
     return () => clearTimeout(mutedVoiceTimer.current);
   }, [room?.code, voice.muted]);
+
   const chat = useRoomChat(room, me, chatIdleSeconds, typingEvent);
   const game =
       room?.game ??
@@ -529,9 +257,11 @@ export default function App() {
     lobby = !!room && !room.game,
     myTurn = !!current && current.id === playerId && !current.bot && !lobby,
     finished = game.phase === "finished";
+
   const admission = useServerAdmission(
     connected && (setup || lobby || modal === "rooms"),
   );
+
   const feedback = useGameFeedback(
       game,
       room?.code ?? "local",
@@ -542,96 +272,41 @@ export default function App() {
       voice.mixer,
     ),
     busy = feedback.busy;
+
   useEffect(() => {
     if (practiceOpen && !setup) savePractice(browserStorage, local, false);
   }, [local, practiceOpen, setup]);
-  useEffect(() => {
-    if (room || !practiceOpen || setup || modal || local.phase === "finished")
-      return;
-    const timer = setInterval(
-      () =>
-        setLocal((g) => {
-          if (
-            g.phase === "finished" ||
-            g.seats[g.turn]?.bot ||
-            Date.now() < g.deadline
-          )
-            return g;
-          return g.phase === "roll"
-            ? roll(g, randomDice())
-            : move(g, legalMoves(g)[0]);
-        }),
-      250,
-    );
-    return () => clearInterval(timer);
-  }, [room, practiceOpen, setup, modal, local.phase]);
+
   useEffect(
     () => () => {
       if (toastTimer.current) clearTimeout(toastTimer.current);
     },
     [],
   );
-  useEffect(() => {
-    if (
-      room ||
-      setup ||
-      modal ||
-      local.phase === "finished" ||
-      !local.seats[local.turn]?.bot
-    )
-      return;
-    const controller = new AbortController(),
-      snapshot = local;
-    const t = setTimeout(() => {
-      if (snapshot.phase === "roll")
-        setLocal((g) => (g === snapshot ? roll(g, randomDice()) : g));
-      else if (snapshot.phase === "move")
-        void requestOfflineMove(snapshot, controller.signal)
-          .then((decision) => {
-            if (controller.signal.aborted) return;
-            setLocal((g) =>
-              g === snapshot && legalMoves(g).includes(decision.token)
-                ? move(g, decision.token)
-                : g,
-            );
-          })
-          .catch((error) => {
-            if (error.name !== "AbortError")
-              notify("Bot interrupted. Retrying.");
-          });
-    }, 1600);
-    return () => {
-      clearTimeout(t);
-      controller.abort();
-    };
-  }, [room, setup, modal, local, notify]);
-  useEffect(() => {
-    if (room || !practiceOpen || setup || modal || local.seats[local.turn]?.bot)
-      return;
-    const token = soleLegalMove(local);
-    if (token === undefined) return;
-    const snapshot = local,
-      timer = setTimeout(
-        () =>
-          setLocal((game) =>
-            game === snapshot && soleLegalMove(game) === token
-              ? move(game, token)
-              : game,
-          ),
-        Math.max(0, forcedMoveAt(local) - Date.now()),
-      );
-    return () => clearTimeout(timer);
-  }, [room, practiceOpen, setup, modal, local]);
+
+  useOfflineGame({
+    local,
+    setLocal,
+    isOnlineRoom: Boolean(room),
+    practiceOpen,
+    setup,
+    hasModal: Boolean(modal),
+    notify,
+    randomDice,
+  });
 
   useEffect(() => {
     rememberDisplayName(browserStorage, name);
   }, [name]);
+
   useEffect(() => {
     browserStorage.setItem("ludo-sound", sound ? "on" : "off");
   }, [sound]);
+
   useEffect(() => {
     browserStorage.setItem("ludo-haptics", haptics ? "on" : "off");
   }, [haptics]);
+
   async function act(event: "game:roll" | "game:move", token?: number) {
     if (
       commandPending.current ||
@@ -690,6 +365,7 @@ export default function App() {
       }
     }
   }
+
   async function copyInvite() {
     if (!room) return;
     try {
@@ -702,10 +378,12 @@ export default function App() {
       notify(`Room code: ${room.code}`);
     }
   }
+
   async function start() {
     const r = await send("room:start", {});
     if (!r.ok) notify(r.error ?? "Could not start.");
   }
+
   async function leave() {
     const code = room?.code;
     if (!code) return;
@@ -722,123 +400,7 @@ export default function App() {
   const humans =
     room?.seats.filter((seat) => seat && !seat.id.startsWith("bot:")).length ??
     0;
-  const startTooltip =
-    room?.game && !finished
-      ? "Resume game"
-      : !connected
-        ? "Connecting to server..."
-        : admission?.newRoomsAvailable === false
-          ? "The server is busy. Starting new games will reopen automatically."
-          : !host
-            ? "Waiting for table host to start the game."
-            : humans < 2
-              ? "Invite at least one more player to start."
-              : "Start game";
 
-  const [pointerDrag, setPointerDrag] = useState<{
-    fromIndex: number;
-    targetIndex: number;
-    offsetY: number;
-    cardHeight: number;
-  } | null>(null);
-
-  const pointerDragRef = useRef<{
-    fromIndex: number;
-    startY: number;
-    cardHeight: number;
-    pointerId: number;
-  } | null>(null);
-
-  const handleSwapSeats = useCallback(
-    async (fromIdx: number, toIdx: number) => {
-      if (fromIdx === toIdx || toIdx < 0 || toIdx >= COLORS.length) return;
-      const player = room?.seats[fromIdx];
-      if (!player) return;
-      const res = await send("room:swap", {
-        from: fromIdx,
-        to: toIdx,
-        player: player.id,
-      });
-      if (!res.ok) notify(res.error ?? "Could not change seats.");
-    },
-    [room?.seats, send, notify],
-  );
-
-  const handleSeatPointerDown = (
-    index: number,
-    e: React.PointerEvent<HTMLDivElement>,
-  ) => {
-    if (!host || (room?.game && !finished) || !room?.seats[index]) return;
-    if (e.button !== 0) return;
-    e.preventDefault();
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-
-    const container = (e.currentTarget as HTMLElement).closest(".seat-editor");
-    const cards = container
-      ? Array.from(container.querySelectorAll<HTMLElement>(".seat-card"))
-      : [];
-    const height =
-      cards.length > 0 ? cards[0].getBoundingClientRect().height + 8 : 72;
-
-    pointerDragRef.current = {
-      fromIndex: index,
-      startY: e.clientY,
-      cardHeight: height,
-      pointerId: e.pointerId,
-    };
-
-    setPointerDrag({
-      fromIndex: index,
-      targetIndex: index,
-      offsetY: 0,
-      cardHeight: height,
-    });
-  };
-
-  const handleSeatPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    const drag = pointerDragRef.current;
-    if (!drag || drag.pointerId !== e.pointerId) return;
-
-    const deltaY = e.clientY - drag.startY;
-    const targetIdx = Math.max(
-      0,
-      Math.min(
-        COLORS.length - 1,
-        Math.round(drag.fromIndex + deltaY / drag.cardHeight),
-      ),
-    );
-
-    setPointerDrag((prev) =>
-      prev
-        ? {
-            ...prev,
-            targetIndex: targetIdx,
-            offsetY: deltaY,
-          }
-        : null,
-    );
-  };
-
-  const handleSeatPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    const drag = pointerDragRef.current;
-    if (!drag || drag.pointerId !== e.pointerId) return;
-
-    const fromIdx = drag.fromIndex;
-    const toIdx = pointerDrag?.targetIndex ?? fromIdx;
-
-    try {
-      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-    } catch {
-      // ignore
-    }
-
-    pointerDragRef.current = null;
-    setPointerDrag(null);
-
-    if (fromIdx !== toIdx) {
-      void handleSwapSeats(fromIdx, toIdx);
-    }
-  };
   useEffect(() => {
     const openMenu = (event: KeyboardEvent) => {
       if (
@@ -853,197 +415,17 @@ export default function App() {
     window.addEventListener("keydown", openMenu);
     return () => window.removeEventListener("keydown", openMenu);
   }, [modal, setup, lobby]);
-  const offlineForm = (
-    <>
-      {practiceOpen && local.phase !== "finished" && (
-        <div className="offline-resume-callout">
-          <button
-            type="button"
-            className="primary full resume-button"
-            onClick={() => {
-              setSetup(false);
-              setModal(null);
-            }}
-          >
-            <Play weight="fill" />
-            RESUME SAVED GAME
-          </button>
-          <div className="offline-divider">
-            <span>or start a new game below</span>
-          </div>
-        </div>
-      )}
-      <label className="field-label">
-        Your name
-        <input
-          value={name}
-          maxLength={24}
-          onChange={(e) => setName(e.target.value)}
-        />
-      </label>
-      <div className="field-label">
-        <span>Offline game</span>
-        <div className="segmented-control mode-segmented">
-          <button
-            type="button"
-            className={`segment-btn ${localMode === "computer" ? "active" : ""}`}
-            onClick={() => setLocalMode("computer")}
-          >
-            <Robot weight="bold" />
-            <span>Play vs Computer</span>
-          </button>
-          <button
-            type="button"
-            className={`segment-btn ${localMode === "pass" ? "active" : ""}`}
-            onClick={() => setLocalMode("pass")}
-          >
-            <Users weight="bold" />
-            <span>Pass &amp; Play</span>
-          </button>
-        </div>
-      </div>
-      {localMode === "pass" ? (
-        <div className="field-label">
-          <span>Players</span>
-          <div className="segmented-control count-segmented">
-            {[2, 3, 4].map((count) => (
-              <button
-                type="button"
-                key={count}
-                className={`segment-btn ${humanCount === count ? "active" : ""}`}
-                onClick={() => setHumanCount(count)}
-              >
-                <span>{count} Players</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div className="field-label">
-          <span>Opponents</span>
-          <div className="segmented-control count-segmented">
-            {[1, 2, 3].map((count) => (
-              <button
-                type="button"
-                key={count}
-                className={`segment-btn ${botCount === count ? "active" : ""}`}
-                onClick={() => setBotCount(count)}
-              >
-                <span>
-                  {count} {count === 1 ? "Computer" : "Computers"}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-      {localMode === "computer" && (
-        <BotDifficulty value={botDifficulty} onChange={changeDifficulty} />
-      )}
-      {localMode === "computer" && (
-        <details className="bot-levels">
-          <summary>Individual bot levels</summary>
-          {Array.from({ length: botCount }, (_, i) => (
-            <BotDifficulty
-              key={i}
-              label={`Bot ${i + 1} difficulty`}
-              value={offlineBotLevels[i]}
-              onChange={(value) =>
-                setOfflineBotLevels((levels) =>
-                  levels.map((n, j) => (j === i ? value : n)),
-                )
-              }
-            />
-          ))}
-        </details>
-      )}
-      <div className="field-label">
-        <span>Finish rule</span>
-        <div className="finish-rule-segmented">
-          <button
-            type="button"
-            className={`finish-segment-btn ${offlineFinishMode === "first" ? "active" : ""}`}
-            onClick={() => setOfflineFinishMode("first")}
-          >
-            <span className="segment-title">Quick Finish</span>
-            <small className="segment-desc">
-              First to bring tokens home wins
-            </small>
-          </button>
-          <button
-            type="button"
-            className={`finish-segment-btn ${offlineFinishMode === "all" ? "active" : ""}`}
-            onClick={() => setOfflineFinishMode("all")}
-          >
-            <span className="segment-title">Play Till End</span>
-            <small className="segment-desc">Full 1st, 2nd, 3rd podium</small>
-          </button>
-        </div>
-      </div>
-      <button
-        className="primary full"
-        onClick={() => {
-          setLocal(
-            localMode === "pass"
-              ? passAndPlay(name, humanCount, offlineFinishMode)
-              : practice(
-                  name,
-                  botCount,
-                  botDifficulty,
-                  offlineBotLevels,
-                  offlineFinishMode,
-                ),
-          );
-          setPracticeOpen(true);
-          feedback.reset();
-          setSetup(false);
-          setModal(null);
-        }}
-      >
-        <Robot />
-        PLAY OFFLINE
-        <ArrowRight />
-      </button>
-    </>
-  );
+
   const notices = (
-    <div className="notification-stack">
-      {mutedVoice && voice.muted && (
-        <div className="muted-voice-toast" role="status">
-          <span>
-            <strong>{mutedVoice.name}</strong> spoke
-          </span>
-          <button
-            onClick={() => {
-              voice.unmuteAndPlay(mutedVoice.id);
-              setMutedVoice(null);
-            }}
-          >
-            Unmute to listen
-          </button>
-          <button
-            className="muted-toast-close"
-            aria-label="Dismiss voice notice"
-            onClick={() => setMutedVoice(null)}
-          >
-            <X />
-          </button>
-        </div>
-      )}
-      {toast && (
-        <div className="toast" role="status">
-          <Info className="toast-icon" weight="fill" />
-          <span>{toast}</span>
-          <button
-            aria-label="Dismiss notification"
-            onClick={() => setToast("")}
-          >
-            <X weight="bold" />
-          </button>
-        </div>
-      )}
-    </div>
+    <NotificationStack
+      toast={toast}
+      onDismissToast={() => setToast("")}
+      mutedVoice={mutedVoice}
+      onDismissMutedVoice={() => setMutedVoice(null)}
+      voice={voice}
+    />
   );
+
   return (
     <div className="app-shell">
       {storageUnavailable && !storageDismissed && (
@@ -1106,366 +488,27 @@ export default function App() {
             </div>
           </header>
           {room ? (
-            <section className="lobby-card">
-              {!chat.open && <ChatPreviews messages={chat.previews} />}
-              <div className="lobby-scroll-body">
-                <div className="lobby-title">
-                  <h1>{room.name}</h1>
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: "8px",
-                      alignItems: "center",
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    <span className="room-visibility-badge">
-                      {room.public ? (
-                        <GlobeHemisphereWest weight="bold" />
-                      ) : (
-                        <LockSimple weight="bold" />
-                      )}
-                      <span>
-                        {room.public ? "PUBLIC TABLE" : "PRIVATE TABLE"}
-                      </span>
-                    </span>
-                    {isSpectator && (
-                      <span className="spectator-badge">
-                        <Eye weight="bold" />
-                        <span>SPECTATING</span>
-                      </span>
-                    )}
-                  </div>
-                </div>
-                {isSpectator &&
-                  room.seats.some((seat) => !seat || seat.bot) && (
-                    <div className="spectator-seat-prompt">
-                      <span>An open seat is available at this table.</span>
-                      <button
-                        className="primary compact take-seat-btn"
-                        onClick={async () => {
-                          const res = await send("room:join", {
-                            code: room.code,
-                            playerName: name,
-                            spectate: false,
-                          });
-                          if (!res.ok)
-                            notify(res.error ?? "Could not take seat.");
-                        }}
-                      >
-                        Take an Open Seat <ArrowRight />
-                      </button>
-                    </div>
-                  )}
-                <div className="invite-strip">
-                  <div className="invite-code-box">
-                    <span className="invite-label">ROOM CODE</span>
-                    <strong className="invite-code">{room.code}</strong>
-                  </div>
-                  <button
-                    type="button"
-                    className={`invite-copy-btn ${copied ? "copied" : ""}`}
-                    aria-label={
-                      copied
-                        ? "Link copied to clipboard"
-                        : "Copy room invite link"
-                    }
-                    title={copied ? "Link Copied!" : "Copy Invite Link"}
-                    onClick={() => void copyInvite()}
-                  >
-                    {copied ? <Check weight="bold" /> : <Copy weight="bold" />}
-                  </button>
-                </div>
-                <div className="seat-editor">
-                  {room.seats.map((p, i) => {
-                    let cardTransform = "translateY(0px)";
-                    let cardZIndex = 1;
-                    let isDraggingCard = false;
-                    let isDropTargetCard = false;
-                    let cardTransition =
-                      "transform 0.22s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.2s ease, border-color 0.2s ease";
-
-                    if (pointerDrag) {
-                      if (i === pointerDrag.fromIndex) {
-                        isDraggingCard = true;
-                        cardTransform = `translateY(${pointerDrag.offsetY}px) scale(1.025)`;
-                        cardZIndex = 40;
-                        cardTransition =
-                          "box-shadow 0.2s ease, border-color 0.2s ease";
-                      } else {
-                        if (pointerDrag.fromIndex < pointerDrag.targetIndex) {
-                          if (
-                            i > pointerDrag.fromIndex &&
-                            i <= pointerDrag.targetIndex
-                          ) {
-                            cardTransform = `translateY(-${pointerDrag.cardHeight}px)`;
-                          }
-                        } else if (
-                          pointerDrag.fromIndex > pointerDrag.targetIndex
-                        ) {
-                          if (
-                            i >= pointerDrag.targetIndex &&
-                            i < pointerDrag.fromIndex
-                          ) {
-                            cardTransform = `translateY(${pointerDrag.cardHeight}px)`;
-                          }
-                        }
-                        if (i === pointerDrag.targetIndex) {
-                          isDropTargetCard = true;
-                        }
-                      }
-                    }
-
-                    return (
-                      <div
-                        key={i}
-                        className={`seat-card ${p ? "seat-occupied" : "seat-vacant"} ${isDraggingCard ? "is-dragging" : ""} ${isDropTargetCard ? "is-drop-target" : ""}`}
-                        data-seat-index={i}
-                        style={{
-                          transform: cardTransform,
-                          zIndex: cardZIndex,
-                          transition: cardTransition,
-                        }}
-                      >
-                        <span
-                          className="seat-colour-dot"
-                          style={{
-                            background: PALETTE[COLORS[i]],
-                            boxShadow: `0 0 10px ${PALETTE[COLORS[i]]}88`,
-                          }}
-                        />
-                        <div className="seat-main-info">
-                          <div className="seat-header-row">
-                            <strong className="seat-player-name">
-                              {p?.name ?? "Open Seat"}
-                            </strong>
-                            {p?.id === me && (
-                              <span className="seat-badge you-badge">YOU</span>
-                            )}
-                            {p?.id === room.host && (
-                              <span className="seat-badge host-badge">
-                                HOST
-                              </span>
-                            )}
-                            {p?.bot && (
-                              <span className="seat-badge bot-badge">BOT</span>
-                            )}
-                          </div>
-                          <small className="seat-status-caption">
-                            {p?.id === room.host
-                              ? "Table Organiser"
-                              : p?.bot
-                                ? "Computer player"
-                                : p
-                                  ? p.connected
-                                    ? "Ready"
-                                    : "Offline"
-                                  : "Open seat — invite a friend or add bot"}
-                          </small>
-                        </div>
-                        <div className="seat-action-tools">
-                          {p?.id.startsWith("bot:") &&
-                            host &&
-                            (!room.game || finished) && (
-                              <BotDifficulty
-                                compact
-                                label={`${COLORS[i]} bot level`}
-                                value={
-                                  p.botDifficulty ??
-                                  room.botDifficulty ??
-                                  botDifficulty
-                                }
-                                disabled={
-                                  !host ||
-                                  (!!room.game && !finished) ||
-                                  !connected
-                                }
-                                onChange={async (difficulty) => {
-                                  const r = await send("room:difficulty", {
-                                    difficulty,
-                                    seat: i,
-                                  });
-                                  if (!r.ok)
-                                    notify(
-                                      r.error ??
-                                        "Unable to change bot difficulty.",
-                                    );
-                                }}
-                              />
-                            )}
-                          {p && host && (!room.game || finished) && (
-                            <div
-                              className="seat-drag-handle"
-                              role="button"
-                              tabIndex={0}
-                              aria-label={`Drag or use arrow keys to reorder ${p.name}`}
-                              title="Drag to change seat position"
-                              onPointerDown={(e) => handleSeatPointerDown(i, e)}
-                              onPointerMove={handleSeatPointerMove}
-                              onPointerUp={handleSeatPointerUp}
-                              onPointerCancel={handleSeatPointerUp}
-                              onKeyDown={(e) => {
-                                if (e.key === "ArrowUp" && i > 0) {
-                                  e.preventDefault();
-                                  void handleSwapSeats(i, i - 1);
-                                } else if (
-                                  e.key === "ArrowDown" &&
-                                  i < COLORS.length - 1
-                                ) {
-                                  e.preventDefault();
-                                  void handleSwapSeats(i, i + 1);
-                                }
-                              }}
-                            >
-                              <DotsSixVertical weight="bold" />
-                            </div>
-                          )}
-                          {host &&
-                          (!room.game || finished) &&
-                          (!p || p.id.startsWith("bot:")) ? (
-                            <button
-                              type="button"
-                              className={`seat-bot-action-btn ${p ? "remove-bot" : "add-bot"}`}
-                              aria-label={`${p ? "Remove" : "Add"} Bot in ${COLORS[i]} seat`}
-                              onClick={async () => {
-                                const r = await send("room:configure", {
-                                  seat: i,
-                                  bot: !p,
-                                });
-                                if (!r.ok) notify(r.error!);
-                              }}
-                            >
-                              {p ? (
-                                <>
-                                  <X weight="bold" />
-                                  <span className="btn-label-text">Remove</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Plus weight="bold" />
-                                  <span className="btn-label-text">
-                                    Add Bot
-                                  </span>
-                                </>
-                              )}
-                            </button>
-                          ) : null}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="lobby-finish-bar">
-                  <span className="lobby-finish-label">FINISH RULE</span>
-                  <div className="finish-rule-segmented lobby-segmented">
-                    <button
-                      type="button"
-                      disabled={
-                        !host || (!!room.game && !finished) || !connected
-                      }
-                      className={`finish-segment-btn ${(room.finishMode ?? "first") === "first" ? "active" : ""}`}
-                      onClick={async () => {
-                        const r = await send("room:mode", {
-                          finishMode: "first",
-                        });
-                        if (!r.ok)
-                          notify(r.error ?? "Unable to change game mode.");
-                      }}
-                    >
-                      <span className="segment-title">Quick Finish</span>
-                    </button>
-                    <button
-                      type="button"
-                      disabled={
-                        !host || (!!room.game && !finished) || !connected
-                      }
-                      className={`finish-segment-btn ${(room.finishMode ?? "first") === "all" ? "active" : ""}`}
-                      onClick={async () => {
-                        const r = await send("room:mode", {
-                          finishMode: "all",
-                        });
-                        if (!r.ok)
-                          notify(r.error ?? "Unable to change game mode.");
-                      }}
-                    >
-                      <span className="segment-title">Play Till End</span>
-                    </button>
-                  </div>
-                </div>
-                <div className="lobby-voice">
-                  <VoicePanel
-                    compact
-                    room={room}
-                    voice={voice}
-                    onOnline={() => setModal("rooms")}
-                  />
-                </div>
-              </div>
-
-              {/* Anchored Bottom Bar */}
-              <div className="lobby-anchored-footer">
-                <div className="lobby-actions">
-                  <button
-                    type="button"
-                    className="secondary lobby-btn-leave"
-                    onClick={() => setModal("leave")}
-                    title="Leave table"
-                  >
-                    <SignOut weight="bold" />
-                    Leave Table
-                  </button>
-                  <div className="lobby-btn-start-wrap" title={startTooltip}>
-                    <button
-                      type="button"
-                      className="primary lobby-btn-start"
-                      disabled={
-                        (!room.game || finished) &&
-                        (!host ||
-                          humans < 2 ||
-                          !connected ||
-                          admission?.newRoomsAvailable === false)
-                      }
-                      title={startTooltip}
-                      onClick={() => {
-                        setSetup(false);
-                        if (!room.game || finished) void start();
-                      }}
-                    >
-                      <Play weight="fill" />
-                      {room.game && !finished
-                        ? "RESUME GAME"
-                        : host
-                          ? "START GAME"
-                          : "WAITING FOR HOST"}
-                    </button>
-                  </div>
-                </div>
-                <div className="lobby-footer-strip">
-                  <button
-                    type="button"
-                    className="text-button lobby-switch"
-                    onClick={() => setModal("rooms")}
-                  >
-                    Join another room <ArrowRight weight="bold" />
-                  </button>
-                  {host && !room.game && humans < 2 && (
-                    <span
-                      className="lobby-waiting-hint"
-                      title="Invite at least one more player to start."
-                    >
-                      Invite at least one more player to start.
-                    </span>
-                  )}
-                </div>
-                {(!room.game || finished) &&
-                  admission?.newRoomsAvailable === false && (
-                    <p role="status" className="admission-notice">
-                      The server is busy. Starting new games will reopen
-                      automatically; your room and seats are saved.
-                    </p>
-                  )}
-              </div>
-            </section>
+            <RoomLobby
+              room={room}
+              me={me}
+              name={name}
+              host={host}
+              isSpectator={isSpectator}
+              humans={humans}
+              finished={finished}
+              connected={connected}
+              admission={admission}
+              chat={chat}
+              voice={voice}
+              copied={copied}
+              copyInvite={() => void copyInvite()}
+              botDifficulty={botDifficulty}
+              send={send}
+              notify={notify}
+              onOpenLeave={() => setModal("leave")}
+              onOpenRooms={() => setModal("rooms")}
+              onStartGame={() => void start()}
+            />
           ) : (
             <Home
               stats={clubStats}
@@ -1484,106 +527,73 @@ export default function App() {
           )}
         </main>
       )}
+
       {modal === "menu" && (
-        <Dialog title="GAME MENU" onClose={() => setModal(null)}>
-          <div className="menu-actions">
-            <button className="primary full" onClick={() => setModal(null)}>
-              <Play weight="fill" />
-              KEEP PLAYING
-            </button>
-            {room && (
-              <button
-                className="secondary full"
-                onClick={() => void copyInvite()}
-              >
-                <Copy />
-                {copied ? "INVITE COPIED" : "COPY ROOM INVITE"}
-              </button>
-            )}
-            {room && (
-              <button
-                className="secondary full"
-                onClick={() => setModal("rooms")}
-              >
-                <ArrowRight /> JOIN ANOTHER ROOM
-              </button>
-            )}
-            <button
-              className="secondary full"
-              onClick={(event) => {
-                event.currentTarget.focus({ preventScroll: true });
-                setModal("settings");
-              }}
-            >
-              <GearSix />
-              SETTINGS
-            </button>
-            <button
-              className="secondary full"
-              onClick={() => setModal("rules")}
-            >
-              <Question />
-              RULES
-            </button>
-            {room &&
-              room.seats.some(
-                (s) => s && s.id !== me && !s.id.startsWith("bot:"),
-              ) && (
-                <button
-                  className="secondary full"
-                  onClick={() => setModal("moderation")}
-                >
-                  <ShieldCheck />
-                  REPORT / BLOCK PLAYER
-                </button>
-              )}
-            {room ? (
-              <button
-                className="secondary full"
-                onClick={() => setModal("leave")}
-              >
-                <SignOut />
-                LEAVE ROOM
-              </button>
-            ) : (
-              <>
-                <button
-                  className="secondary full"
-                  onClick={() => {
-                    setSetup(true);
-                    setModal(null);
-                  }}
-                >
-                  <Pause weight="bold" />
-                  PAUSE &amp; GO TO HOME
-                </button>
-                <button
-                  className="secondary full"
-                  onClick={() => {
-                    setModal("leave");
-                  }}
-                >
-                  <ArrowCounterClockwise />
-                  QUIT GAME
-                </button>
-              </>
-            )}
-            {room && (
-              <VoicePanel
-                room={room}
-                voice={voice}
-                onOnline={() => setModal("rooms")}
-              />
-            )}
-            <div className="dialog-version-tag">Ludo Club v{APP_VERSION}</div>
-          </div>
-        </Dialog>
+        <GameMenuDialog
+          room={room}
+          me={me}
+          copied={copied}
+          copyInvite={() => void copyInvite()}
+          voice={voice}
+          onClose={() => setModal(null)}
+          onOpenSettings={(event) => {
+            event.currentTarget.focus({ preventScroll: true });
+            setModal("settings");
+          }}
+          onOpenRules={() => setModal("rules")}
+          onOpenRooms={() => setModal("rooms")}
+          onOpenModeration={() => setModal("moderation")}
+          onOpenLeave={() => setModal("leave")}
+          onPauseOffline={() => {
+            setSetup(true);
+            setModal(null);
+          }}
+        />
       )}
+
       {modal === "offline" && (
-        <Dialog title="PLAY OFFLINE" onClose={() => setModal(null)}>
-          {offlineForm}
-        </Dialog>
+        <OfflineDialog
+          practiceOpen={practiceOpen}
+          isLocalPhaseFinished={local.phase === "finished"}
+          name={name}
+          setName={setName}
+          localMode={localMode}
+          setLocalMode={setLocalMode}
+          humanCount={humanCount}
+          setHumanCount={setHumanCount}
+          botCount={botCount}
+          setBotCount={setBotCount}
+          botDifficulty={botDifficulty}
+          onDifficultyChange={changeDifficulty}
+          offlineBotLevels={offlineBotLevels}
+          setOfflineBotLevels={setOfflineBotLevels}
+          offlineFinishMode={offlineFinishMode}
+          setOfflineFinishMode={setOfflineFinishMode}
+          onResume={() => {
+            setSetup(false);
+            setModal(null);
+          }}
+          onStart={() => {
+            setLocal(
+              localMode === "pass"
+                ? passAndPlay(name, humanCount, offlineFinishMode)
+                : practice(
+                    name,
+                    botCount,
+                    botDifficulty,
+                    offlineBotLevels,
+                    offlineFinishMode,
+                  ),
+            );
+            setPracticeOpen(true);
+            feedback.reset();
+            setSetup(false);
+            setModal(null);
+          }}
+          onClose={() => setModal(null)}
+        />
       )}
+
       {modal === "rooms" && (
         <RoomBrowser
           send={send}
@@ -1601,304 +611,114 @@ export default function App() {
           admission={admission}
         />
       )}
-      {modal === "rules" && <Rules onClose={() => setModal(null)} />}
+
+      {modal === "rules" && <RulesDialog onClose={() => setModal(null)} />}
+
       {modal === "settings" && (
-        <Dialog title="SETTINGS" onClose={() => setModal(null)}>
-          <label className="field-label">
-            Appearance
-            <select
-              value={appearance}
-              onChange={(e) => setAppearance(e.target.value as Appearance)}
-            >
-              <option value="system">System default</option>
-              <option value="light">Light mode</option>
-              <option value="dark">Dark mode</option>
-            </select>
-          </label>
-          <label className="field-label">
-            Your display name
-            <input
-              value={name}
-              maxLength={24}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </label>
-          <div className="settings-row">
-            <span>
-              <strong>Game sounds</strong>
-            </span>
-            <button
-              className={`switch ${sound ? "on" : ""}`}
-              role="switch"
-              aria-checked={sound}
-              aria-label="Game sounds"
-              onClick={() => setSound(!sound)}
-            >
-              <i />
-            </button>
-          </div>
-          <div className="settings-row">
-            <span>
-              <strong>Capture vibration</strong>
-              <small>On supported devices</small>
-            </span>
-            <button
-              className={`switch ${haptics ? "on" : ""}`}
-              role="switch"
-              aria-checked={haptics}
-              aria-label="Capture vibration"
-              onClick={() => setHaptics(!haptics)}
-            >
-              <i />
-            </button>
-          </div>
-          <button className="primary full" onClick={() => setModal(null)}>
-            DONE <Check />
-          </button>
-          <a
-            className="text-button privacy-link"
-            href="/privacy.html"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Privacy &amp; retention
-          </a>
-        </Dialog>
-      )}
-      {modal === "moderation" && room && (
-        <Dialog title="REPORT OR BLOCK" onClose={() => setModal(null)}>
-          <label className="field-label">
-            Player
-            <select
-              value={moderationTarget}
-              onChange={(e) => setModerationTarget(e.target.value)}
-            >
-              <option value="">Choose a player</option>
-              {room.seats
-                .filter((s) => s && s.id !== me && !s.id.startsWith("bot:"))
-                .map((s) => (
-                  <option key={s!.id} value={s!.id}>
-                    {s!.name}
-                  </option>
-                ))}
-            </select>
-          </label>
-          <label className="field-label">
-            What happened?
-            <textarea
-              maxLength={500}
-              value={moderationReason}
-              onChange={(e) => setModerationReason(e.target.value)}
-            />
-          </label>
-          <p className="field-note">
-            Blocking hides their messages and prevents future matching. Reports
-            are visible only to the site moderator.
-          </p>
-          <div className="dialog-buttons">
-            <button
-              className="secondary"
-              disabled={!moderationTarget}
-              onClick={async () => {
-                const r = await send("moderation:block", {
-                  player: moderationTarget,
-                });
-                notify(r.ok ? "Player blocked." : r.error!);
-                if (r.ok) setModal(null);
-              }}
-            >
-              BLOCK
-            </button>
-            <button
-              className="primary"
-              disabled={!moderationTarget || !moderationReason.trim()}
-              onClick={async () => {
-                const r = await send("moderation:report", {
-                  player: moderationTarget,
-                  reason: moderationReason,
-                });
-                notify(r.ok ? "Report sent to the moderator." : r.error!);
-                if (r.ok) {
-                  setModerationReason("");
-                  setModal(null);
-                }
-              }}
-            >
-              REPORT
-            </button>
-          </div>
-        </Dialog>
-      )}
-      {(modal === "leave" || modal === "reset") && (
-        <Dialog
-          title={
-            modal === "leave"
-              ? room
-                ? isSpectator
-                  ? "STOP SPECTATING?"
-                  : "LEAVE TABLE?"
-                : "PAUSE OR QUIT GAME?"
-              : "START AGAIN?"
-          }
+        <SettingsDialog
+          appearance={appearance}
+          setAppearance={setAppearance}
+          name={name}
+          setName={setName}
+          sound={sound}
+          setSound={setSound}
+          haptics={haptics}
+          setHaptics={setHaptics}
           onClose={() => setModal(null)}
-        >
-          <p className="dialog-intro">
-            {modal === "leave"
-              ? room
-                ? isSpectator
-                  ? "Leave this room and return to home?"
-                  : "Leave this game and remove your tokens? Refreshing or closing the app keeps your seat saved."
-                : "Would you like to pause and save this match to resume later, or quit and clear your progress?"
-              : "This ends your current practice game."}
-          </p>
-          <div
-            className="dialog-buttons"
-            style={
-              !room && modal === "leave"
-                ? {
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    width: "100%",
-                    gap: "12px",
-                  }
-                : undefined
+        />
+      )}
+
+      {modal === "moderation" && room && (
+        <ModerationDialog
+          room={room}
+          me={me}
+          moderationTarget={moderationTarget}
+          setModerationTarget={setModerationTarget}
+          moderationReason={moderationReason}
+          setModerationReason={setModerationReason}
+          onBlock={async () => {
+            const r = await send("moderation:block", {
+              player: moderationTarget,
+            });
+            notify(r.ok ? "Player blocked." : r.error!);
+            if (r.ok) setModal(null);
+          }}
+          onReport={async () => {
+            const r = await send("moderation:report", {
+              player: moderationTarget,
+              reason: moderationReason,
+            });
+            notify(r.ok ? "Report sent to the moderator." : r.error!);
+            if (r.ok) {
+              setModerationReason("");
+              setModal(null);
             }
-          >
-            {!room && modal === "leave" ? (
-              <>
-                <button
-                  className="secondary danger-btn"
-                  style={{ flex: 1 }}
-                  onClick={() => {
-                    savePractice(browserStorage, null);
-                    setPracticeOpen(false);
-                    setLocal(practice(name, botCount));
-                    setSetup(true);
-                    setModal(null);
-                  }}
-                >
-                  <SignOut weight="bold" />
-                  LEAVE & QUIT
-                </button>
-                <button
-                  className="primary"
-                  style={{ flex: 1 }}
-                  onClick={() => {
-                    savePractice(browserStorage, local, true);
-                    setSetup(true);
-                    setModal(null);
-                  }}
-                >
-                  <Pause weight="bold" />
-                  PAUSE GAME
-                </button>
-              </>
-            ) : (
-              <>
-                <button className="secondary" onClick={() => setModal(null)}>
-                  CANCEL
-                </button>
-                <button
-                  className="primary"
-                  onClick={() =>
-                    modal === "leave"
-                      ? void leave()
-                      : (setLocal(practice(name, botCount)),
-                        setModal(null),
-                        feedback.reset())
-                  }
-                >
-                  CONFIRM <ArrowRight />
-                </button>
-              </>
-            )}
-          </div>
-        </Dialog>
+          }}
+          onClose={() => setModal(null)}
+        />
       )}
-      {modal === "install" && (
-        <Dialog title="INSTALL LUDO" onClose={() => setModal(null)}>
-          <p className="dialog-intro">
-            In Chrome or Edge, use the browser’s Install app option. On iPhone
-            or iPad, use Share, then Add to Home Screen. Open the app once
-            online to download offline play.
-          </p>
-          <button className="primary full" onClick={() => setModal(null)}>
-            GOT IT
-            <Check />
-          </button>
-        </Dialog>
+
+      {(modal === "leave" || modal === "reset") && (
+        <LeaveResetDialog
+          modal={modal}
+          room={room}
+          isSpectator={isSpectator}
+          onClose={() => setModal(null)}
+          onQuitOffline={() => {
+            savePractice(browserStorage, null);
+            setPracticeOpen(false);
+            setLocal(practice(name, botCount));
+            setSetup(true);
+            setModal(null);
+          }}
+          onPauseOffline={() => {
+            savePractice(browserStorage, local, true);
+            setSetup(true);
+            setModal(null);
+          }}
+          onConfirm={() =>
+            modal === "leave"
+              ? void leave()
+              : (setLocal(practice(name, botCount)),
+                setModal(null),
+                feedback.reset())
+          }
+        />
       )}
+
+      {modal === "install" && <InstallDialog onClose={() => setModal(null)} />}
+
       {finished && !setup && !modal && (
-        <Dialog
-          title={`${game.seats.find((s) => s?.id === game.winner)?.name.toUpperCase()} WINS!`}
+        <VictoryDialog
+          game={game}
+          room={room}
+          host={host}
           onClose={() => setSetup(true)}
-        >
-          <div className="finish-trophy">
-            <Trophy weight="fill" />
-          </div>
-          {game.rankings && game.rankings.length > 1 && (
-            <div className="finish-podium" aria-label="Final podium">
-              {game.rankings.map((pid, rank) => {
-                const s = game.seats.find((st) => st?.id === pid);
-                if (!s) return null;
-                const medal =
-                  rank === 0
-                    ? "🥇 1st"
-                    : rank === 1
-                      ? "🥈 2nd"
-                      : rank === 2
-                        ? "🥉 3rd"
-                        : "4th";
-                return (
-                  <div key={pid} className="podium-row">
-                    <span className="podium-rank">{medal}</span>
-                    <span
-                      className="podium-color"
-                      style={{ background: PALETTE[s.color] }}
-                    />
-                    <strong className="podium-name">{s.name}</strong>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          <button
-            className="primary full"
-            disabled={!!room && !host}
-            onClick={() =>
-              room
-                ? void start()
-                : setLocal(
-                    local.seats.filter((s) => s && !s.bot).length > 1
-                      ? passAndPlay(
-                          name,
-                          local.seats.filter((s) => s && !s.bot).length,
-                          offlineFinishMode,
-                        )
-                      : practice(
-                          name,
-                          botCount,
-                          botDifficulty,
-                          offlineBotLevels,
-                          offlineFinishMode,
-                        ),
-                  )
-            }
-          >
-            <ArrowCounterClockwise />
-            {room && !host ? "WAITING FOR HOST" : "PLAY AGAIN"}
-          </button>
-          <button
-            className="secondary full"
-            onClick={() => {
-              setModal("leave");
-            }}
-          >
-            BACK TO SETUP
-          </button>
-        </Dialog>
+          onPlayAgain={() =>
+            room
+              ? void start()
+              : setLocal(
+                  local.seats.filter((s) => s && !s.bot).length > 1
+                    ? passAndPlay(
+                        name,
+                        local.seats.filter((s) => s && !s.bot).length,
+                        offlineFinishMode,
+                      )
+                    : practice(
+                        name,
+                        botCount,
+                        botDifficulty,
+                        offlineBotLevels,
+                        offlineFinishMode,
+                      ),
+                )
+          }
+          onBackToSetup={() => {
+            setModal("leave");
+          }}
+        />
       )}
+
       {room && (
         <RoomChat
           room={room}

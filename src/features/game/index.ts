@@ -8,3 +8,4 @@ export * from "./useDicePresentation";
 export * from "./useGameFeedback";
 export * from "./gameFeedback";
 export * from "./offlineAi";
+export * from "./useOfflineGame";

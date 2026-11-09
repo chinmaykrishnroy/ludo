@@ -1,0 +1,551 @@
+/* Style: POP - dynamic elastic spring with expanding halo */
+.reaction-style-pop .reaction-emoji {
+  animation: reaction-pop 1.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+}
+.reaction-pop-halo {
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  translate: -50% -50%;
+  width: clamp(70px, 20vw, 140px);
+  aspect-ratio: 1;
+  border: 3px solid var(--reaction-colour);
+  border-radius: 50%;
+  box-shadow: 0 0 20px var(--reaction-colour);
+  animation: reaction-halo 0.9s cubic-bezier(0.1, 0.8, 0.3, 1) both;
+}
+
+/* Style: BURST - celebratory explosion */
+.reaction-style-burst .reaction-emoji {
+  animation: reaction-burst-emoji 1.9s cubic-bezier(0.15, 0.85, 0.35, 1.2) both;
+}
+.reaction-confetti {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.reaction-confetti i {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  width: 7px;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--particle-colour);
+  opacity: 0.85;
+  box-shadow: 0 0 6px var(--particle-colour);
+  animation: reaction-spark 1.4s cubic-bezier(0.1, 0.85, 0.25, 1) both;
+  animation-delay: var(--particle-delay, 0s);
+  rotate: var(--particle-angle);
+  transform-origin: center center;
+}
+
+/* Style: FLOAT - soaring float with sway */
+.reaction-style-float .reaction-animation {
+  animation-name: reaction-float;
+}
+.reaction-style-float .reaction-emoji {
+  animation: reaction-float-sway 2.1s ease-in-out both;
+}
+
+/* Style: RIPPLE - multiple concentric pulsing shockwaves */
+.reaction-style-ripple .reaction-emoji {
+  animation: reaction-ripple-pulse 2.1s ease-out both;
+}
+.reaction-ripples {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  translate: -50% -50%;
+  width: clamp(55px, 15vw, 100px);
+  aspect-ratio: 1;
+  pointer-events: none;
+}
+.reaction-ripple {
+  position: absolute;
+  inset: 0;
+  border: 2.5px solid var(--reaction-colour);
+  border-radius: 50%;
+  box-shadow: 0 0 16px
+    color-mix(in srgb, var(--reaction-colour) 60%, transparent);
+  opacity: 0;
+}
+.reaction-ripple.ripple-1 {
+  animation: reaction-ring 1.3s cubic-bezier(0.1, 0.7, 0.3, 1) 0s infinite;
+}
+.reaction-ripple.ripple-2 {
+  animation: reaction-ring 1.3s cubic-bezier(0.1, 0.7, 0.3, 1) 0.35s infinite;
+}
+.reaction-ripple.ripple-3 {
+  animation: reaction-ring 1.3s cubic-bezier(0.1, 0.7, 0.3, 1) 0.7s infinite;
+}
+
+/* Keyframes */
+@keyframes reaction-drift {
+  0% {
+    opacity: 0;
+    scale: 0.45;
+  }
+  15% {
+    opacity: 0.85;
+    scale: 1;
+  }
+  75% {
+    opacity: 0.82;
+    scale: 1;
+  }
+  100% {
+    opacity: 0;
+    scale: 0.95;
+    left: calc(var(--origin-x) + var(--travel-x));
+    top: calc(var(--origin-y) + var(--travel-y));
+  }
+}
+
+@keyframes reaction-float {
+  0% {
+    opacity: 0;
+    scale: 0.5;
+  }
+  18% {
+    opacity: 0.85;
+    scale: 1;
+  }
+  72% {
+    opacity: 0.82;
+    scale: 1.05;
+  }
+  100% {
+    opacity: 0;
+    scale: 0.9;
+    top: calc(var(--origin-y) - 22%);
+  }
+}
+
+@keyframes reaction-float-sway {
+  0% {
+    transform: translateX(0) rotate(0deg);
+  }
+  25% {
+    transform: translateX(-12px) rotate(-6deg);
+  }
+  50% {
+    transform: translateX(10px) rotate(5deg);
+  }
+  75% {
+    transform: translateX(-6px) rotate(-3deg);
+  }
+  100% {
+    transform: translateX(0) rotate(0deg);
+  }
+}
+
+@keyframes reaction-pop {
+  0% {
+    scale: 0.2;
+    rotate: -15deg;
+    opacity: 0;
+  }
+  20% {
+    scale: 1.35;
+    rotate: 8deg;
+    opacity: 0.85;
+  }
+  38% {
+    scale: 0.95;
+    rotate: -3deg;
+  }
+  55% {
+    scale: 1.08;
+    rotate: 2deg;
+  }
+  75% {
+    scale: 1;
+    rotate: 0deg;
+    opacity: 0.82;
+  }
+  100% {
+    scale: 0.92;
+    opacity: 0;
+  }
+}
+
+@keyframes reaction-halo {
+  0% {
+    scale: 0.3;
+    opacity: 0.85;
+  }
+  100% {
+    scale: 1.9;
+    opacity: 0;
+  }
+}
+
+@keyframes reaction-burst-emoji {
+  0% {
+    scale: 0.2;
+    rotate: -20deg;
+    opacity: 0;
+  }
+  22% {
+    scale: 1.32;
+    rotate: 6deg;
+    opacity: 0.85;
+  }
+  40% {
+    scale: 0.98;
+    rotate: -2deg;
+  }
+  70% {
+    scale: 1.04;
+    rotate: 0deg;
+    opacity: 0.82;
+  }
+  100% {
+    scale: 0.88;
+    opacity: 0;
+  }
+}
+
+@keyframes reaction-spark {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0.4) rotate(0deg);
+  }
+  20% {
+    opacity: 0.85;
+    transform: translateY(-16px) scale(1.1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(calc(-1 * var(--particle-distance, 75px))) scale(0.6)
+      rotate(180deg);
+  }
+}
+
+@keyframes reaction-ripple-pulse {
+  0% {
+    scale: 0.5;
+    opacity: 0;
+  }
+  18% {
+    scale: 1.15;
+    opacity: 0.85;
+  }
+  35% {
+    scale: 0.96;
+  }
+  52% {
+    scale: 1.05;
+  }
+  70% {
+    scale: 1;
+    opacity: 0.8;
+  }
+  100% {
+    scale: 0.9;
+    opacity: 0;
+  }
+}
+
+@keyframes reaction-ring {
+  0% {
+    opacity: 0.8;
+    scale: 0.5;
+  }
+  100% {
+    opacity: 0;
+    scale: 2.4;
+  }
+}
+@media (max-width: 600px) {
+  .game-stage .play-screen {
+    padding: 6px 12px calc(10px + env(safe-area-inset-bottom)) !important;
+    gap: 10px !important;
+    justify-content: space-evenly !important;
+  }
+  .game-stage .play-board {
+    width: min(calc(100dvw - 28px), calc(100dvh - 270px), 440px) !important;
+    max-width: calc(100dvw - 28px) !important;
+    max-height: calc(100dvh - 270px) !important;
+    aspect-ratio: 1 !important;
+    margin: 0 auto !important;
+  }
+  .board {
+    border-radius: var(--radius-lg, 18px) !important;
+    border: 1.5px solid var(--board-border) !important;
+    box-shadow: var(--shadow-floating) !important;
+  }
+}
+@media (max-width: 400px) {
+  .table-effects-row,
+  .sound-tools {
+    gap: 4px;
+  }
+  .reaction-buttons {
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    padding: 3px 4px;
+  }
+  .effect-tool span {
+    display: none;
+  }
+}
+@media (max-height: 500px) {
+  .game-stage .play-board {
+    width: min(max(110px, calc(100dvh - 215px)), calc(100dvw - 32px));
+  }
+  .table-soundboard {
+    max-height: min(205px, 43dvh);
+  }
+}
+@media (min-width: 900px) and (min-height: 520px) {
+  .game-stage .play-screen {
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    gap: 36px;
+    padding: 16px 36px;
+    height: calc(100dvh - 64px);
+    overflow: hidden;
+  }
+  .game-stage .play-board {
+    width: min(calc(100dvh - 96px), calc(100dvw - 440px), 740px) !important;
+    flex-shrink: 0;
+  }
+  .game-stage .play-controls {
+    width: 350px;
+    max-width: 350px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 0;
+  }
+  .game-stage .play-controls.with-room-voice {
+    display: flex;
+    flex-direction: column;
+    width: 350px;
+  }
+  .game-stage .big-dice-button {
+    width: 100%;
+    min-height: 92px;
+    height: 92px;
+  }
+  .game-stage .compact-voice .record-button {
+    width: 100%;
+    min-height: 64px;
+    height: 64px;
+  }
+  .table-effects-row {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reaction-animation,
+  .reaction-style-pop .reaction-emoji {
+    animation: none;
+  }
+  .reaction-confetti,
+  .reaction-ripple {
+    display: none;
+  }
+}
+
+.reaction-button-custom {
+  display: grid !important;
+  place-items: center;
+  border-radius: var(--radius-sm, 8px) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px dashed rgba(255, 255, 255, 0.25) !important;
+  color: var(--yellow) !important;
+  cursor: pointer;
+}
+.reaction-button-custom:hover:not(:disabled) {
+  background: rgba(245, 158, 11, 0.2) !important;
+  border-style: solid !important;
+  transform: scale(1.15) !important;
+}
+
+.reaction-custom-palette {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  right: 0;
+  z-index: 55;
+  width: min(300px, calc(100vw - 28px));
+  padding: 12px;
+  background: rgba(22, 21, 19, 0.94);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius-lg, 18px);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.65);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.reaction-custom-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 6px;
+}
+.reaction-custom-tabs button {
+  flex: 1;
+  background: transparent;
+  border: 0;
+  padding: 4px 6px;
+  font-size: 11px;
+  font-weight: 750;
+  color: var(--ink-muted);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.reaction-custom-tabs button.active {
+  background: rgba(245, 158, 11, 0.22);
+  color: var(--yellow);
+}
+.reaction-custom-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+.reaction-custom-grid button {
+  font-size: 20px;
+  line-height: 1;
+  padding: 6px 4px;
+  background: rgba(35, 34, 31, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  cursor: pointer;
+  transition:
+    transform 0.12s ease,
+    background 0.12s ease;
+}
+.reaction-custom-grid button:hover {
+  transform: scale(1.18);
+  background: rgba(245, 158, 11, 0.25);
+  border-color: rgba(245, 158, 11, 0.4);
+}
+.reaction-custom-input-row {
+  display: flex;
+  gap: 6px;
+}
+.reaction-custom-input-row input {
+  flex: 1;
+  min-height: 36px;
+  padding: 6px 10px;
+  font-size: 16px !important;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(35, 34, 31, 0.85);
+  color: var(--ink);
+}
+.reaction-custom-input-row button {
+  padding: 4px 10px;
+  min-height: 32px;
+  border-radius: 8px;
+  background: var(--yellow);
+  color: #11100e;
+  border: 0;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.reaction-custom-styles {
+  display: flex;
+  gap: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 6px;
+}
+.reaction-custom-styles button {
+  flex: 1;
+  background: rgba(35, 34, 31, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 3px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--ink-muted);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.reaction-custom-styles button.active {
+  background: rgba(245, 158, 11, 0.2);
+  color: var(--yellow);
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.finish-podium {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md, 12px);
+}
+.podium-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 15px;
+}
+.podium-rank {
+  font-weight: 800;
+  min-width: 62px;
+  color: var(--yellow, #f59e0b);
+}
+.podium-color {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
+}
+.podium-name {
+  font-weight: 700;
+  color: var(--ink, #ffffff);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-theme="dark"] .invite-code {
+  color: #fbbf24;
+  text-shadow: 0 0 18px rgba(245, 158, 11, 0.35);
+}
+[data-theme="dark"] .invite-copy-btn {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.35);
+  color: #fbbf24;
+}
+[data-theme="dark"] .you-badge {
+  background: rgba(245, 158, 11, 0.18);
+  border-color: rgba(245, 158, 11, 0.45);
+  color: #fbbf24;
+}
+[data-theme="dark"] .host-badge {
+  background: rgba(59, 130, 246, 0.18);
+  border-color: rgba(59, 130, 246, 0.45);
+  color: #60a5fa;
+}
+[data-theme="dark"] .bot-badge {
+  background: rgba(168, 85, 247, 0.18);
+  border-color: rgba(168, 85, 247, 0.45);
+  color: #c084fc;
+}
+[data-theme="dark"] .lobby-footer-strip .lobby-switch {
+  color: #a8a29e;
+}
+[data-theme="dark"] .lobby-footer-strip .lobby-switch:hover {
+  color: #fbbf24;
+}
+[data-theme="dark"] .lobby-waiting-hint {
+  color: #fbbf24;
+}
