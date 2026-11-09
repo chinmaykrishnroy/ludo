@@ -39,13 +39,13 @@ test("a two-version PWA update waits for active games, then reopens offline with
     ];
     if (path === "/sw.js") {
       res.setHeader("Content-Type", "application/javascript");
-      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
       res.end(serviceWorkerSource(version, assets));
       return;
     }
     if (path === "/") {
       res.setHeader("Content-Type", "text/html");
-      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
       res.end(
         html
           .replace(main, `/assets/main-${version}.js`)
@@ -140,35 +140,55 @@ test("a two-version PWA update waits for active games, then reopens offline with
     );
     await page.close();
     await next.close();
-    await new Promise((r) => setTimeout(r, 500));
+    await new Promise((r) => setTimeout(r, 1000));
     let control: typeof page | null = null;
     try {
       // With no old document alive, the waiting worker may activate safely.
       control = await context.newPage();
       await control.goto(origin);
-      await control.waitForFunction(async () => {
-        const keys = await caches.keys();
-        return keys.includes("ludo-new") && !keys.includes("ludo-old");
-      });
+      // Wait for ludo-new to have activated (no SW in waiting state)
+      await control.waitForFunction(
+        async () => !(await navigator.serviceWorker.getRegistration())?.waiting,
+        { timeout: 20000 },
+      );
+      // Wait for ludo-new cache to fully replace ludo-old, AND verify the
+      // cached "/" response actually contains the new build marker so we know
+      // the SW installed fresh content (not stale HTTP-cached content).
+      await control.waitForFunction(
+        async () => {
+          const keys = await caches.keys();
+          if (!keys.includes("ludo-new") || keys.includes("ludo-old"))
+            return false;
+          const cache = await caches.open("ludo-new");
+          // Verify "/" is cached with new build marker
+          const r = await cache.match("/");
+          if (!r) return false;
+          const text = await r.text();
+          return text.includes('data-test-build="new"');
+        },
+        { timeout: 20000 },
+      );
+      // Ensure the document is controlled by the new worker before testing offline reload.
+      await control.reload();
+      await control.waitForFunction(() => !!navigator.serviceWorker.controller);
       await context.setOffline(true);
-      const offline = await context.newPage();
-      await offline.goto(origin);
+      await control.reload();
       await expect(
-        offline.getByRole("button", {
+        control.getByRole("button", {
           name: "red token 1, space 3, move available",
           exact: true,
         }),
       ).toBeVisible();
-      const restored = await offline.evaluate(
+      const restored = await control.evaluate(
         () => JSON.parse(localStorage.getItem("ludo-local-game-v1")!).game,
       );
       expect(restored.deadline).toBe(game.deadline);
       expect(restored.seats[0].tokens).toEqual(game.seats[0]!.tokens);
       expect(
-        await offline.locator("html").getAttribute("data-test-build"),
+        await control.locator("html").getAttribute("data-test-build"),
       ).toBe("new");
       expect(
-        await offline.evaluate(
+        await control.evaluate(
           async () => (await fetch("/favicon.svg?v=2")).ok,
         ),
       ).toBe(true);
