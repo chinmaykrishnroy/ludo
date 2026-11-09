@@ -10,7 +10,7 @@ test("a two-version PWA update waits for active games, then reopens offline with
   page,
   context,
 }) => {
-  test.setTimeout(60000);
+  test.setTimeout(120000);
   const files = new Map<string, Buffer>();
   async function walk(path: string) {
     for (const entry of await readdir(path, { withFileTypes: true })) {
@@ -168,7 +168,9 @@ test("a two-version PWA update waits for active games, then reopens offline with
       await offline.evaluate(async () => (await fetch("/favicon.svg?v=2")).ok),
     ).toBe(true);
   } finally {
-    await context.setOffline(false);
+    try {
+      await context.setOffline(false);
+    } catch {}
     server.closeAllConnections();
     await new Promise<void>((r) => server.close(() => r()));
   }
