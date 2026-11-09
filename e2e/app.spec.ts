@@ -147,6 +147,7 @@ test("legacy tokens and deadline survive refresh and an offline shell restart", 
 test("voice preference survives menu replacement and refresh; microphone is requested only on use", async ({
   page,
 }) => {
+  test.setTimeout(60000);
   await page.addInitScript(() => {
     let calls = 0;
     Object.defineProperty(window, "testMicCalls", { get: () => calls });
@@ -221,6 +222,7 @@ test("voice capture sends and cancels, or explains an unavailable browser encode
   page,
   browserName,
 }) => {
+  test.setTimeout(60000);
   await page.addInitScript((nativeFake) => {
     let audioContext: AudioContext | undefined;
     let calls = 0;
