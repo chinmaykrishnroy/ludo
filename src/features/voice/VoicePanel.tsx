@@ -115,6 +115,9 @@ export default function VoicePanel({
         className={`record-button ${recording ? "is-recording" : ""}`}
         aria-label="Hold to record a voice message"
         aria-disabled={pending}
+        onClick={() => {
+          if (!recording && !pending) void begin();
+        }}
         onPointerDown={(e) => {
           e.preventDefault();
           try {

@@ -360,6 +360,7 @@ export default function RoomChat({
       <div
         className="chat-shell"
         onPointerDown={chat.activity}
+        onPointerMove={chat.activity}
         onKeyDown={chat.activity}
       >
         <header className="chat-heading">
@@ -449,9 +450,10 @@ export default function RoomChat({
                         if (e.button !== 0) return;
                         const target = e.target as HTMLElement;
                         copying.current = target.closest(".chat-text");
-                        if (!copying.current && !target.closest("button")) {
-                          e.preventDefault();
-                          e.currentTarget.setPointerCapture(e.pointerId);
+                        if (!target.closest("button")) {
+                          try {
+                            e.currentTarget.setPointerCapture(e.pointerId);
+                          } catch {}
                         }
                         gesture.current = {
                           id: message.id,
@@ -463,6 +465,8 @@ export default function RoomChat({
                       onPointerUp={(e) => {
                         const g = gesture.current;
                         gesture.current = null;
+                        const isCopy = copying.current;
+                        copying.current = null;
                         if (
                           !g ||
                           g.pointer !== e.pointerId ||
@@ -470,11 +474,12 @@ export default function RoomChat({
                           Math.abs(e.clientX - g.x) < 55
                         )
                           return;
-                        if (copying.current && m) void copy(m, copying.current);
+                        if (isCopy && m) void copy(m, isCopy);
                         else quote(message.id);
                       }}
                       onPointerCancel={() => {
                         gesture.current = null;
+                        copying.current = null;
                       }}
                       onDragStart={(e) => e.preventDefault()}
                     >

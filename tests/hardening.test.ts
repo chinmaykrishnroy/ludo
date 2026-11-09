@@ -28,9 +28,14 @@ const delay = (ms = 50) => new Promise((resolve) => setTimeout(resolve, ms));
 async function harness(options: ApplicationOptions = {}) {
   const service = createApplication({ dbPath: ":memory:", ...options }),
     clients: Socket[] = [];
-  service.http.listen(0, "127.0.0.1");
-  await once(service.http, "listening");
-  const url = `http://127.0.0.1:${(service.http.address() as { port: number }).port}`;
+  await new Promise<void>((resolve, reject) => {
+    service.http.once("error", reject);
+    service.http.listen(0, "127.0.0.1", () => resolve());
+  });
+  const addr = service.http.address();
+  const port = typeof addr === "object" && addr ? addr.port : 0;
+  assert(port > 0, "server must bind to a positive port");
+  const url = `http://127.0.0.1:${port}`;
   async function client(existing?: string) {
     const r = await fetch(`${url}/api/session`, {
         headers: existing ? { Cookie: existing } : {},
