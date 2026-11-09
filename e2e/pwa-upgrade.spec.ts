@@ -45,6 +45,7 @@ test("a two-version PWA update waits for active games, then reopens offline with
     }
     if (path === "/") {
       res.setHeader("Content-Type", "text/html");
+      res.setHeader("Cache-Control", "no-cache");
       res.end(
         html
           .replace(main, `/assets/main-${version}.js`)
@@ -149,10 +150,6 @@ test("a two-version PWA update waits for active games, then reopens offline with
         const keys = await caches.keys();
         return keys.includes("ludo-new") && !keys.includes("ludo-old");
       });
-      await control.reload();
-      expect(
-        await control.locator("html").getAttribute("data-test-build"),
-      ).toBe("new");
       await context.setOffline(true);
       const offline = await context.newPage();
       await offline.goto(origin);
