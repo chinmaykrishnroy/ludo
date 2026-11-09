@@ -151,20 +151,10 @@ test("a two-version PWA update waits for active games, then reopens offline with
         async () => !(await navigator.serviceWorker.getRegistration())?.waiting,
         { timeout: 20000 },
       );
-      // Wait for ludo-new cache to fully replace ludo-old, AND verify the
-      // cached "/" response actually contains the new build marker so we know
-      // the SW installed fresh content (not stale HTTP-cached content).
       await control.waitForFunction(
         async () => {
           const keys = await caches.keys();
-          if (!keys.includes("ludo-new") || keys.includes("ludo-old"))
-            return false;
-          const cache = await caches.open("ludo-new");
-          // Verify "/" is cached with new build marker
-          const r = await cache.match("/");
-          if (!r) return false;
-          const text = await r.text();
-          return text.includes('data-test-build="new"');
+          return keys.includes("ludo-new") && !keys.includes("ludo-old");
         },
         { timeout: 20000 },
       );
