@@ -12,6 +12,17 @@ import "./styles.css";
 
 initFaviconSync();
 if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  let hadController = Boolean(navigator.serviceWorker.controller);
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!hadController) {
+      hadController = true;
+      return;
+    }
+    if (refreshing) return;
+    refreshing = true;
+    window.location.reload();
+  });
   const register = () => {
     void navigator.serviceWorker
       .register("/sw.js", { scope: "/" })
@@ -24,9 +35,6 @@ if (import.meta.env.PROD && "serviceWorker" in navigator) {
       })
       .catch(() => {});
   };
-  navigator.serviceWorker.addEventListener("controllerchange", () => {
-    window.location.reload();
-  });
   if (document.readyState === "complete") register();
   else window.addEventListener("load", register, { once: true });
 }

@@ -360,13 +360,22 @@
   border-color: rgba(255, 255, 255, 0.25);
 }
 .seat-bot-action-btn.remove-bot {
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.25);
-  color: #f87171;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #b91c1c;
+}
+[data-theme="dark"] .seat-bot-action-btn.remove-bot {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
 }
 .seat-bot-action-btn.remove-bot:hover {
-  background: rgba(239, 68, 68, 0.2);
-  border-color: rgba(239, 68, 68, 0.45);
+  background: rgba(239, 68, 68, 0.18);
+  border-color: rgba(239, 68, 68, 0.5);
+}
+[data-theme="dark"] .seat-bot-action-btn.remove-bot:hover {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: rgba(239, 68, 68, 0.6);
 }
 .seat-bot-action-btn svg {
   width: 12px;

@@ -326,11 +326,6 @@ export default function Home({
                   color={PALETTE[activeColor]}
                   pipColor="#ffffff"
                   size={26}
-                  interactive
-                  onRoll={(newVal) => {
-                    setLastRoll(newVal);
-                    setActionText(`Rolled ${newVal}!`);
-                  }}
                 />
                 <span className="action-pill-text">{actionText}</span>
               </div>
