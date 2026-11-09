@@ -145,9 +145,14 @@ test("a two-version PWA update waits for active games, then reopens offline with
       // With no old document alive, the waiting worker may activate safely.
       control = await context.newPage();
       await control.goto(origin);
-      await control.waitForFunction(
-        async () => !(await navigator.serviceWorker.getRegistration())?.waiting,
-      );
+      await control.waitForFunction(async () => {
+        const keys = await caches.keys();
+        return keys.includes("ludo-new") && !keys.includes("ludo-old");
+      });
+      await control.reload();
+      expect(
+        await control.locator("html").getAttribute("data-test-build"),
+      ).toBe("new");
       await context.setOffline(true);
       const offline = await context.newPage();
       await offline.goto(origin);
