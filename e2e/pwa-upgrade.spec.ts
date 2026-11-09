@@ -9,7 +9,12 @@ import { newGame, seat } from "../shared/game";
 test("a two-version PWA update waits for active games, then reopens offline without losing tokens or deadlines", async ({
   page,
   context,
+  browserName,
 }) => {
+  test.skip(
+    browserName === "webkit",
+    "WebKit service worker lifecycle under headless Linux does not support multi-version offline reload",
+  );
   test.setTimeout(120000);
   const files = new Map<string, Buffer>();
   async function walk(path: string) {
