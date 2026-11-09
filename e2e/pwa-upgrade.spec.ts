@@ -140,33 +140,41 @@ test("a two-version PWA update waits for active games, then reopens offline with
     await page.close();
     await next.close();
     await new Promise((r) => setTimeout(r, 500));
-    // With no old document alive, the waiting worker may activate safely.
-    const control = await context.newPage();
-    await control.goto(origin);
-    await control.waitForFunction(
-      async () => !(await navigator.serviceWorker.getRegistration())?.waiting,
-    );
-    await control.close();
-    await context.setOffline(true);
-    const offline = await context.newPage();
-    await offline.goto(origin);
-    await expect(
-      offline.getByRole("button", {
-        name: "red token 1, space 3, move available",
-        exact: true,
-      }),
-    ).toBeVisible();
-    const restored = await offline.evaluate(
-      () => JSON.parse(localStorage.getItem("ludo-local-game-v1")!).game,
-    );
-    expect(restored.deadline).toBe(game.deadline);
-    expect(restored.seats[0].tokens).toEqual(game.seats[0]!.tokens);
-    expect(await offline.locator("html").getAttribute("data-test-build")).toBe(
-      "new",
-    );
-    expect(
-      await offline.evaluate(async () => (await fetch("/favicon.svg?v=2")).ok),
-    ).toBe(true);
+    let control: typeof page | null = null;
+    try {
+      // With no old document alive, the waiting worker may activate safely.
+      control = await context.newPage();
+      await control.goto(origin);
+      await control.waitForFunction(
+        async () => !(await navigator.serviceWorker.getRegistration())?.waiting,
+      );
+      await context.setOffline(true);
+      const offline = await context.newPage();
+      await offline.goto(origin);
+      await expect(
+        offline.getByRole("button", {
+          name: "red token 1, space 3, move available",
+          exact: true,
+        }),
+      ).toBeVisible();
+      const restored = await offline.evaluate(
+        () => JSON.parse(localStorage.getItem("ludo-local-game-v1")!).game,
+      );
+      expect(restored.deadline).toBe(game.deadline);
+      expect(restored.seats[0].tokens).toEqual(game.seats[0]!.tokens);
+      expect(
+        await offline.locator("html").getAttribute("data-test-build"),
+      ).toBe("new");
+      expect(
+        await offline.evaluate(
+          async () => (await fetch("/favicon.svg?v=2")).ok,
+        ),
+      ).toBe(true);
+    } finally {
+      try {
+        await control?.close();
+      } catch {}
+    }
   } finally {
     try {
       await context.setOffline(false);
