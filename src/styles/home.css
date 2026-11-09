@@ -838,15 +838,16 @@
   }
   .headline-lead,
   .headline-accent {
-    font-size: clamp(30px, 8.2vw, 42px) !important;
+    font-size: clamp(26px, 7vw, 36px) !important;
     text-align: center !important;
+    letter-spacing: -0.5px !important;
   }
   .home-subhead {
-    font-size: 13.5px !important;
-    line-height: 1.45 !important;
+    font-size: 13px !important;
+    line-height: 1.4 !important;
     text-align: center !important;
     margin: 0 auto !important;
-    max-width: 340px !important;
+    max-width: 320px !important;
   }
 
   /* 2. Board Stadium (Centered in the viewport) */
@@ -858,14 +859,14 @@
     width: 100% !important;
   }
   .home-board-showcase {
-    gap: 10px !important;
-    max-width: 320px !important;
+    gap: 8px !important;
+    max-width: 300px !important;
   }
   .home-board-card {
-    width: min(270px, 74vw) !important;
-    height: min(270px, 74vw) !important;
-    max-width: 290px !important;
-    max-height: 290px !important;
+    width: min(235px, 64vw) !important;
+    height: min(235px, 64vw) !important;
+    max-width: 260px !important;
+    max-height: 260px !important;
   }
 
   /* 3. Buttons RIGHT BELOW BOARD (Thumb Accessibility!) */
@@ -873,18 +874,18 @@
     order: 3 !important;
     width: 100% !important;
     max-width: 360px !important;
-    margin: 2px auto 0 !important;
-    gap: 12px !important;
+    margin: 6px auto 0 !important;
+    gap: 10px !important;
   }
   .home-actions {
     flex-direction: column !important;
-    gap: 10px !important;
+    gap: 8px !important;
     width: 100% !important;
   }
   .home-btn-primary,
   .home-btn-secondary {
     width: 100% !important;
-    min-height: 50px !important;
+    min-height: 48px !important;
   }
   .home-perks-row {
     display: grid !important;
@@ -948,61 +949,61 @@
     min-height: 32px !important;
     padding: 5px 12px !important;
   }
-
-  /* Lobby Card on Mobile / iPhone */
-  .setup-screen:has(.lobby-card) {
-    padding: max(12px, env(safe-area-inset-top)) 14px
-      max(12px, env(safe-area-inset-bottom)) !important;
-    height: 100dvh !important;
-    max-height: 100dvh !important;
-    overflow: hidden !important;
-  }
-  .setup-screen:has(.lobby-card) .setup-header {
-    margin-bottom: 8px !important;
-    flex-shrink: 0 !important;
-  }
-  .setup-screen:has(.lobby-card) .lobby-card {
-    padding: 0 !important;
-    flex: 1 1 auto !important;
-    min-height: 0 !important;
-    overflow: hidden !important;
-  }
-  .setup-screen:has(.lobby-card) .lobby-finish-bar {
-    padding: 6px 10px !important;
-    margin-bottom: 8px !important;
-    gap: 8px !important;
-    overflow: visible !important;
-    border-radius: 10px !important;
-  }
-  .lobby-segmented {
-    flex: 1 !important;
-    min-width: 0 !important;
-  }
-  .lobby-segmented .finish-segment-btn {
-    min-height: 32px !important;
-    padding: 4px 8px !important;
-    border-radius: 8px !important;
-  }
-  .lobby-segmented .finish-segment-btn span {
-    font-size: 11.5px !important;
-    font-weight: 750 !important;
-  }
 }
 
-@media (max-width: 400px) {
-  .setup-screen:has(.lobby-card) .lobby-finish-bar {
-    gap: 6px !important;
-    padding: 5px 8px !important;
+/* Telemetry Tooltips & Stats Detail */
+.stat-detail {
+  position: relative;
+  width: fit-content;
+}
+.stat-detail summary {
+  cursor: help;
+  list-style: none;
+  width: fit-content;
+  border-radius: 2px;
+}
+.stat-detail summary::-webkit-details-marker {
+  display: none;
+}
+.stat-detail summary:focus-visible {
+  outline: 3px solid currentColor;
+  outline-offset: 5px;
+}
+.home-stats .stat-tooltip {
+  position: absolute;
+  display: none;
+  z-index: 4;
+  left: 0;
+  bottom: calc(100% + 12px);
+  width: max-content;
+  max-width: 85vw;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm, 8px);
+  box-shadow: var(--shadow-floating);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.stat-detail:hover .stat-tooltip,
+.stat-detail[open] .stat-tooltip {
+  display: block;
+}
+.home-stats > div:last-child .stat-tooltip {
+  left: auto;
+  right: 0;
+}
+@media (max-width: 650px) {
+  .home-stats strong {
+    font-size: clamp(24px, 7vw, 32px);
+    letter-spacing: -1px;
   }
-  .lobby-finish-label {
-    font-size: 10px !important;
-    letter-spacing: 0.5px !important;
-  }
-  .lobby-segmented .finish-segment-btn {
-    min-height: 28px !important;
-    padding: 3px 6px !important;
-  }
-  .lobby-segmented .finish-segment-btn span {
-    font-size: 10px !important;
+  .home-stats > div:nth-child(2) .stat-tooltip {
+    left: 50%;
+    transform: translateX(-50%);
   }
 }

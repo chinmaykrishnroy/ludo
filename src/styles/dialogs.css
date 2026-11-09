@@ -462,3 +462,64 @@
 .dialog::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* Seat Rows & Bot Levels in Dialogs (Offline & Room Browser) */
+.seat-row {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line-subtle);
+}
+.seat-row:last-child {
+  border-bottom: none;
+}
+.seat-row .field-label {
+  margin: 0;
+  gap: 4px;
+  font-size: 13px;
+}
+.seat-row .field-label select {
+  max-width: 180px;
+  padding: 6px 8px;
+  font-size: 14px;
+}
+.bot-levels {
+  margin-bottom: 20px;
+}
+.bot-levels summary {
+  cursor: pointer;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+.public-table-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  width: 100%;
+}
+.public-table-row .public-room {
+  flex: 1;
+}
+.public-spectate-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0 14px;
+  border-radius: var(--radius-md, 12px);
+  background: var(--paper-muted);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.public-spectate-action:hover:not(:disabled) {
+  background: rgba(139, 92, 246, 0.18);
+  border-color: #8b5cf6;
+  color: #c084fc;
+}
